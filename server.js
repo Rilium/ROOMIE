@@ -2,15 +2,18 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
-const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const Stripe = require('stripe');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
-const DATA_DIR = path.join(ROOT, 'data');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'roomie-data') : path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'roomie-db.json');
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const SESSION_COOKIE = 'roomie.auth';
+const SESSION_MAX_AGE = 1000 * 60 * 60 * 12;
 
 app.set('trust proxy', 1);
 
@@ -94,6 +97,7 @@ function readDb() {
   if (!Array.isArray(db.addons)) { db.addons = defaultAddons(); changed = true; }
   if (!Array.isArray(db.addonOrders)) { db.addonOrders = []; changed = true; }
   if (!Array.isArray(db.blockedSlots)) { db.blockedSlots = []; changed = true; }
+  if (!Array.isArray(db.stripeSessions)) { db.stripeSessions = []; changed = true; }
   if (changed) writeDb(db);
   return db;
 }
@@ -130,6 +134,81 @@ function appBaseUrl(req) {
 
 function redirectWithAuthError(req, res, code = 'SOCIAL_NOT_CONFIGURED') {
   res.redirect(`${appBaseUrl(req)}/?auth_error=${encodeURIComponent(code)}`);
+}
+
+function parseCookies(header = '') {
+  return String(header || '').split(';').reduce((cookies, part) => {
+    const index = part.indexOf('=');
+    if (index < 0) return cookies;
+    const key = part.slice(0, index).trim();
+    const value = part.slice(index + 1).trim();
+    if (key) cookies[key] = decodeURIComponent(value);
+    return cookies;
+  }, {});
+}
+
+function sessionSecret() {
+  return process.env.SESSION_SECRET || 'roomie-local-dev-secret-change-me';
+}
+
+function signPayload(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', sessionSecret()).update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
+function verifyPayload(token) {
+  const [body, signature] = String(token || '').split('.');
+  if (!body || !signature) return {};
+  const expected = crypto.createHmac('sha256', sessionSecret()).update(body).digest('base64url');
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return {};
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (payload.exp && Number(payload.exp) < Date.now()) return {};
+    return payload;
+  } catch (_err) {
+    return {};
+  }
+}
+
+function sessionCookieOptions(maxAge = SESSION_MAX_AGE) {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge
+  };
+}
+
+function attachSession(req, res, next) {
+  const payload = verifyPayload(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+  req.session = {
+    userId: payload.userId || null,
+    oauthState: payload.oauthState || null,
+    cookie: { maxAge: SESSION_MAX_AGE },
+    destroy(callback) {
+      this.userId = null;
+      this.oauthState = null;
+      res.clearCookie(SESSION_COOKIE, sessionCookieOptions(0));
+      if (callback) callback();
+    }
+  };
+  res.commitSession = () => {
+    const data = {};
+    if (req.session.userId) data.userId = req.session.userId;
+    if (req.session.oauthState) data.oauthState = req.session.oauthState;
+    if (!data.userId && !data.oauthState) {
+      res.clearCookie(SESSION_COOKIE, sessionCookieOptions(0));
+      return;
+    }
+    const maxAge = Number(req.session.cookie?.maxAge || SESSION_MAX_AGE);
+    data.exp = Date.now() + maxAge;
+    res.cookie(SESSION_COOKIE, signPayload(data), sessionCookieOptions(maxAge));
+  };
+  next();
 }
 
 function safeUsernameFromEmail(email, fallback = 'roomie') {
@@ -226,6 +305,33 @@ function ensureBookingAccess(booking, config = defaultConfig()) {
   return booking;
 }
 
+function creditStripeCheckoutSession(session) {
+  if (!session || session.payment_status !== 'paid') return { credited: false, reason: 'NOT_PAID' };
+  const sessionId = session.id;
+  const userId = session.metadata?.userId;
+  const amount = Number(session.metadata?.chips || 0);
+  if (!sessionId || !userId || !Number.isInteger(amount) || amount <= 0 || amount > 500) {
+    return { credited: false, reason: 'BAD_METADATA' };
+  }
+  const db = readDb();
+  if ((db.stripeSessions || []).some(item => item.id === sessionId)) {
+    return { credited: false, reason: 'ALREADY_CREDITED' };
+  }
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return { credited: false, reason: 'USER_NOT_FOUND' };
+  user.chips = Number(user.chips || 0) + amount;
+  db.stripeSessions.unshift({
+    id: sessionId,
+    userId,
+    amount,
+    paymentIntent: session.payment_intent || '',
+    createdAt: new Date().toISOString()
+  });
+  writeDb(db);
+  logEvent('stripe_wallet_topup', user.id, { amount, sessionId });
+  return { credited: true, user: publicUser(user), amount };
+}
+
 function serializeBooking(booking) {
   return {
     ...booking,
@@ -250,19 +356,25 @@ function serializeAddon(addon) {
 
 seedDb();
 
-app.use(express.json());
-app.use(session({
-  name: 'roomie.sid',
-  secret: process.env.SESSION_SECRET || 'roomie-local-dev-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
-    maxAge: 1000 * 60 * 60 * 12
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(400).send('Stripe webhook not configured');
   }
-}));
+  const signature = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (_err) {
+    return res.status(400).send('Invalid Stripe signature');
+  }
+  if (event.type === 'checkout.session.completed') {
+    creditStripeCheckoutSession(event.data.object);
+  }
+  res.json({ received: true });
+});
+
+app.use(express.json());
+app.use(attachSession);
 
 app.post('/api/auth/login', (req, res) => {
   const { username, password, remember } = req.body || {};
@@ -275,6 +387,7 @@ app.post('/api/auth/login', (req, res) => {
   if (user.suspended) return res.status(403).json({ error: 'USER_SUSPENDED' });
   if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
   req.session.userId = user.id;
+  res.commitSession();
   logEvent('login', user.id, { username: user.username });
   res.json({ user: publicUser(user) });
 });
@@ -320,6 +433,7 @@ app.post('/api/auth/register', (req, res) => {
   writeDb(db);
   if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
   req.session.userId = user.id;
+  res.commitSession();
   logEvent('register', user.id, { username, email });
   res.status(201).json({ user: publicUser(user) });
 });
@@ -330,6 +444,7 @@ app.get('/api/auth/google', (req, res) => {
   }
   const state = crypto.randomBytes(18).toString('hex');
   req.session.oauthState = state;
+  res.commitSession();
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
@@ -399,6 +514,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     if (user.suspended) return redirectWithAuthError(req, res, 'USER_SUSPENDED');
     req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
     req.session.userId = user.id;
+    res.commitSession();
     logEvent('social_login', user.id, { provider: 'google', email });
     res.redirect(`${appBaseUrl(req)}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`);
   } catch (_err) {
@@ -586,6 +702,59 @@ app.post('/api/wallet/topup', requireAuth, (req, res) => {
   writeDb(db);
   logEvent('wallet_topup', user.id, { amount });
   res.json({ user: publicUser(user), amount });
+});
+
+app.post('/api/stripe/topup-checkout', requireAuth, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: 'STRIPE_NOT_CONFIGURED' });
+  const amount = Number(req.body.amount || 0);
+  if (!Number.isInteger(amount) || amount <= 0 || amount > 500) {
+    return res.status(400).json({ error: 'BAD_AMOUNT' });
+  }
+  const db = readDb();
+  const user = db.users.find(u => u.id === req.session.userId);
+  if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
+  const returnPage = ['token', 'checkout', 'room', 'shop', 'session'].includes(req.body.returnPage) ? req.body.returnPage : 'token';
+  const base = appBaseUrl(req);
+  try {
+    const checkout = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: user.email || undefined,
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          unit_amount: amount * 100,
+          product_data: {
+            name: `${amount} ROOMIE chips`,
+            description: 'Saldo prepagato per prenotazioni e addon Roomie'
+          }
+        }
+      }],
+      metadata: {
+        userId: user.id,
+        chips: String(amount)
+      },
+      success_url: `${base}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&return=${returnPage}`,
+      cancel_url: `${base}/?page=${returnPage}&stripe=cancelled`
+    });
+    res.json({ url: checkout.url });
+  } catch (_err) {
+    res.status(500).json({ error: 'STRIPE_CHECKOUT_ERROR' });
+  }
+});
+
+app.get('/api/stripe/success', requireAuth, async (req, res) => {
+  if (!stripe) return res.redirect(`${appBaseUrl(req)}/?page=token&stripe=not_configured`);
+  const sessionId = String(req.query.session_id || '');
+  const returnPage = ['token', 'checkout', 'room', 'shop', 'session'].includes(req.query.return) ? req.query.return : 'token';
+  try {
+    const checkout = await stripe.checkout.sessions.retrieve(sessionId);
+    const result = creditStripeCheckoutSession(checkout);
+    res.redirect(`${appBaseUrl(req)}/?page=${returnPage}&stripe=${result.credited ? 'success' : result.reason === 'ALREADY_CREDITED' ? 'already' : 'pending'}`);
+  } catch (_err) {
+    res.redirect(`${appBaseUrl(req)}/?page=${returnPage}&stripe=error`);
+  }
 });
 
 app.get('/api/admin/summary', requireAdmin, (req, res) => {

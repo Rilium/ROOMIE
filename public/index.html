@@ -2015,34 +2015,12 @@ body.auth-logged-out .page{display:none!important}
 
     <details class="topup-details" id="topup-details">
       <summary id="topup-summary">Saldo insufficiente? Ricarica saldo</summary>
-      <div style="display:flex;gap:8px;margin:14px 0 16px;flex-wrap:wrap">
-        <button class="dur-pill active" style="flex:none" onclick="selectPM(this,'chip')">Carta</button>
-        <button class="dur-pill" style="flex:none" onclick="selectPM(this,'paypal')">PayPal</button>
-        <button class="dur-pill" style="flex:none" onclick="selectPM(this,'satispay')">Satispay</button>
-      </div>
-
-      <div id="pm-chip" style="margin-bottom:0">
-        <div class="chip-input-group">
-          <div class="chip-number-row">
-            <div class="chip-icon"><i class="fas fa-credit-card"></i></div>
-            <input class="chip-num-input" type="text" placeholder="1234 5678 9012 3456" maxlength="19"
-              oninput="this.value=this.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim()">
-          </div>
-          <div class="chip-row2">
-            <input class="chip-small-input" type="text" placeholder="MM/AA" maxlength="5">
-            <input class="chip-small-input" type="text" placeholder="CVV" maxlength="3">
-          </div>
+      <div style="margin-top:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);border-radius:14px;padding:14px;display:flex;gap:12px;align-items:flex-start">
+        <div class="chip-icon"><i class="fas fa-credit-card"></i></div>
+        <div>
+          <div style="font-weight:900;color:#fff;margin-bottom:4px">Ricarica prima, paga con chips dopo</div>
+          <div style="font-size:.84rem;color:rgba(255,255,255,.64);line-height:1.45">Stripe gestisce carta e metodi disponibili. Roomie riceve solo l'esito del pagamento e aggiorna il saldo.</div>
         </div>
-      </div>
-
-      <div id="pm-paypal" class="hidden" style="background:var(--dark2);border:1px solid #003087;border-radius:10px;padding:16px;text-align:center">
-        <div style="font-weight:700;color:#009cde">Ricarica via PayPal</div>
-        <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Apri PayPal solo se devi aggiungere chips.</div>
-      </div>
-
-      <div id="pm-satispay" class="hidden" style="background:var(--dark2);border:1px solid #ff0055;border-radius:10px;padding:16px;text-align:center">
-        <div style="font-weight:700;color:#ff0055">Ricarica via Satispay</div>
-        <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Apri Satispay solo se devi aggiungere chips.</div>
       </div>
     </details>
 
@@ -2782,16 +2760,12 @@ body.auth-logged-out .page{display:none!important}
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('modal-token-buy')"><i class="fas fa-times"></i></button>
     <div class="modal-title">RICARICA CHIPS</div>
-    <div class="modal-sub">Pagamento sicuro. Le chips vengono accreditati immediatamente.</div>
-    <div class="chip-input-group" style="margin-bottom:16px">
-      <div class="chip-number-row">
-        <div class="chip-icon"><i class="fas fa-credit-card"></i></div>
-        <input class="chip-num-input" type="text" placeholder="1234 5678 9012 3456" maxlength="19"
-          oninput="this.value=this.value.replace(/\D/g,'').replace(/(.{4})/g,'$1 ').trim()">
-      </div>
-      <div class="chip-row2">
-        <input class="chip-small-input" type="text" placeholder="MM/AA" maxlength="5">
-        <input class="chip-small-input" type="text" placeholder="CVV" maxlength="3">
+    <div class="modal-sub">Vai su Stripe Checkout, paghi in sicurezza e torni qui con il saldo aggiornato.</div>
+    <div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);border-radius:14px;padding:16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start">
+      <div class="chip-icon"><i class="fas fa-lock"></i></div>
+      <div>
+        <div style="font-weight:900;color:#fff;margin-bottom:4px">Pagamento protetto Stripe</div>
+        <div style="font-size:.88rem;color:rgba(255,255,255,.62);line-height:1.45">Roomie non salva dati carta. Le chips sono 1:1 con euro e servono per prenotazioni, estensioni e addon.</div>
       </div>
     </div>
     <div style="background:rgba(200,255,0,.06);border:1px solid rgba(200,255,0,.2);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
@@ -2799,7 +2773,7 @@ body.auth-logged-out .page{display:none!important}
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.8rem;color:var(--neon)" id="modal-tok-amount">20 chips</span>
     </div>
     <button class="btn-neon w-full" style="justify-content:center;padding:14px" onclick="buyTokens()">
-      PAGA <span id="modal-tok-eur">€20</span>
+      VAI A STRIPE · <span id="modal-tok-eur">€20</span>
     </button>
     <div id="token-success" class="hidden" style="background:linear-gradient(135deg,#001a08,#0a2000);border:1px solid rgba(200,255,0,.4);border-radius:12px;padding:20px;text-align:center;margin-top:12px">
       <div style="font-size:2rem;margin-bottom:8px"><i class="fas fa-check-circle"></i></div>
@@ -3210,9 +3184,27 @@ async function api(path, options = {}) {
 async function initAuth(initialPage='home') {
   const params = new URLSearchParams(window.location.search);
   const authError = params.get('auth_error');
-  if(authError) {
-    window.history.replaceState({}, '', window.location.pathname);
+  const stripeStatus = params.get('stripe');
+  function cleanQueryParam(name) {
+    const clean = new URLSearchParams(window.location.search);
+    clean.delete(name);
+    const query = clean.toString();
+    window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : ''));
   }
+  function showStripeStatus() {
+    if(!stripeStatus) return;
+    const messages = {
+      success:{title:'Chips accreditate', copy:'Saldo aggiornato. Ora puoi completare il pagamento in app.'},
+      already:{title:'Ricarica già registrata', copy:'Il saldo era già stato aggiornato per questo pagamento.'},
+      pending:{title:'Pagamento in verifica', copy:'Stripe sta ancora confermando la ricarica. Riprova tra qualche secondo.', type:'warn'},
+      cancelled:{title:'Pagamento annullato', copy:'Nessun addebito. Puoi ricaricare quando vuoi.', type:'warn'},
+      not_configured:{title:'Stripe non attivo', copy:'La ricarica online non è disponibile in questo momento.', type:'warn'},
+      error:{title:'Ricarica non completata', copy:'Non siamo riusciti a confermare il pagamento. Riprova.', type:'warn'}
+    };
+    showToast(messages[stripeStatus] || messages.error);
+    cleanQueryParam('stripe');
+  }
+  if(authError) cleanQueryParam('auth_error');
   if(location.protocol === 'file:') {
     currentUser = null;
     applyAuthState();
@@ -3225,10 +3217,12 @@ async function initAuth(initialPage='home') {
     currentUser = data.user;
     applyAuthState();
     showPage(initialPage, false);
+    showStripeStatus();
   } catch (_err) {
     currentUser = null;
     applyAuthState();
     if(authError) showAuthError(authErrorMessage(authError));
+    if(stripeStatus) showAuthError('Accedi per vedere la ricarica completata.');
   }
 }
 
@@ -4558,7 +4552,7 @@ function updatePrice() {
   const topupSummary = document.getElementById('topup-summary');
   if(topupSummary) topupSummary.textContent = shortage > 0 ? 'Ricarica ' + shortage + ' chips per completare' : 'Vuoi ricaricare comunque?';
   const payBtn = document.getElementById('pay-btn-label');
-  if(payBtn) payBtn.innerHTML = shortage > 0 ? '<i class="fas fa-lock"></i> RICARICA ' + shortage + ' CHIPS E PAGA' : '<i class="fas fa-lock"></i> PAGA ' + total + ' CHIPS';
+  if(payBtn) payBtn.innerHTML = shortage > 0 ? '<i class="fas fa-credit-card"></i> RICARICA ' + shortage + ' CHIPS' : '<i class="fas fa-lock"></i> PAGA ' + total + ' CHIPS';
   const confPaid = document.getElementById('conf-paid');
   if(confPaid) confPaid.textContent = total + ' chips';
   // conf time
@@ -4697,8 +4691,9 @@ async function extendActiveSession() {
       return;
     }
     if(walletBalance < price) {
-      showToast({title:'Chips insufficienti', copy:'Ti servono ' + price + ' chips per estendere di 1 ora.', type:'warn'});
-      showPage('token');
+      const shortage = price - walletBalance;
+      showToast({title:'Ricarica richiesta', copy:'Ti mancano ' + shortage + ' chips per estendere la sessione.'});
+      startStripeTopup(shortage, 'session');
       return;
     }
     try {
@@ -4732,11 +4727,16 @@ function confirmBookingPayment() {
     return;
   }
   const shortage = Math.max(0, currentTotal - walletBalance);
+  if(location.protocol !== 'file:' && currentUser && shortage > 0) {
+    showToast({title:'Ricarica richiesta', copy:'Ti mancano ' + shortage + ' chips. Paghi su Stripe, poi torni qui e confermi la room.'});
+    startStripeTopup(shortage, 'checkout');
+    return;
+  }
   const loading = document.getElementById('pay-loading');
   loading.classList.remove('hidden');
   loading.style.display = 'flex';
   const loadingText = loading.querySelector('div:last-child');
-  if(loadingText) loadingText.textContent = shortage > 0 ? 'RICARICA E PAGAMENTO...' : 'PAGAMENTO IN CORSO...';
+  if(loadingText) loadingText.textContent = 'PAGAMENTO IN CORSO...';
   setTimeout(async () => {
     loading.classList.add('hidden');
     loading.style.display = '';
@@ -4751,14 +4751,6 @@ function confirmBookingPayment() {
     if(location.protocol !== 'file:' && currentUser) {
       try {
         const start = document.getElementById('input-start')?.value || '20:00';
-        if(shortage > 0) {
-          const topup = await api('/api/wallet/topup', {
-            method: 'POST',
-            body: JSON.stringify({ amount: shortage })
-          });
-          currentUser = topup.user;
-          updateWalletUI();
-        }
         const created = await api('/api/bookings', {
           method: 'POST',
           body: JSON.stringify({
@@ -5072,36 +5064,55 @@ function openTokenModal() {
   document.getElementById('token-success').classList.add('hidden');
   document.getElementById('modal-token-buy').classList.remove('hidden');
 }
+
+async function startStripeTopup(amount, returnPage='token') {
+  if(location.protocol === 'file:' || !currentUser) {
+    showToast({title:'Accesso richiesto', copy:'Apri Roomie online e accedi per ricaricare chips.', type:'warn'});
+    showPage('auth');
+    return;
+  }
+  const parsed = parseInt(amount || 0, 10);
+  if(!Number.isInteger(parsed) || parsed <= 0) {
+    showToast({title:'Importo non valido', copy:'Scegli quante chips vuoi ricaricare.', type:'warn'});
+    return;
+  }
+  try {
+    const data = await api('/api/stripe/topup-checkout', {
+      method: 'POST',
+      body: JSON.stringify({ amount: parsed, returnPage })
+    });
+    if(data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    throw new Error('NO_CHECKOUT_URL');
+  } catch (err) {
+    const copy = err.message === 'STRIPE_NOT_CONFIGURED'
+      ? 'Stripe non è ancora configurato per questo ambiente.'
+      : 'Non siamo riusciti ad aprire Stripe Checkout. Riprova tra poco.';
+    showToast({title:'Ricarica non avviata', copy, type:'warn'});
+  }
+}
+
 async function buyTokens() {
   const btn = document.querySelector('#modal-token-buy .btn-neon');
-  btn.textContent = 'PAGAMENTO...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> APERTURA STRIPE...';
   btn.disabled = true;
   try {
     const amount = parseInt(selectedAmt || 0, 10);
-    let newBal;
     if(location.protocol !== 'file:' && currentUser) {
-      const data = await api('/api/wallet/topup', {
-        method: 'POST',
-        body: JSON.stringify({ amount })
-      });
-      currentUser = data.user;
-      newBal = currentUser.chips;
+      await startStripeTopup(amount, 'token');
+      return;
     } else {
-      newBal = walletBalance + amount;
-      currentUser = {...(currentUser || {name:'System Admin', role:'admin'}), chips:newBal};
+      showToast({title:'Apri la versione online', copy:'La ricarica reale passa da Stripe Checkout.', type:'warn'});
     }
-    btn.textContent = 'PAGATO ✓';
-    document.getElementById('new-balance').textContent = newBal + ' chips';
-    document.getElementById('token-success').classList.remove('hidden');
-    updateWalletUI();
-    updatePrice();
   } catch (_err) {
     btn.textContent = 'ERRORE';
-    showToast('Ricarica non riuscita');
+    showToast({title:'Ricarica non riuscita', copy:'Riprova tra poco.', type:'warn'});
   } finally {
     setTimeout(() => {
       btn.disabled = false;
-      btn.innerHTML = 'PAGA <span id="modal-tok-eur">' + selectedAmtEur + '</span>';
+      btn.innerHTML = 'VAI A STRIPE · <span id="modal-tok-eur">' + selectedAmtEur + '</span>';
     }, 1200);
   }
 }
@@ -5160,8 +5171,9 @@ async function checkoutAddon() {
       return;
     }
     if(walletBalance < cartTotal) {
-      showToast({title:'Chips insufficienti', copy:'Ti mancano ' + (cartTotal - walletBalance) + ' chips. Ricarica prima di pagare.', type:'warn'});
-      showPage('token');
+      const shortage = cartTotal - walletBalance;
+      showToast({title:'Ricarica richiesta', copy:'Ti mancano ' + shortage + ' chips. Ricarichi su Stripe e poi completi lo shop.'});
+      startStripeTopup(shortage, 'shop');
       return;
     }
     try {
