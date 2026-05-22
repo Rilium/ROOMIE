@@ -1259,6 +1259,17 @@ body.auth-logged-out .page{display:none!important}
 .auth-tab.active{background:var(--neon);color:var(--dark)}
 .auth-form{display:none}
 .auth-form.active{display:block}
+.social-auth{display:grid;gap:10px;margin:14px 0 16px}
+.social-btn{
+  width:100%;min-height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.055);color:#fff;font-weight:900;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.social-btn:hover{border-color:rgba(200,255,0,.38);background:rgba(255,255,255,.08)}
+.social-btn.google{background:#fff;color:#151515;border-color:#fff}
+.social-btn.apple{background:#050505;color:#fff;border-color:rgba(255,255,255,.24)}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:rgba(255,255,255,.42);font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.auth-divider::before,.auth-divider::after{content:'';height:1px;background:rgba(255,255,255,.1);flex:1}
 .auth-footnote{font-size:.76rem;color:var(--muted);line-height:1.45;margin-top:12px;text-align:center}
 .auth-footnote strong{color:var(--neon)}
 .auth-offline{display:none;background:rgba(255,90,31,.12);border:1px solid rgba(255,90,31,.4);border-radius:10px;padding:10px 12px;color:#ffb08a;font-size:.8rem;font-weight:800;margin-bottom:12px}
@@ -1444,14 +1455,19 @@ body.auth-logged-out .page{display:none!important}
   <div class="login-shell">
     <div class="login-brand">ROOMIE</div>
     <div class="login-title">ENTRA NELLA ROOM.</div>
-    <div class="login-sub">Account vero, sessione server, saldo chips personale e accesso admin separato.</div>
-    <div class="auth-offline" id="auth-offline">Stai aprendo il file locale. Per login e registrazione usa http://localhost:3000.</div>
+    <div class="login-sub">Prenota la room, gestisci le chips e ritrova subito le tue sessioni.</div>
+    <div class="auth-offline" id="auth-offline">Apri la versione online per entrare nel tuo account Roomie.</div>
     <div class="auth-tabs">
       <button class="auth-tab active" id="auth-tab-login" type="button" onclick="setAuthMode('login')">Login</button>
       <button class="auth-tab" id="auth-tab-register" type="button" onclick="setAuthMode('register')">Registrati</button>
     </div>
     <div class="auth-error" id="auth-error">Credenziali errate.</div>
     <form class="auth-form active" id="login-form" onsubmit="login(event)">
+      <div class="social-auth">
+        <button class="social-btn google" type="button" onclick="socialLogin('google')"><i class="fab fa-google"></i> Continua con Google</button>
+        <button class="social-btn apple" type="button" onclick="socialLogin('apple')"><i class="fab fa-apple"></i> Continua con Apple</button>
+      </div>
+      <div class="auth-divider">oppure</div>
       <div class="form-group">
         <label class="form-label">USERNAME O EMAIL</label>
         <input class="form-input" id="login-username" autocomplete="username" placeholder="es. marco">
@@ -1462,9 +1478,14 @@ body.auth-logged-out .page{display:none!important}
       </div>
       <label class="auth-check"><input type="checkbox" id="login-remember" checked> Resta collegato su questo dispositivo</label>
       <button class="btn-neon w-full" id="login-btn" style="justify-content:center;padding:14px" type="submit">LOGIN</button>
-      <div class="auth-footnote">Admin e utenti usano lo stesso login. Il ruolo arriva dal server.</div>
+      <div class="auth-footnote">Accesso protetto. Le tue chips e prenotazioni restano nel profilo.</div>
     </form>
     <form class="auth-form" id="register-form" onsubmit="register(event)">
+      <div class="social-auth">
+        <button class="social-btn google" type="button" onclick="socialLogin('google')"><i class="fab fa-google"></i> Registrati con Google</button>
+        <button class="social-btn apple" type="button" onclick="socialLogin('apple')"><i class="fab fa-apple"></i> Registrati con Apple</button>
+      </div>
+      <div class="auth-divider">oppure</div>
       <div class="form-group">
         <label class="form-label">NOME</label>
         <input class="form-input" id="register-name" autocomplete="name" placeholder="Es. Marco Bianchi">
@@ -1953,7 +1974,7 @@ body.auth-logged-out .page{display:none!important}
   <div class="checkout-shell" style="max-width:480px;margin:0 auto;padding:24px 16px">
 
     <div style="margin-bottom:24px">
-      <div class="test-banner" id="checkout-test-banner">MODALITÀ TEST · provider pagamento non collegati</div>
+      <div class="test-banner" id="checkout-test-banner">Pagamento protetto · riepilogo prima della conferma</div>
       <span class="section-label">Pagamento</span>
       <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:#fff;line-height:1">CHECKOUT</h2>
     </div>
@@ -2044,7 +2065,7 @@ body.auth-logged-out .page{display:none!important}
     <button class="btn-neon w-full" style="justify-content:center;padding:16px;font-size:1.05rem;border-radius:12px" onclick="confirmBookingPayment()">
       <span id="pay-btn-label"><i class="fas fa-lock"></i> PAGA 24 CHIPS</span>
     </button>
-    <p style="text-align:center;font-size:.75rem;color:var(--muted);margin-top:8px">Saldo Roomie · sessione server · ricevuta nel profilo</p>
+    <p style="text-align:center;font-size:.75rem;color:var(--muted);margin-top:8px">Saldo Roomie · ricevuta nel profilo</p>
   </div>
 </div><!-- /page-checkout -->
 
@@ -2252,7 +2273,7 @@ body.auth-logged-out .page{display:none!important}
       <div class="quick-controls">
         <button class="quick-control" onclick="showPage('shop')"><i class="fas fa-layer-group"></i>Pack<span>partita, snack, mood</span></button>
         <button class="quick-control" onclick="extendActiveSession()"><i class="fas fa-clock"></i>+1h<span>estendi al volo</span></button>
-        <button class="quick-control" onclick="showToast({title:'Supporto avvisato', copy:'Admin riceve sessione, orario e stato accesso.'})"><i class="fas fa-headset"></i>Aiuto<span>priorità sessione live</span></button>
+        <button class="quick-control" onclick="showToast({title:'Assistenza avvisata', copy:'Il team riceve sessione, orario e stato accesso.'})"><i class="fas fa-headset"></i>Aiuto<span>priorità sessione live</span></button>
       </div>
     </div>
 
@@ -2274,7 +2295,7 @@ body.auth-logged-out .page{display:none!important}
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="drawer-link" onclick="openNFC()"><span><i class="fas fa-microchip"></i> ROOMIE Chip fisica</span><span><i class="fas fa-chevron-right"></i></span></button>
         <button class="drawer-link" onclick="showPage('shop')"><span><i class="fas fa-shopping-bag"></i> Snack, streaming e setup</span><span><i class="fas fa-chevron-right"></i></span></button>
-        <button class="drawer-link" onclick="showToast('Admin avvisato · risposta in chat')"><span>Problema accesso o room</span><span>URGENTE</span></button>
+        <button class="drawer-link" onclick="showToast('Assistenza avvisata · risposta in chat')"><span>Problema accesso o room</span><span>URGENTE</span></button>
         <button class="drawer-link" onclick="showToast('Password Wi‑Fi copiata')"><span>Wi‑Fi Roomie</span><span>COPIA</span></button>
         <button class="drawer-link" onclick="showPage('dashboard')"><span><i class="fas fa-receipt"></i> Dettagli prenotazione</span><span><i class="fas fa-chevron-right"></i></span></button>
       </div>
@@ -3187,10 +3208,16 @@ async function api(path, options = {}) {
 }
 
 async function initAuth(initialPage='home') {
+  const params = new URLSearchParams(window.location.search);
+  const authError = params.get('auth_error');
+  if(authError) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
   if(location.protocol === 'file:') {
     currentUser = null;
     applyAuthState();
     document.getElementById('auth-offline')?.classList.add('visible');
+    if(authError) showAuthError(authErrorMessage(authError));
     return;
   }
   try {
@@ -3201,6 +3228,7 @@ async function initAuth(initialPage='home') {
   } catch (_err) {
     currentUser = null;
     applyAuthState();
+    if(authError) showAuthError(authErrorMessage(authError));
   }
 }
 
@@ -3225,7 +3253,14 @@ function authErrorMessage(code) {
     USERNAME_TAKEN:'Username già preso.',
     EMAIL_TAKEN:'Email già registrata.',
     USER_SUSPENDED:'Account sospeso: contatta Roomie.',
-    API_ERROR:'Errore server. Riprova.'
+    GOOGLE_NOT_CONFIGURED:'Google non è ancora attivo. Usa login classico o riprova più tardi.',
+    APPLE_NOT_CONFIGURED:'Apple non è ancora attivo. Usa Google o login classico.',
+    SOCIAL_NOT_CONFIGURED:'Social login non disponibile al momento.',
+    SOCIAL_STATE_ERROR:'Social login scaduto. Riprova.',
+    GOOGLE_TOKEN_ERROR:'Google non ha completato il login. Riprova.',
+    GOOGLE_PROFILE_ERROR:'Profilo Google non leggibile. Riprova.',
+    SOCIAL_LOGIN_ERROR:'Social login non riuscito. Riprova.',
+    API_ERROR:'Qualcosa non ha risposto. Riprova.'
   };
   return messages[code] || messages.API_ERROR;
 }
@@ -3235,6 +3270,14 @@ function showAuthError(message) {
   if(!err) return;
   err.textContent = message;
   err.classList.add('visible');
+}
+
+function socialLogin(provider) {
+  if(location.protocol === 'file:') {
+    showAuthError('Apri la versione online per usare il social login.');
+    return;
+  }
+  window.location.href = '/api/auth/' + provider;
 }
 
 function applyAuthState() {
@@ -3285,7 +3328,7 @@ async function login(event) {
   const btn = document.getElementById('login-btn');
   document.getElementById('auth-error')?.classList.remove('visible');
   if(location.protocol === 'file:') {
-    showAuthError('Apri http://localhost:3000 per usare login e registrazione reali.');
+    showAuthError('Apri la versione online per entrare nel tuo account.');
     return;
   }
   if(btn) btn.textContent = 'ENTRO...';
@@ -3299,7 +3342,7 @@ async function login(event) {
     currentUser = data.user;
     applyAuthState();
     showPage(currentUser.role === 'admin' ? 'admin' : 'dashboard', false);
-    showToast({title:'Bentornato', copy:'Sessione server attiva. Saldo e prenotazioni sincronizzati.'});
+    showToast({title:'Bentornato', copy:'Saldo, chips e prenotazioni sono aggiornati.'});
   } catch (err) {
     showAuthError(authErrorMessage(err.message));
   } finally {
@@ -3312,7 +3355,7 @@ async function register(event) {
   const btn = document.getElementById('register-btn');
   document.getElementById('auth-error')?.classList.remove('visible');
   if(location.protocol === 'file:') {
-    showAuthError('Apri http://localhost:3000 per creare un account reale.');
+    showAuthError('Apri la versione online per creare il tuo account.');
     return;
   }
   if(btn) btn.textContent = 'CREO ACCOUNT...';

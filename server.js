@@ -12,6 +12,8 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'roomie-db.json');
 
+app.set('trust proxy', 1);
+
 function defaultConfig() {
   return {
     hourlyPrice: 12,
@@ -119,6 +121,31 @@ function normalizeUsername(value) {
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function appBaseUrl(req) {
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+  return (process.env.APP_URL || `${proto}://${req.get('host')}`).replace(/\/$/, '');
+}
+
+function redirectWithAuthError(req, res, code = 'SOCIAL_NOT_CONFIGURED') {
+  res.redirect(`${appBaseUrl(req)}/?auth_error=${encodeURIComponent(code)}`);
+}
+
+function safeUsernameFromEmail(email, fallback = 'roomie') {
+  const base = normalizeUsername(String(email || fallback).split('@')[0]).replace(/[^a-z0-9_]/g, '_').slice(0, 16) || 'roomie';
+  return base.length >= 3 ? base : `${base}_user`;
+}
+
+function uniqueUsername(db, seed) {
+  let username = seed;
+  let suffix = 1;
+  while (db.users.some(u => normalizeUsername(u.username) === username)) {
+    const trimmed = seed.slice(0, Math.max(3, 20 - String(suffix).length - 1));
+    username = `${trimmed}_${suffix}`;
+    suffix += 1;
+  }
+  return username;
 }
 
 function requireAuth(req, res, next) {
@@ -295,6 +322,92 @@ app.post('/api/auth/register', (req, res) => {
   req.session.userId = user.id;
   logEvent('register', user.id, { username, email });
   res.status(201).json({ user: publicUser(user) });
+});
+
+app.get('/api/auth/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return redirectWithAuthError(req, res, 'GOOGLE_NOT_CONFIGURED');
+  }
+  const state = crypto.randomBytes(18).toString('hex');
+  req.session.oauthState = state;
+  const params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state,
+    prompt: 'select_account'
+  });
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query || {};
+    if (!code || !state || state !== req.session.oauthState) {
+      return redirectWithAuthError(req, res, 'SOCIAL_STATE_ERROR');
+    }
+    delete req.session.oauthState;
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
+        grant_type: 'authorization_code'
+      })
+    });
+    const token = await tokenRes.json();
+    if (!tokenRes.ok || !token.access_token) {
+      return redirectWithAuthError(req, res, 'GOOGLE_TOKEN_ERROR');
+    }
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` }
+    });
+    const profile = await profileRes.json();
+    const email = normalizeEmail(profile.email);
+    if (!profileRes.ok || !email) {
+      return redirectWithAuthError(req, res, 'GOOGLE_PROFILE_ERROR');
+    }
+    const db = readDb();
+    let user = db.users.find(u => normalizeEmail(u.email) === email || (u.provider === 'google' && u.providerId === profile.sub));
+    if (!user) {
+      user = {
+        id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex'),
+        username: uniqueUsername(db, safeUsernameFromEmail(email, 'google')),
+        email,
+        name: String(profile.name || email.split('@')[0]).trim(),
+        role: 'user',
+        chips: 24,
+        provider: 'google',
+        providerId: String(profile.sub || ''),
+        avatar: profile.picture || '',
+        passwordHash: bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 10),
+        createdAt: new Date().toISOString()
+      };
+      db.users.push(user);
+      writeDb(db);
+      logEvent('social_register', user.id, { provider: 'google', email });
+    } else {
+      user.provider = user.provider || 'google';
+      user.providerId = user.providerId || String(profile.sub || '');
+      user.avatar = user.avatar || profile.picture || '';
+      writeDb(db);
+    }
+    if (user.suspended) return redirectWithAuthError(req, res, 'USER_SUSPENDED');
+    req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
+    req.session.userId = user.id;
+    logEvent('social_login', user.id, { provider: 'google', email });
+    res.redirect(`${appBaseUrl(req)}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`);
+  } catch (_err) {
+    redirectWithAuthError(req, res, 'SOCIAL_LOGIN_ERROR');
+  }
+});
+
+app.get('/api/auth/apple', (req, res) => {
+  redirectWithAuthError(req, res, 'APPLE_NOT_CONFIGURED');
 });
 
 app.post('/api/auth/logout', requireAuth, (req, res) => {
