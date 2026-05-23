@@ -690,6 +690,43 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
   font-size:2rem;color:#fff;letter-spacing:.03em;margin-bottom:4px;
 }
 .modal-sub{font-size:.88rem;color:var(--muted);margin-bottom:24px}
+.legal-footer{
+  display:flex;justify-content:center;align-items:center;gap:14px;
+  padding:34px 16px 116px;
+  color:rgba(255,255,255,.5);
+  font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+}
+.legal-footer button{
+  background:transparent;border:0;color:rgba(255,255,255,.62);
+  font:inherit;cursor:pointer;padding:8px 4px;
+}
+.legal-footer button:hover{color:var(--neon)}
+.legal-modal-box{
+  max-width:760px;height:min(86vh,820px);
+  display:flex;flex-direction:column;overflow:hidden;
+  border-radius:20px;
+}
+.legal-doc-meta{
+  color:rgba(255,255,255,.56);font-size:.82rem;margin-bottom:14px;
+}
+.legal-doc-body{
+  overflow:auto;border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;background:#f7f7f4;color:#171717;
+  padding:26px;line-height:1.58;font-size:.98rem;
+}
+.legal-doc-body h1{font-size:1.75rem;line-height:1.08;margin:0 0 14px;color:#111}
+.legal-doc-body h2{font-size:1.12rem;margin:24px 0 8px;color:#111}
+.legal-doc-body p{margin:0 0 12px}
+.legal-doc-body ul{padding-left:20px;margin:0 0 14px}
+.legal-doc-body table{width:100%;border-collapse:collapse;margin:16px 0;background:#fff}
+.legal-doc-body td,.legal-doc-body th{border:1px solid #d8d8d0;padding:10px;text-align:left;vertical-align:top}
+.legal-doc-body th{background:#ededed}
+.legal-loading{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.72);font-weight:800}
+@media(max-width:600px){
+  .legal-footer{padding-bottom:132px;gap:8px;flex-wrap:wrap}
+  .legal-modal-box{height:88vh;border-radius:18px 18px 0 0}
+  .legal-doc-body{padding:18px;font-size:.94rem}
+}
 
 /* Payment chip input */
 .chip-input-group{
@@ -1448,6 +1485,7 @@ body.auth-logged-out .page{display:none!important}
   .dur-pill{padding:6px 10px;font-size:.8rem}
 }
 </style>
+<script defer src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body class="auth-logged-out">
 
@@ -2601,6 +2639,13 @@ body.auth-logged-out .page{display:none!important}
   </div>
 </div><!-- /page-admin -->
 
+<footer class="legal-footer" aria-label="Documenti legali Roomie">
+  <span>ROOMIE</span>
+  <button type="button" onclick="openLegalDoc('privacy')">Privacy Policy</button>
+  <button type="button" onclick="openLegalDoc('cookie')">Cookie Policy</button>
+  <span>Via Terni · Torino</span>
+</footer>
+
 <!-- ═══════════════════════════════════════════ -->
 <!-- MODALS -->
 <!-- ═══════════════════════════════════════════ -->
@@ -2621,7 +2666,21 @@ body.auth-logged-out .page{display:none!important}
     <button class="drawer-link" onclick="menuGo('shop')"><span><i class="fas fa-shopping-bag"></i> Shop e addon</span><span><i class="fas fa-chevron-right"></i></span></button>
     <button class="drawer-link" onclick="menuGo('confirm')"><span><i class="fas fa-key"></i> Accesso prossima sessione</span><span><i class="fas fa-chevron-right"></i></span></button>
     <button class="drawer-link hidden" id="drawer-admin-link" onclick="menuGo('admin')"><span>Admin panel</span><span>SYSTEM</span></button>
+    <button class="drawer-link" onclick="openLegalDoc('privacy')"><span><i class="fas fa-shield-alt"></i> Privacy Policy</span><span>DOCX</span></button>
+    <button class="drawer-link" onclick="openLegalDoc('cookie')"><span><i class="fas fa-cookie-bite"></i> Cookie Policy</span><span>DOCX</span></button>
     <button class="drawer-link" onclick="logout()" style="margin-top:18px"><span>Logout</span><span><i class="fas fa-power-off"></i></span></button>
+  </div>
+</div>
+
+<!-- Legal document modal -->
+<div class="modal-overlay hidden" id="modal-legal-doc">
+  <div class="modal-box legal-modal-box">
+    <button class="modal-close" onclick="closeModal('modal-legal-doc')"><i class="fas fa-times"></i></button>
+    <div class="modal-title" id="legal-modal-title">DOCUMENTO</div>
+    <div class="legal-doc-meta" id="legal-modal-meta">Documento Word renderizzato in app con Mammoth.js</div>
+    <div class="legal-doc-body" id="legal-doc-body">
+      <div class="legal-loading"><span class="roomie-chip roomie-chip-loader" aria-hidden="true"></span> Caricamento documento...</div>
+    </div>
   </div>
 </div>
 
@@ -5207,6 +5266,45 @@ async function checkoutAddon() {
 function copyPartnerCode() {
   navigator.clipboard?.writeText('ROOMIE-MB7724');
   showToast('Codice partner copiato! ✓');
+}
+
+// ── LEGAL DOCS ──
+const legalDocs = {
+  privacy: {
+    title: 'PRIVACY POLICY',
+    meta: 'Documento Word renderizzato in app con Mammoth.js',
+    url: '/legal/privacy-policy-roomie.docx'
+  },
+  cookie: {
+    title: 'COOKIE POLICY',
+    meta: 'Documento Word renderizzato in app con Mammoth.js',
+    url: '/legal/cookie-policy-roomie.docx'
+  }
+};
+
+async function openLegalDoc(type) {
+  const doc = legalDocs[type];
+  if(!doc) return;
+  closeMenu?.();
+  const modal = document.getElementById('modal-legal-doc');
+  const title = document.getElementById('legal-modal-title');
+  const meta = document.getElementById('legal-modal-meta');
+  const body = document.getElementById('legal-doc-body');
+  if(title) title.textContent = doc.title;
+  if(meta) meta.textContent = doc.meta;
+  if(body) body.innerHTML = '<div class="legal-loading"><span class="roomie-chip roomie-chip-loader" aria-hidden="true"></span> Caricamento documento...</div>';
+  modal?.classList.remove('hidden');
+  try {
+    if(!window.mammoth) throw new Error('MAMMOTH_NOT_READY');
+    const response = await fetch(doc.url);
+    if(!response.ok) throw new Error('DOC_NOT_FOUND');
+    const arrayBuffer = await response.arrayBuffer();
+    const result = await window.mammoth.convertToHtml({arrayBuffer});
+    if(body) body.innerHTML = result.value || '<p>Documento vuoto.</p>';
+  } catch (_err) {
+    if(body) body.innerHTML = '<p><strong>Documento non disponibile.</strong></p><p>Riprova tra qualche secondo o ricarica la pagina.</p>';
+    showToast({title:'Documento non caricato', copy:'Mammoth.js o il file DOCX non hanno risposto.', type:'warn'});
+  }
 }
 
 // ── MODAL CLOSE ──
