@@ -136,6 +136,15 @@ function redirectWithAuthError(req, res, code = 'SOCIAL_NOT_CONFIGURED') {
   res.redirect(`${appBaseUrl(req)}/?auth_error=${encodeURIComponent(code)}`);
 }
 
+function googleTokenErrorCode(token = {}) {
+  const error = String(token.error || '');
+  const description = String(token.error_description || '').toLowerCase();
+  if (error === 'invalid_client' || description.includes('client secret')) return 'GOOGLE_SECRET_INVALID';
+  if (error === 'invalid_grant' || description.includes('bad request')) return 'GOOGLE_CODE_EXPIRED';
+  if (description.includes('redirect_uri')) return 'GOOGLE_REDIRECT_MISMATCH';
+  return 'GOOGLE_TOKEN_ERROR';
+}
+
 function parseCookies(header = '') {
   return String(header || '').split(';').reduce((cookies, part) => {
     const index = part.indexOf('=');
@@ -476,7 +485,15 @@ app.get('/api/auth/google/callback', async (req, res) => {
     });
     const token = await tokenRes.json();
     if (!tokenRes.ok || !token.access_token) {
-      return redirectWithAuthError(req, res, 'GOOGLE_TOKEN_ERROR');
+      console.error('Google token exchange failed', {
+        status: tokenRes.status,
+        error: token.error,
+        description: token.error_description,
+        redirectUri: `${appBaseUrl(req)}/api/auth/google/callback`,
+        hasClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
+        hasClientSecret: Boolean(process.env.GOOGLE_CLIENT_SECRET)
+      });
+      return redirectWithAuthError(req, res, googleTokenErrorCode(token));
     }
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${token.access_token}` }
