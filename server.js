@@ -543,6 +543,22 @@ app.get('/api/auth/apple', (req, res) => {
   redirectWithAuthError(req, res, 'APPLE_NOT_CONFIGURED');
 });
 
+app.get('/api/health/oauth', (_req, res) => {
+  const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+  res.json({
+    google: {
+      clientIdPresent: Boolean(googleClientId),
+      clientIdLooksValid: /\.apps\.googleusercontent\.com$/.test(googleClientId),
+      clientIdLength: googleClientId.length,
+      clientSecretPresent: Boolean(googleClientSecret),
+      clientSecretLooksValid: /^GOCSPX-/.test(googleClientSecret),
+      clientSecretLength: googleClientSecret.length,
+      redirectUri: 'https://roomie.rilio.it/api/auth/google/callback'
+    }
+  });
+});
+
 app.post('/api/auth/logout', requireAuth, (req, res) => {
   const userId = req.session.userId;
   req.session.destroy(() => {
