@@ -712,20 +712,27 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .legal-doc-body{
   overflow:auto;border:1px solid rgba(255,255,255,.1);
   border-radius:14px;background:#f7f7f4;color:#171717;
-  padding:26px;line-height:1.58;font-size:.98rem;
+  padding:28px;line-height:1.55;font-size:.96rem;
+  text-align:left;
 }
-.legal-doc-body h1{font-size:1.75rem;line-height:1.08;margin:0 0 14px;color:#111}
-.legal-doc-body h2{font-size:1.12rem;margin:24px 0 8px;color:#111}
-.legal-doc-body p{margin:0 0 12px}
-.legal-doc-body ul{padding-left:20px;margin:0 0 14px}
-.legal-doc-body table{width:100%;border-collapse:collapse;margin:16px 0;background:#fff}
+.legal-doc-body *{box-sizing:border-box}
+.legal-doc-body h1{font-size:1.55rem;line-height:1.12;margin:0 0 12px;color:#111;letter-spacing:0}
+.legal-doc-body h2{font-size:1.04rem;margin:22px 0 8px;color:#111;letter-spacing:0}
+.legal-doc-body p{margin:0 0 10px;text-indent:0!important}
+.legal-doc-body p:empty{display:none}
+.legal-doc-body ul,.legal-doc-body ol{padding-left:18px;margin:0 0 14px}
+.legal-doc-body li{margin:0 0 7px;padding-left:2px}
+.legal-doc-body table{width:100%;border-collapse:collapse;margin:14px 0 18px;background:#fff;table-layout:fixed}
 .legal-doc-body td,.legal-doc-body th{border:1px solid #d8d8d0;padding:10px;text-align:left;vertical-align:top}
+.legal-doc-body td:first-child,.legal-doc-body th:first-child{width:28%;font-weight:800}
 .legal-doc-body th{background:#ededed}
 .legal-loading{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.72);font-weight:800}
 @media(max-width:600px){
   .legal-footer{padding-bottom:132px;gap:8px;flex-wrap:wrap}
   .legal-modal-box{height:88vh;border-radius:18px 18px 0 0}
-  .legal-doc-body{padding:18px;font-size:.94rem}
+  .legal-doc-body{padding:18px;font-size:.92rem}
+  .legal-doc-body table{table-layout:auto}
+  .legal-doc-body td:first-child,.legal-doc-body th:first-child{width:auto}
 }
 
 /* Payment chip input */
@@ -2677,7 +2684,7 @@ body.auth-logged-out .page{display:none!important}
   <div class="modal-box legal-modal-box">
     <button class="modal-close" onclick="closeModal('modal-legal-doc')"><i class="fas fa-times"></i></button>
     <div class="modal-title" id="legal-modal-title">DOCUMENTO</div>
-    <div class="legal-doc-meta" id="legal-modal-meta">Documento Word renderizzato in app con Mammoth.js</div>
+    <div class="legal-doc-meta" id="legal-modal-meta">Informativa Roomie</div>
     <div class="legal-doc-body" id="legal-doc-body">
       <div class="legal-loading"><span class="roomie-chip roomie-chip-loader" aria-hidden="true"></span> Caricamento documento...</div>
     </div>
@@ -5272,12 +5279,12 @@ function copyPartnerCode() {
 const legalDocs = {
   privacy: {
     title: 'PRIVACY POLICY',
-    meta: 'Documento Word renderizzato in app con Mammoth.js',
+    meta: 'Informativa sul trattamento dei dati personali',
     url: '/legal/privacy-policy-roomie.docx'
   },
   cookie: {
     title: 'COOKIE POLICY',
-    meta: 'Documento Word renderizzato in app con Mammoth.js',
+    meta: 'Cookie, sessione, pagamenti e preferenze',
     url: '/legal/cookie-policy-roomie.docx'
   }
 };
@@ -5303,7 +5310,7 @@ async function openLegalDoc(type) {
     if(body) body.innerHTML = result.value || '<p>Documento vuoto.</p>';
   } catch (_err) {
     if(body) body.innerHTML = '<p><strong>Documento non disponibile.</strong></p><p>Riprova tra qualche secondo o ricarica la pagina.</p>';
-    showToast({title:'Documento non caricato', copy:'Mammoth.js o il file DOCX non hanno risposto.', type:'warn'});
+    showToast({title:'Documento non caricato', copy:'Ricarica la pagina e riprova.', type:'warn'});
   }
 }
 
