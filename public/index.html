@@ -3000,11 +3000,15 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+function isTouchLikeDevice() {
+  return window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+}
+
 function setupMotionClasses() {
   document.querySelectorAll('.section,.section-sm,.booking-panel,.checkout-card,.confirm-hero,.shop-hero,.session-hero,.dashboard-hero,.token-card,.admin-card,.inside-tabs,.booking-step-panel,.live-mode-card').forEach(el => {
     el.classList.add('motion-reveal');
   });
-  document.querySelectorAll('.hero-bg,.shop-hero,.session-hero,.confirm-hero').forEach(el => {
+  document.querySelectorAll('.shop-hero,.session-hero,.confirm-hero').forEach(el => {
     el.classList.add('motion-parallax');
   });
   document.querySelectorAll('.chip,.inside-item,.addon-chip,.partner-chip,.bk-chip,.preset-chip,.event-chip,.booking-option-card,.friend-chip,.credit-pay-chip,.session-tile,.access-step,.safety-panel,.token-chip,.stat-card,.admin-card').forEach(el => {
@@ -3020,7 +3024,7 @@ function initPremiumMotion() {
   motionInitialized = true;
   setupMotionClasses();
 
-  if(prefersReducedMotion() || !window.gsap || !window.ScrollTrigger || !window.Lenis) {
+  if(prefersReducedMotion() || !window.gsap || !window.ScrollTrigger) {
     document.documentElement.classList.add('motion-ready');
     document.querySelectorAll('.motion-reveal,.motion-card,.motion-parallax,.motion-soft-blur').forEach(el => {
       el.style.opacity = '1';
@@ -3031,19 +3035,20 @@ function initPremiumMotion() {
   }
 
   gsap.registerPlugin(ScrollTrigger);
-  lenis = new Lenis({
-    duration:1.08,
-    easing:t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-    smoothWheel:true,
-    wheelMultiplier:.88,
-    touchMultiplier:1.12,
-    normalizeWheel:true,
-    autoRaf:false
-  });
-
-  lenis.on('scroll', ScrollTrigger.update);
-  gsap.ticker.add(time => lenis.raf(time * 1000));
-  gsap.ticker.lagSmoothing(0);
+  if(!isTouchLikeDevice() && window.Lenis) {
+    lenis = new Lenis({
+      duration:1.08,
+      easing:t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel:true,
+      smoothTouch:false,
+      wheelMultiplier:.88,
+      normalizeWheel:true,
+      autoRaf:false
+    });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(time => lenis.raf(time * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
   document.documentElement.classList.add('motion-ready');
 
   bindMagneticCards();
@@ -3086,8 +3091,10 @@ function refreshPremiumMotion(resetScroll=true) {
   });
 
   initCinematicHero(activePage);
-  initParallax(activePage);
-  initPinnedSections(activePage);
+  if(!isTouchLikeDevice()) {
+    initParallax(activePage);
+    initPinnedSections(activePage);
+  }
   if(resetScroll) scrollToTopImmediate();
   window.setTimeout(() => ScrollTrigger.refresh(), 90);
 }
@@ -3104,11 +3111,13 @@ function initCinematicHero(activePage) {
       {autoAlpha:0, y:44, filter:'blur(10px)'},
       {autoAlpha:1, y:0, filter:'blur(0px)', duration:1.28, ease:'expo.out', delay:.04}
     );
-    trackMotion(gsap.to(content, {
-      yPercent:-8,
-      ease:'none',
-      scrollTrigger:{trigger:hero, start:'top top', end:'bottom top', scrub:true}
-    }));
+    if(!isTouchLikeDevice()) {
+      trackMotion(gsap.to(content, {
+        yPercent:-8,
+        ease:'none',
+        scrollTrigger:{trigger:hero, start:'top top', end:'bottom top', scrub:true}
+      }));
+    }
   }
   if(dots) {
     gsap.fromTo(dots,
@@ -3116,14 +3125,7 @@ function initCinematicHero(activePage) {
       {autoAlpha:1, x:0, duration:.9, ease:'power4.out', delay:.28}
     );
   }
-  bgs.forEach(bg => {
-    trackMotion(gsap.to(bg, {
-      scale:1.075,
-      yPercent:7,
-      ease:'none',
-      scrollTrigger:{trigger:hero, start:'top top', end:'bottom top', scrub:true}
-    }));
-  });
+  bgs.forEach(bg => gsap.set(bg, {clearProps:'transform'}));
 }
 
 function initParallax(activePage) {
@@ -4095,6 +4097,7 @@ function bindHeroSwipe() {
     heroSwipeStartY = null;
   };
   hero.addEventListener('pointerdown', e => {
+    if(e.target.closest?.('button,a,input,textarea,select')) return;
     if(e.pointerType === 'mouse' && e.button !== 0) return;
     startSwipe(e.clientX, e.clientY);
   }, {passive:true});
@@ -4102,14 +4105,17 @@ function bindHeroSwipe() {
     endSwipe(e.clientX, e.clientY);
   }, {passive:true});
   hero.addEventListener('pointercancel', cancelSwipe, {passive:true});
-  hero.addEventListener('touchstart', e => {
-    const t = e.changedTouches?.[0];
-    if(t) startSwipe(t.clientX, t.clientY);
-  }, {passive:true});
-  hero.addEventListener('touchend', e => {
-    const t = e.changedTouches?.[0];
-    if(t) endSwipe(t.clientX, t.clientY);
-  }, {passive:true});
+  if(!window.PointerEvent) {
+    hero.addEventListener('touchstart', e => {
+      if(e.target.closest?.('button,a,input,textarea,select')) return;
+      const t = e.changedTouches?.[0];
+      if(t) startSwipe(t.clientX, t.clientY);
+    }, {passive:true});
+    hero.addEventListener('touchend', e => {
+      const t = e.changedTouches?.[0];
+      if(t) endSwipe(t.clientX, t.clientY);
+    }, {passive:true});
+  }
 }
 
 function setInsideTab(btn, id) {
