@@ -1113,26 +1113,46 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 
 /* ── DASHBOARD ── */
 .dash-header{
-  background:var(--dark2);border-bottom:1px solid var(--border);
-  padding:32px 20px;
+  position:relative;overflow:hidden;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.94),rgba(0,0,0,.74) 48%,rgba(0,0,0,.18)),
+    url('assets/images/roomie-hero-slide-2.webp') right center/cover;
+  border-bottom:1px solid rgba(200,255,0,.16);
+  padding:clamp(34px,6vw,76px) 20px;
 }
+.dash-header::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(90deg,#000,transparent 90%);pointer-events:none}
+.dash-shell{position:relative;z-index:1;max-width:960px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:end}
+.dash-kicker{font-size:.72rem;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--neon);margin-bottom:10px}
+.dash-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(3rem,6vw,5.8rem);font-weight:900;line-height:.86;color:#fff;max-width:560px}
+.dash-sub{font-size:1rem;color:rgba(255,255,255,.68);line-height:1.45;max-width:460px;margin-top:14px}
 .dash-wallet{
-  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  display:grid;grid-template-columns:1fr;gap:12px;
 }
 .dash-balance{
-  background:var(--dark3);border:1px solid rgba(200,255,0,.2);
-  border-radius:12px;padding:16px 20px;
-  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+  background:linear-gradient(145deg,rgba(200,255,0,.18),rgba(0,255,209,.06) 45%,rgba(12,12,12,.88));
+  border:1px solid rgba(200,255,0,.36);
+  border-radius:18px;padding:18px;
+  display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  box-shadow:0 20px 70px rgba(0,0,0,.36);
 }
+.dash-balance::after{content:'';position:absolute;right:-38px;top:-38px;width:140px;height:140px;border-radius:50%;background:rgba(200,255,0,.08);pointer-events:none}
 .dash-bal-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .dash-bal-val{
   font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.5rem;
   color:var(--neon);line-height:1;margin-top:4px;
 }
+.dash-balance .roomie-chip{--chip-size:72px;grid-row:1 / span 4;grid-column:2}
 .dash-buying-power{
   font-size:.78rem;color:rgba(255,255,255,.64);line-height:1.35;margin-top:8px;
-  max-width:220px;
+  max-width:260px;
 }
+.dash-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dash-mini-stat{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px 16px}
+.dash-mini-stat span{display:block;color:var(--muted);font-size:.76rem;font-weight:800}
+.dash-mini-stat strong{display:block;font-family:'Barlow Condensed',sans-serif;font-size:2rem;line-height:1;color:#fff;margin-top:6px}
+.dash-main{max-width:960px;margin:0 auto;padding:24px 16px 120px}
+.dash-primary-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:16px;align-items:stretch;margin-bottom:18px}
 .next-session-chip{
   background:linear-gradient(135deg,rgba(200,255,0,.12),rgba(0,255,209,.06));
   border:1px solid rgba(200,255,0,.38);border-radius:14px;padding:20px;margin-bottom:16px;
@@ -1157,6 +1177,9 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .session-action-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:10px;margin-top:16px}
 .session-action-grid .btn-neon,.session-action-grid button{min-height:46px;justify-content:center;border-radius:10px}
 .quiet-action{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#fff;font-weight:900}
+.dash-partner-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+.dash-partner-code{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;color:var(--neon);line-height:1;letter-spacing:.04em}
+.dash-section-label{font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
 .arrival-card{
   position:relative;overflow:hidden;border:1px solid rgba(0,255,209,.28);border-radius:16px;
   background:linear-gradient(135deg,rgba(0,255,209,.12),rgba(200,255,0,.06) 46%,var(--dark2));
@@ -1653,7 +1676,18 @@ body.auth-logged-out .app-subbar{display:none!important}
   .cart-footer{grid-template-columns:1fr}
   .cart-pay{width:100%;min-height:44px}
   .detail-grid{grid-template-columns:1fr 1fr}
-  .dash-wallet{flex-direction:column;align-items:stretch}
+  .dash-header{padding:26px 20px 34px;background-position:center top}
+  .dash-shell{grid-template-columns:1fr;gap:18px}
+  .dash-title{font-size:2.65rem;line-height:.9;max-width:360px}
+  .dash-sub{font-size:.92rem;line-height:1.45;margin-top:12px}
+  .dash-wallet{grid-template-columns:1fr}
+  .dash-balance{grid-template-columns:1fr auto;padding:16px}
+  .dash-balance .roomie-chip{--chip-size:58px}
+  .dash-mini-grid{display:none}
+  .dash-mini-stat{padding:12px}
+  .dash-mini-stat strong{font-size:1.6rem}
+  .dash-primary-grid{grid-template-columns:1fr}
+  .dash-main{padding-bottom:96px}
   .booking-body{padding:16px 16px 8px}
   .booking-shell{padding-bottom:116px!important}
   .checkout-shell,.session-shell{padding-bottom:150px!important}
@@ -1734,7 +1768,6 @@ body.auth-logged-out .app-subbar{display:none!important}
     <form class="auth-form active" id="login-form" onsubmit="login(event)">
       <div class="social-auth">
         <button class="social-btn google" type="button" onclick="socialLogin('google')"><i class="fab fa-google"></i> Continua con Google</button>
-        <button class="social-btn apple" type="button" onclick="socialLogin('apple')"><i class="fab fa-apple"></i> Continua con Apple</button>
       </div>
       <div class="auth-divider">oppure</div>
       <div class="form-group">
@@ -1752,7 +1785,6 @@ body.auth-logged-out .app-subbar{display:none!important}
     <form class="auth-form" id="register-form" onsubmit="register(event)">
       <div class="social-auth">
         <button class="social-btn google" type="button" onclick="socialLogin('google')"><i class="fab fa-google"></i> Registrati con Google</button>
-        <button class="social-btn apple" type="button" onclick="socialLogin('apple')"><i class="fab fa-apple"></i> Registrati con Apple</button>
       </div>
       <div class="auth-divider">oppure</div>
       <div class="form-group">
@@ -2743,51 +2775,52 @@ body.auth-logged-out .app-subbar{display:none!important}
 <!-- ═══════════════════════════════════════════ -->
 <div class="page" id="page-dashboard">
   <div class="dash-header">
-    <div style="max-width:700px;margin:0 auto">
-      <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">BENVENUTO</div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:#fff;line-height:1;margin-bottom:20px" id="dashboard-user-name">MARCO B.</div>
+    <div class="dash-shell">
+      <div>
+        <div class="dash-kicker">Bentornato</div>
+        <div class="dash-title"><span id="dashboard-user-name">MAURIZIO RINALDI</span>, LA ROOM TI ASPETTA.</div>
+        <div class="dash-sub">Da qui blocchi lo slot, inviti il gruppo, entri con i codici e gestisci chips e addon senza perdere tempo.</div>
+      </div>
       <div class="dash-wallet">
         <div class="dash-balance">
           <div class="dash-bal-label">SALDO CHIPS</div>
           <div class="dash-bal-val">108 chips</div>
+          <span class="roomie-chip" aria-hidden="true"></span>
           <div style="font-size:.75rem;color:var(--muted);margin-top:4px" id="dashboard-eur">= €108</div>
           <div class="dash-buying-power" id="dashboard-buying-power">Ti bastano per 9 ore room o 4 Ranked Session.</div>
-          <button onclick="showPage('token')" style="background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.3);color:var(--neon);border-radius:6px;padding:6px 12px;font-weight:700;font-size:.75rem;margin-top:10px;cursor:pointer">RICARICA</button>
+          <button onclick="showPage('token')" style="grid-column:1 / -1;background:rgba(200,255,0,.12);border:1px solid rgba(200,255,0,.32);color:var(--neon);border-radius:10px;padding:10px 12px;font-weight:900;font-size:.8rem;margin-top:4px;cursor:pointer">RICARICA CHIPS</button>
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:10px">
-          <div style="background:var(--dark3);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><div style="font-size:.8rem;color:var(--muted)">Sessioni totali</div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:#fff" id="dashboard-session-count">0</div></div>
-          <div style="background:var(--dark3);border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><div style="font-size:.8rem;color:var(--muted)">Chips spesi</div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--neon)" id="dashboard-chips-spent">0</div></div>
+        <div class="dash-mini-grid">
+          <div class="dash-mini-stat"><span>Sessioni</span><strong id="dashboard-session-count">0</strong></div>
+          <div class="dash-mini-stat"><span>Chips spesi</span><strong id="dashboard-chips-spent" style="color:var(--neon)">0</strong></div>
         </div>
       </div>
     </div>
   </div>
 
-  <div style="max-width:700px;margin:0 auto;padding:24px 16px">
-    <!-- Prossima sessione viva -->
-    <div class="next-session-chip session-launchpad" id="dashboard-next-session">
-      <div style="font-size:.72rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--neon);margin-bottom:8px"><i class="fas fa-gamepad"></i> PROSSIMA SESSIONE</div>
-      <div style="font-weight:900;color:#fff;font-size:1.15rem">Dom 15 Giu · 20:00</div>
-      <div class="countdown-text">Tra 2h 34m</div>
-      <button class="btn-neon w-full mt-16" style="justify-content:center;padding:13px" onclick="showPage('confirm')">APRI ACCESSO GUIDATO</button>
-    </div>
-
-    <div id="dashboard-insights" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px">
-      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff">🔥 3 sessioni</div><div style="font-size:.78rem;color:var(--muted)">questo mese</div></div>
-      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff">Sab 21:00 libero</div><div style="font-size:.78rem;color:var(--neon)">Blocca adesso →</div></div>
-    </div>
-
-    <!-- Codice partner -->
-    <div style="background:rgba(200,255,0,.06);border:1px solid rgba(200,255,0,.25);border-radius:12px;padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-      <div style="flex:1;min-width:140px">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">CODICE PARTNER RISTORANTI</div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--neon);letter-spacing:.1em">ROOMIE-MB7724</div>
-        <div style="font-size:.75rem;color:var(--muted);margin-top:2px">Mostralo per il -10% nei locali partner</div>
+  <div class="dash-main">
+    <div class="dash-primary-grid">
+      <div class="next-session-chip session-launchpad" id="dashboard-next-session">
+        <div class="session-kicker"><i class="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div>
+        <div class="session-main-title">Blocca la prossima serata.</div>
+        <div style="font-size:.92rem;color:rgba(255,255,255,.72);line-height:1.5;margin-top:10px;max-width:34rem">Scegli un preset, invita chi vuoi e arrivi con accesso, codici e addon già pronti.</div>
+        <div class="session-action-grid">
+          <button class="btn-neon" onclick="showPage('room')"><i class="fas fa-calendar-check"></i> PRENOTA ORA</button>
+          <button class="quiet-action" onclick="showPage('shop')"><i class="fas fa-shopping-bag"></i> SHOP</button>
+        </div>
       </div>
-      <button onclick="copyPartnerCode()" style="background:var(--neon);border:none;color:var(--dark);border-radius:8px;padding:10px 16px;font-weight:900;font-size:.8rem;flex-shrink:0">COPIA</button>
+      <div class="dash-partner-card">
+        <div>
+          <div class="dash-section-label">Partner vicino</div>
+          <div class="dash-partner-code">ROOMIE-MB7724</div>
+          <div style="font-size:.84rem;color:rgba(255,255,255,.64);line-height:1.45;margin-top:8px">Mostralo nei locali partner per il -10%.</div>
+        </div>
+        <button onclick="copyPartnerCode()" class="quiet-action" style="border-radius:10px;padding:12px;font-weight:900">COPIA CODICE</button>
+      </div>
     </div>
 
     <!-- Prossima prenotazione -->
-    <div style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">PROSSIMA SESSIONE</div>
+    <div class="dash-section-label" id="dashboard-next-booking-title">Prossima sessione</div>
     <div class="bk-chip" id="dashboard-next-booking-card" style="border-color:rgba(200,255,0,.3);margin-bottom:24px">
       <div class="bk-date"><div class="bk-day">15</div><div class="bk-month">GIU</div></div>
       <div class="bk-info">
@@ -2801,8 +2834,13 @@ body.auth-logged-out .app-subbar{display:none!important}
       <button onclick="showPage('confirm')" style="background:var(--neon);border:none;color:var(--dark);border-radius:8px;padding:8px 14px;font-weight:900;font-size:.78rem;flex-shrink:0">ENTRA</button>
     </div>
 
+    <div id="dashboard-insights" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+      <div style="background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:16px"><div style="font-weight:900;color:#fff"><i class="fas fa-fire"></i> 0 sessioni</div><div style="font-size:.78rem;color:var(--muted)">questo mese</div></div>
+      <div style="background:linear-gradient(135deg,rgba(200,255,0,.1),rgba(0,255,209,.045));border:1px solid rgba(200,255,0,.28);border-radius:14px;padding:16px"><div style="font-weight:900;color:#fff">NEON CHIP</div><div style="font-size:.78rem;color:var(--neon)">mancano 5 sessioni</div></div>
+    </div>
+
     <!-- Storico -->
-    <div id="dashboard-history-title" style="font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">STORICO</div>
+    <div id="dashboard-history-title" class="dash-section-label">Storico</div>
     <div id="dashboard-history-list"></div>
   </div>
 </div><!-- /page-dashboard -->
@@ -3759,7 +3797,7 @@ async function login(event) {
     showAuthError('Apri la versione online per entrare nel tuo account.');
     return;
   }
-  if(btn) btn.textContent = 'ENTRO...';
+  if(btn) btn.innerHTML = '<span class="roomie-chip roomie-chip-sm" aria-hidden="true"></span> ENTRO...';
   try {
     const username = document.getElementById('login-username')?.value || '';
     const password = document.getElementById('login-password')?.value || '';
@@ -3794,7 +3832,7 @@ async function register(event) {
     showAuthError('Apri la versione online per creare il tuo account.');
     return;
   }
-  if(btn) btn.textContent = 'CREO ACCOUNT...';
+  if(btn) btn.innerHTML = '<span class="roomie-chip roomie-chip-sm" aria-hidden="true"></span> CREO ACCOUNT...';
   try {
     const payload = {
       name: document.getElementById('register-name')?.value || '',
@@ -3903,8 +3941,8 @@ async function loadDashboardData() {
             <button class="quiet-action" onclick="showPage('room')"><i class="fas fa-redo"></i> RIPRENOTA</button>
           </div>`;
       } else {
-        nextBox.classList.remove('session-launchpad');
-        nextBox.innerHTML = `<div class="session-kicker"><i class="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div><div class="session-main-title">Blocca la prossima serata.</div><div style="font-size:.86rem;color:rgba(255,255,255,.66);line-height:1.45;margin-top:8px">Scegli un preset, invita chi vuoi e arrivi con il flusso accesso già pronto.</div><button class="btn-neon w-full mt-16" style="justify-content:center;padding:13px" onclick="showPage('room')">PRENOTA ORA</button>`;
+        nextBox.classList.add('session-launchpad');
+        nextBox.innerHTML = `<div class="session-kicker"><i class="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div><div class="session-main-title">Blocca la prossima serata.</div><div style="font-size:.92rem;color:rgba(255,255,255,.72);line-height:1.5;margin-top:10px;max-width:34rem">Scegli un preset, invita chi vuoi e arrivi con accesso, codici e addon già pronti.</div><div class="session-action-grid"><button class="btn-neon" onclick="showPage('room')"><i class="fas fa-calendar-check"></i> PRENOTA ORA</button><button class="quiet-action" onclick="showPage('shop')"><i class="fas fa-shopping-bag"></i> SHOP</button></div>`;
       }
     }
     const dashInsights = document.getElementById('dashboard-insights');
@@ -3917,13 +3955,17 @@ async function loadDashboardData() {
       const toNeon = Math.max(0, 5 - monthCount);
       dashInsights.innerHTML = `<div style="background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff"><i class="fas fa-fire"></i> ${monthCount} sessioni</div><div style="font-size:.78rem;color:var(--muted)">questo mese</div></div><div style="background:linear-gradient(135deg,rgba(200,255,0,.1),rgba(0,255,209,.045));border:1px solid rgba(200,255,0,.28);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff">NEON CHIP</div><div style="font-size:.78rem;color:var(--neon)">${toNeon ? `mancano ${toNeon} sessioni` : 'sbloccabile ora'}</div></div>`;
     }
+    const nextStaticTitle = document.getElementById('dashboard-next-booking-title');
     const nextStatic = document.getElementById('dashboard-next-booking-card');
+    if(nextStaticTitle) nextStaticTitle.style.display = next ? 'block' : 'none';
     if(nextStatic) {
       if(next) {
+        nextStatic.style.display = 'flex';
         const d = next.date ? new Date(next.date + 'T12:00:00') : new Date();
         nextStatic.innerHTML = `<div class="bk-date"><div class="bk-day">${String(d.getDate()).padStart(2,'0')}</div><div class="bk-month">${d.toLocaleDateString('it-IT', {month:'short'}).toUpperCase()}</div></div><div class="bk-info"><div class="bk-room">${next.room || 'Room Via Terni'} · Torino</div><div class="bk-time">${bookingTimeLabel(next)} · ${peopleText(next.people)} · accesso guidato</div></div><div><div class="bk-price">${next.totalChips || 0} chips</div><div class="status-badge s-paid" style="margin-top:4px">${statusLabel(next.status)}</div></div><button onclick="openBookingAccess('${next.id}')" style="background:var(--neon);border:none;color:var(--dark);border-radius:8px;padding:8px 14px;font-weight:900;font-size:.78rem;flex-shrink:0">ENTRA</button>`;
       } else {
-        nextStatic.innerHTML = '<div class="participant-note">Nessuna prossima sessione. Blocca la room quando vuoi.</div>';
+        nextStatic.style.display = 'none';
+        nextStatic.innerHTML = '';
       }
     }
     const history = document.getElementById('dashboard-history-list');
@@ -5193,7 +5235,7 @@ function confirmBookingPayment() {
   const loading = document.getElementById('pay-loading');
   loading.classList.remove('hidden');
   loading.style.display = 'flex';
-  const loadingText = loading.querySelector('div:last-child');
+  const loadingText = loading.querySelector('.roomie-loader-copy');
   if(loadingText) loadingText.textContent = 'PAGAMENTO IN CORSO...';
   setTimeout(async () => {
     loading.classList.add('hidden');
@@ -5554,7 +5596,7 @@ async function startStripeTopup(amount, returnPage='token') {
 
 async function buyTokens() {
   const btn = document.querySelector('#modal-token-buy .btn-neon');
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> APERTURA STRIPE...';
+  btn.innerHTML = '<span class="roomie-chip roomie-chip-sm" aria-hidden="true"></span> APERTURA STRIPE...';
   btn.disabled = true;
   try {
     const amount = parseInt(selectedAmt || 0, 10);
