@@ -11,9 +11,13 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'roomie-data') : path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'roomie-db.json');
+const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || '';
+const ALLOW_LOCAL_DB = !process.env.VERCEL && process.env.NODE_ENV !== 'production';
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const SESSION_COOKIE = 'roomie.auth';
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 12;
+let neonSql = null;
+let postgresReady = false;
 
 app.set('trust proxy', 1);
 
@@ -40,12 +44,9 @@ function defaultAddons() {
   ];
 }
 
-function seedDb() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (fs.existsSync(DB_FILE)) return;
-
+function createDefaultDb() {
   const now = new Date().toISOString();
-  const db = {
+  return {
     users: [
       {
         id: 'usr_admin',
@@ -86,23 +87,79 @@ function seedDb() {
     addonOrders: [],
     blockedSlots: []
   };
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-function readDb() {
-  seedDb();
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+function seedDb() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (fs.existsSync(DB_FILE)) return;
+  fs.writeFileSync(DB_FILE, JSON.stringify(createDefaultDb(), null, 2));
+}
+
+async function getSql() {
+  if (!DATABASE_URL) return null;
+  if (!neonSql) {
+    const { neon } = await import('@neondatabase/serverless');
+    neonSql = neon(DATABASE_URL);
+  }
+  return neonSql;
+}
+
+async function ensurePostgresDb() {
+  const sql = await getSql();
+  if (!sql || postgresReady) return sql;
+  await sql`CREATE TABLE IF NOT EXISTS roomie_state (
+    id TEXT PRIMARY KEY,
+    data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+  const initial = JSON.stringify(createDefaultDb());
+  await sql`INSERT INTO roomie_state (id, data)
+    VALUES ('main', CAST(${initial} AS jsonb))
+    ON CONFLICT (id) DO NOTHING`;
+  postgresReady = true;
+  return sql;
+}
+
+function normalizeDb(db) {
   let changed = false;
   if (!db.config) { db.config = defaultConfig(); changed = true; }
   if (!Array.isArray(db.addons)) { db.addons = defaultAddons(); changed = true; }
   if (!Array.isArray(db.addonOrders)) { db.addonOrders = []; changed = true; }
   if (!Array.isArray(db.blockedSlots)) { db.blockedSlots = []; changed = true; }
   if (!Array.isArray(db.stripeSessions)) { db.stripeSessions = []; changed = true; }
-  if (changed) writeDb(db);
+  return { db, changed };
+}
+
+async function readDb() {
+  if (DATABASE_URL) {
+    const sql = await ensurePostgresDb();
+    const rows = await sql`SELECT data FROM roomie_state WHERE id = 'main' LIMIT 1`;
+    const state = rows[0]?.data || createDefaultDb();
+    const { db, changed } = normalizeDb(state);
+    if (changed) await writeDb(db);
+    return db;
+  }
+  if (!ALLOW_LOCAL_DB) {
+    throw new Error('STORAGE_NOT_CONFIGURED');
+  }
+  seedDb();
+  const { db, changed } = normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, 'utf8')));
+  if (changed) await writeDb(db);
   return db;
 }
 
-function writeDb(db) {
+async function writeDb(db) {
+  if (DATABASE_URL) {
+    const sql = await ensurePostgresDb();
+    const data = JSON.stringify(db);
+    await sql`INSERT INTO roomie_state (id, data, updated_at)
+      VALUES ('main', CAST(${data} AS jsonb), NOW())
+      ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`;
+    return;
+  }
+  if (!ALLOW_LOCAL_DB) {
+    throw new Error('STORAGE_NOT_CONFIGURED');
+  }
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
@@ -187,10 +244,10 @@ function googleCallbackBridge() {
 </html>`;
 }
 
-function upsertGoogleUserFromProfile(profile) {
+async function upsertGoogleUserFromProfile(profile) {
   const email = normalizeEmail(profile.email);
   if (!email) return null;
-  const db = readDb();
+  const db = await readDb();
   let user = db.users.find(u => normalizeEmail(u.email) === email || (u.provider === 'google' && u.providerId === String(profile.sub || '')));
   if (!user) {
     user = {
@@ -207,14 +264,14 @@ function upsertGoogleUserFromProfile(profile) {
       createdAt: new Date().toISOString()
     };
     db.users.push(user);
-    writeDb(db);
-    logEvent('social_register', user.id, { provider: 'google', email });
+    await writeDb(db);
+    await logEvent('social_register', user.id, { provider: 'google', email });
   } else {
     user.provider = user.provider || 'google';
     user.providerId = user.providerId || String(profile.sub || '');
     user.avatar = user.avatar || profile.picture || '';
     user.name = user.name || String(profile.name || email.split('@')[0]).trim();
-    writeDb(db);
+    await writeDb(db);
   }
   return user;
 }
@@ -315,8 +372,8 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
-  const db = readDb();
+async function requireAdmin(req, res, next) {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   if (user.role !== 'admin') return res.status(403).json({ error: 'ADMIN_REQUIRED' });
@@ -324,8 +381,8 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function logEvent(type, userId, details = {}) {
-  const db = readDb();
+async function logEvent(type, userId, details = {}) {
+  const db = await readDb();
   db.auditLog.unshift({
     id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex'),
     type,
@@ -334,7 +391,7 @@ function logEvent(type, userId, details = {}) {
     createdAt: new Date().toISOString()
   });
   db.auditLog = db.auditLog.slice(0, 100);
-  writeDb(db);
+  await writeDb(db);
 }
 
 function overlaps(aStart, aEnd, bStart, bEnd) {
@@ -388,7 +445,7 @@ function ensureBookingAccess(booking, config = defaultConfig()) {
   return booking;
 }
 
-function creditStripeCheckoutSession(session) {
+async function creditStripeCheckoutSession(session) {
   if (!session || session.payment_status !== 'paid') return { credited: false, reason: 'NOT_PAID' };
   const sessionId = session.id;
   const userId = session.metadata?.userId;
@@ -396,7 +453,7 @@ function creditStripeCheckoutSession(session) {
   if (!sessionId || !userId || !Number.isInteger(amount) || amount <= 0 || amount > 500) {
     return { credited: false, reason: 'BAD_METADATA' };
   }
-  const db = readDb();
+  const db = await readDb();
   if ((db.stripeSessions || []).some(item => item.id === sessionId)) {
     return { credited: false, reason: 'ALREADY_CREDITED' };
   }
@@ -410,8 +467,8 @@ function creditStripeCheckoutSession(session) {
     paymentIntent: session.payment_intent || '',
     createdAt: new Date().toISOString()
   });
-  writeDb(db);
-  logEvent('stripe_wallet_topup', user.id, { amount, sessionId });
+  await writeDb(db);
+  await logEvent('stripe_wallet_topup', user.id, { amount, sessionId });
   return { credited: true, user: publicUser(user), amount };
 }
 
@@ -503,11 +560,14 @@ function buildDashboardSummary(user, db) {
   };
 }
 
-seedDb();
+if (ALLOW_LOCAL_DB && !DATABASE_URL) seedDb();
 
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
     return res.status(400).send('Stripe webhook not configured');
+  }
+  if (!DATABASE_URL && !ALLOW_LOCAL_DB) {
+    return res.status(503).send('Storage not configured');
   }
   const signature = req.headers['stripe-signature'];
   let event;
@@ -517,7 +577,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
     return res.status(400).send('Invalid Stripe signature');
   }
   if (event.type === 'checkout.session.completed') {
-    creditStripeCheckoutSession(event.data.object);
+    try {
+      await creditStripeCheckoutSession(event.data.object);
+    } catch (_err) {
+      return res.status(503).send('Storage not configured');
+    }
   }
   res.json({ received: true });
 });
@@ -525,9 +589,20 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req,
 app.use(express.json());
 app.use(attachSession);
 
-app.post('/api/auth/login', (req, res) => {
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health/storage' || req.path === '/health/oauth') return next();
+  if (!DATABASE_URL && !ALLOW_LOCAL_DB) {
+    return res.status(503).json({
+      error: 'STORAGE_NOT_CONFIGURED',
+      message: 'Configura DATABASE_URL/Postgres su Vercel prima di usare dati reali.'
+    });
+  }
+  next();
+});
+
+app.post('/api/auth/login', async (req, res) => {
   const { username, password, remember } = req.body || {};
-  const db = readDb();
+  const db = await readDb();
   const login = normalizeUsername(username);
   const user = db.users.find(u => u.username === login || normalizeEmail(u.email) === login);
   if (!user || !bcrypt.compareSync(String(password || ''), user.passwordHash)) {
@@ -537,12 +612,12 @@ app.post('/api/auth/login', (req, res) => {
   if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
   req.session.userId = user.id;
   res.commitSession();
-  logEvent('login', user.id, { username: user.username });
+  await logEvent('login', user.id, { username: user.username });
   res.json({ user: publicUser(user) });
 });
 
-app.post('/api/auth/register', (req, res) => {
-  const db = readDb();
+app.post('/api/auth/register', async (req, res) => {
+  const db = await readDb();
   const username = normalizeUsername(req.body?.username);
   const email = normalizeEmail(req.body?.email);
   const name = String(req.body?.name || '').trim();
@@ -579,11 +654,11 @@ app.post('/api/auth/register', (req, res) => {
     createdAt: new Date().toISOString()
   };
   db.users.push(user);
-  writeDb(db);
+  await writeDb(db);
   if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
   req.session.userId = user.id;
   res.commitSession();
-  logEvent('register', user.id, { username, email });
+  await logEvent('register', user.id, { username, email });
   res.status(201).json({ user: publicUser(user) });
 });
 
@@ -648,13 +723,13 @@ app.get('/api/auth/google/callback', async (req, res) => {
     if (!profileRes.ok || !email) {
       return redirectWithAuthError(req, res, 'GOOGLE_PROFILE_ERROR');
     }
-    const user = upsertGoogleUserFromProfile(profile);
+    const user = await upsertGoogleUserFromProfile(profile);
     if (!user) return redirectWithAuthError(req, res, 'GOOGLE_PROFILE_ERROR');
     if (user.suspended) return redirectWithAuthError(req, res, 'USER_SUSPENDED');
     req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
     req.session.userId = user.id;
     res.commitSession();
-    logEvent('social_login', user.id, { provider: 'google', email });
+    await logEvent('social_login', user.id, { provider: 'google', email });
     res.redirect(`${appBaseUrl(req)}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`);
   } catch (_err) {
     redirectWithAuthError(req, res, 'SOCIAL_LOGIN_ERROR');
@@ -693,13 +768,13 @@ app.post('/api/auth/google/token', async (req, res) => {
       name: tokenInfo.name || jwtPayload.name,
       picture: tokenInfo.picture || jwtPayload.picture
     };
-    const user = upsertGoogleUserFromProfile(profile);
+    const user = await upsertGoogleUserFromProfile(profile);
     if (!user) return res.status(401).json({ error: 'GOOGLE_PROFILE_ERROR' });
     if (user.suspended) return res.status(403).json({ error: 'USER_SUSPENDED' });
     req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
     req.session.userId = user.id;
     res.commitSession();
-    logEvent('social_login', user.id, { provider: 'google', email: profile.email, mode: 'id_token' });
+    await logEvent('social_login', user.id, { provider: 'google', email: profile.email, mode: 'id_token' });
     res.json({ user: publicUser(user), redirect: `/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social` });
   } catch (_err) {
     res.status(500).json({ error: 'SOCIAL_LOGIN_ERROR' });
@@ -726,25 +801,52 @@ app.get('/api/health/oauth', (_req, res) => {
   });
 });
 
-app.post('/api/auth/logout', requireAuth, (req, res) => {
-  const userId = req.session.userId;
-  req.session.destroy(() => {
-    logEvent('logout', userId);
-    res.clearCookie('roomie.sid');
-    res.json({ ok: true });
-  });
+app.get('/api/health/storage', async (_req, res) => {
+  if (!DATABASE_URL && !ALLOW_LOCAL_DB) {
+    return res.status(503).json({
+      driver: 'none',
+      persistent: false,
+      configured: false,
+      error: 'STORAGE_NOT_CONFIGURED'
+    });
+  }
+  try {
+    const db = await readDb();
+    res.json({
+      driver: DATABASE_URL ? 'postgres' : 'local-json',
+      persistent: Boolean(DATABASE_URL),
+      configured: Boolean(DATABASE_URL) || ALLOW_LOCAL_DB,
+      users: db.users.length,
+      bookings: db.bookings.length,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({
+      driver: DATABASE_URL ? 'postgres' : 'local-json',
+      persistent: Boolean(DATABASE_URL),
+      error: 'STORAGE_UNAVAILABLE'
+    });
+  }
 });
 
-app.get('/api/me', (req, res) => {
+app.post('/api/auth/logout', requireAuth, async (req, res) => {
+  const userId = req.session.userId;
+  req.session.destroy(() => {});
+  await logEvent('logout', userId);
+  res.clearCookie('roomie.sid');
+  res.json({ ok: true });
+});
+
+app.get('/api/me', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ user: null });
-  const db = readDb();
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ user: null });
   res.json({ user: publicUser(user) });
 });
 
-app.get('/api/app/config', (_req, res) => {
-  const db = readDb();
+app.get('/api/app/config', async (_req, res) => {
+  const db = await readDb();
   res.json({
     config: db.config,
     blockedSlots: db.blockedSlots || [],
@@ -754,13 +856,13 @@ app.get('/api/app/config', (_req, res) => {
   });
 });
 
-app.get('/api/addons', (_req, res) => {
-  const db = readDb();
+app.get('/api/addons', async (_req, res) => {
+  const db = await readDb();
   res.json({ addons: db.addons.filter(a => a.status !== 'deleted').map(serializeAddon) });
 });
 
-app.post('/api/addon-orders', requireAuth, (req, res) => {
-  const db = readDb();
+app.post('/api/addon-orders', requireAuth, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   const booking = db.bookings.find(b => b.id === req.body?.bookingId && (b.userId === user.id || user.role === 'admin'));
@@ -805,33 +907,33 @@ app.post('/api/addon-orders', requireAuth, (req, res) => {
     createdAt: new Date().toISOString()
   };
   db.addonOrders.unshift(order);
-  writeDb(db);
-  logEvent('addon_order_paid', user.id, { orderId: order.id, totalChips });
+  await writeDb(db);
+  await logEvent('addon_order_paid', user.id, { orderId: order.id, totalChips });
   res.status(201).json({ order, user: publicUser(user) });
 });
 
-app.get('/api/bookings', requireAuth, (req, res) => {
-  const db = readDb();
+app.get('/api/bookings', requireAuth, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   const bookings = user.role === 'admin'
     ? db.bookings
     : db.bookings.filter(b => b.userId === user.id);
   bookings.forEach(b => ensureBookingAccess(b, db.config));
-  writeDb(db);
+  await writeDb(db);
   res.json({ bookings: bookings.map(serializeBooking) });
 });
 
-app.get('/api/dashboard', requireAuth, (req, res) => {
-  const db = readDb();
+app.get('/api/dashboard', requireAuth, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   const summary = buildDashboardSummary(user, db);
-  writeDb(db);
+  await writeDb(db);
   res.json(summary);
 });
 
-app.post('/api/bookings', requireAuth, (req, res) => {
-  const db = readDb();
+app.post('/api/bookings', requireAuth, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   const id = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex');
@@ -870,13 +972,13 @@ app.post('/api/bookings', requireAuth, (req, res) => {
   };
   ensureBookingAccess(booking, db.config);
   db.bookings.unshift(booking);
-  writeDb(db);
-  logEvent('booking_created', req.session.userId, { bookingId: id, totalChips });
+  await writeDb(db);
+  await logEvent('booking_created', req.session.userId, { bookingId: id, totalChips });
   res.status(201).json({ booking: serializeBooking(booking), user: publicUser(user) });
 });
 
-app.post('/api/bookings/:id/extend', requireAuth, (req, res) => {
-  const db = readDb();
+app.post('/api/bookings/:id/extend', requireAuth, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   const booking = db.bookings.find(b => b.id === req.params.id && (b.userId === user.id || user.role === 'admin'));
@@ -894,22 +996,22 @@ app.post('/api/bookings/:id/extend', requireAuth, (req, res) => {
   booking.end = newEnd;
   booking.accessValidUntil = newEnd;
   booking.totalChips = Number(booking.totalChips || 0) + price;
-  writeDb(db);
-  logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price });
+  await writeDb(db);
+  await logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price });
   res.json({ booking: serializeBooking(booking), user: publicUser(user), charged: user.role === 'admin' ? 0 : price });
 });
 
-app.post('/api/wallet/topup', requireAuth, (req, res) => {
+app.post('/api/wallet/topup', requireAuth, async (req, res) => {
   const amount = Number(req.body.amount || 0);
   if (!Number.isInteger(amount) || amount <= 0 || amount > 500) {
     return res.status(400).json({ error: 'BAD_AMOUNT' });
   }
-  const db = readDb();
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   user.chips += amount;
-  writeDb(db);
-  logEvent('wallet_topup', user.id, { amount });
+  await writeDb(db);
+  await logEvent('wallet_topup', user.id, { amount });
   res.json({ user: publicUser(user), amount });
 });
 
@@ -919,7 +1021,7 @@ app.post('/api/stripe/topup-checkout', requireAuth, async (req, res) => {
   if (!Number.isInteger(amount) || amount <= 0 || amount > 500) {
     return res.status(400).json({ error: 'BAD_AMOUNT' });
   }
-  const db = readDb();
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.session.userId);
   if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
   const returnPage = ['token', 'checkout', 'room', 'shop', 'session'].includes(req.body.returnPage) ? req.body.returnPage : 'token';
@@ -959,15 +1061,15 @@ app.get('/api/stripe/success', requireAuth, async (req, res) => {
   const returnPage = ['token', 'checkout', 'room', 'shop', 'session'].includes(req.query.return) ? req.query.return : 'token';
   try {
     const checkout = await stripe.checkout.sessions.retrieve(sessionId);
-    const result = creditStripeCheckoutSession(checkout);
+    const result = await creditStripeCheckoutSession(checkout);
     res.redirect(`${appBaseUrl(req)}/?page=${returnPage}&stripe=${result.credited ? 'success' : result.reason === 'ALREADY_CREDITED' ? 'already' : 'pending'}`);
   } catch (_err) {
     res.redirect(`${appBaseUrl(req)}/?page=${returnPage}&stripe=error`);
   }
 });
 
-app.get('/api/admin/summary', requireAdmin, (req, res) => {
-  const db = readDb();
+app.get('/api/admin/summary', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const bookingRevenue = db.bookings.reduce((sum, b) => sum + Number(b.totalChips || 0), 0);
   const addonRevenue = (db.addonOrders || []).reduce((sum, order) => sum + Number(order.totalChips || 0), 0);
   const usersById = new Map(db.users.map(u => [u.id, u]));
@@ -981,7 +1083,7 @@ app.get('/api/admin/summary', requireAdmin, (req, res) => {
       userEmail: user?.email || ''
     };
   });
-  writeDb(db);
+  await writeDb(db);
   res.json({
     user: publicUser(req.user),
     summary: {
@@ -1019,8 +1121,8 @@ app.get('/api/admin/summary', requireAdmin, (req, res) => {
   });
 });
 
-app.patch('/api/admin/bookings/:id/status', requireAdmin, (req, res) => {
-  const db = readDb();
+app.patch('/api/admin/bookings/:id/status', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const booking = db.bookings.find(b => b.id === req.params.id);
   if (!booking) return res.status(404).json({ error: 'BOOKING_NOT_FOUND' });
   const status = String(req.body?.status || '').trim();
@@ -1031,13 +1133,13 @@ app.patch('/api/admin/bookings/:id/status', requireAdmin, (req, res) => {
     return res.status(409).json({ error: 'SLOT_BLOCKED' });
   }
   booking.status = status;
-  writeDb(db);
-  logEvent('admin_booking_status', req.user.id, { bookingId: booking.id, status });
+  await writeDb(db);
+  await logEvent('admin_booking_status', req.user.id, { bookingId: booking.id, status });
   res.json({ booking });
 });
 
-app.patch('/api/admin/bookings/:id', requireAdmin, (req, res) => {
-  const db = readDb();
+app.patch('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const booking = db.bookings.find(b => b.id === req.params.id);
   if (!booking) return res.status(404).json({ error: 'BOOKING_NOT_FOUND' });
   const nextBooking = { ...booking };
@@ -1057,27 +1159,27 @@ app.patch('/api/admin/bookings/:id', requireAdmin, (req, res) => {
   Object.assign(booking, nextBooking);
   ensureBookingAccess(booking, db.config);
   booking.accessValidUntil = booking.end || booking.accessValidUntil;
-  writeDb(db);
-  logEvent('admin_booking_update', req.user.id, { bookingId: booking.id });
+  await writeDb(db);
+  await logEvent('admin_booking_update', req.user.id, { bookingId: booking.id });
   res.json({ booking: serializeBooking(booking) });
 });
 
-app.patch('/api/admin/users/:id/chips', requireAdmin, (req, res) => {
+app.patch('/api/admin/users/:id/chips', requireAdmin, async (req, res) => {
   const amount = Number(req.body?.amount || 0);
   if (!Number.isInteger(amount) || amount < -500 || amount > 500 || amount === 0) {
     return res.status(400).json({ error: 'BAD_AMOUNT' });
   }
-  const db = readDb();
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
   user.chips = Math.max(0, Number(user.chips || 0) + amount);
-  writeDb(db);
-  logEvent('admin_wallet_adjust', req.user.id, { targetUserId: user.id, amount });
+  await writeDb(db);
+  await logEvent('admin_wallet_adjust', req.user.id, { targetUserId: user.id, amount });
   res.json({ user: publicUser(user) });
 });
 
-app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
-  const db = readDb();
+app.patch('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const user = db.users.find(u => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
   if (req.body.name !== undefined) user.name = String(req.body.name || user.name).trim();
@@ -1088,13 +1190,13 @@ app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
     user.role = role;
   }
   if (req.body.suspended !== undefined) user.suspended = Boolean(req.body.suspended);
-  writeDb(db);
-  logEvent('admin_user_update', req.user.id, { targetUserId: user.id });
+  await writeDb(db);
+  await logEvent('admin_user_update', req.user.id, { targetUserId: user.id });
   res.json({ user: publicUser(user) });
 });
 
-app.patch('/api/admin/config', requireAdmin, (req, res) => {
-  const db = readDb();
+app.patch('/api/admin/config', requireAdmin, async (req, res) => {
+  const db = await readDb();
   db.config = { ...defaultConfig(), ...(db.config || {}) };
   ['hourlyPrice', 'dayPrice', 'guestPassPrice', 'maxPeople'].forEach(key => {
     if (req.body[key] !== undefined) {
@@ -1109,13 +1211,13 @@ app.patch('/api/admin/config', requireAdmin, (req, res) => {
     if (code.length < 4) return res.status(400).json({ error: 'BAD_CODE' });
     db.config.lockboxCode = code;
   }
-  writeDb(db);
-  logEvent('admin_config_update', req.user.id, db.config);
+  await writeDb(db);
+  await logEvent('admin_config_update', req.user.id, db.config);
   res.json({ config: db.config });
 });
 
-app.post('/api/admin/addons', requireAdmin, (req, res) => {
-  const db = readDb();
+app.post('/api/admin/addons', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const name = String(req.body?.name || '').trim();
   const price = Number(req.body?.price || 0);
   if (!name || !Number.isFinite(price) || price < 0) return res.status(400).json({ error: 'BAD_ADDON' });
@@ -1130,13 +1232,13 @@ app.post('/api/admin/addons', requireAdmin, (req, res) => {
     soldToday: 0
   });
   db.addons.unshift(addon);
-  writeDb(db);
-  logEvent('admin_addon_create', req.user.id, { addonId: addon.id });
+  await writeDb(db);
+  await logEvent('admin_addon_create', req.user.id, { addonId: addon.id });
   res.status(201).json({ addon });
 });
 
-app.patch('/api/admin/addons/:id', requireAdmin, (req, res) => {
-  const db = readDb();
+app.patch('/api/admin/addons/:id', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const addon = db.addons.find(a => a.id === req.params.id);
   if (!addon) return res.status(404).json({ error: 'ADDON_NOT_FOUND' });
   ['name', 'description', 'brand', 'category', 'status'].forEach(key => {
@@ -1147,23 +1249,23 @@ app.patch('/api/admin/addons/:id', requireAdmin, (req, res) => {
     if (!Number.isFinite(price) || price < 0) return res.status(400).json({ error: 'BAD_PRICE' });
     addon.price = price;
   }
-  writeDb(db);
-  logEvent('admin_addon_update', req.user.id, { addonId: addon.id });
+  await writeDb(db);
+  await logEvent('admin_addon_update', req.user.id, { addonId: addon.id });
   res.json({ addon: serializeAddon(addon) });
 });
 
-app.delete('/api/admin/addons/:id', requireAdmin, (req, res) => {
-  const db = readDb();
+app.delete('/api/admin/addons/:id', requireAdmin, async (req, res) => {
+  const db = await readDb();
   const addon = db.addons.find(a => a.id === req.params.id);
   if (!addon) return res.status(404).json({ error: 'ADDON_NOT_FOUND' });
   addon.status = 'deleted';
-  writeDb(db);
-  logEvent('admin_addon_delete', req.user.id, { addonId: addon.id });
+  await writeDb(db);
+  await logEvent('admin_addon_delete', req.user.id, { addonId: addon.id });
   res.json({ ok: true });
 });
 
-app.post('/api/admin/blocked-slots', requireAdmin, (req, res) => {
-  const db = readDb();
+app.post('/api/admin/blocked-slots', requireAdmin, async (req, res) => {
+  const db = await readDb();
   db.blockedSlots = db.blockedSlots || [];
   const date = req.body?.date;
   const start = req.body?.start;
@@ -1178,16 +1280,16 @@ app.post('/api/admin/blocked-slots', requireAdmin, (req, res) => {
     createdAt: new Date().toISOString()
   };
   db.blockedSlots.unshift(slot);
-  writeDb(db);
-  logEvent('admin_block_slot', req.user.id, slot);
+  await writeDb(db);
+  await logEvent('admin_block_slot', req.user.id, slot);
   res.status(201).json({ slot });
 });
 
-app.delete('/api/admin/blocked-slots/:id', requireAdmin, (req, res) => {
-  const db = readDb();
+app.delete('/api/admin/blocked-slots/:id', requireAdmin, async (req, res) => {
+  const db = await readDb();
   db.blockedSlots = (db.blockedSlots || []).filter(slot => slot.id !== req.params.id);
-  writeDb(db);
-  logEvent('admin_unblock_slot', req.user.id, { slotId: req.params.id });
+  await writeDb(db);
+  await logEvent('admin_unblock_slot', req.user.id, { slotId: req.params.id });
   res.json({ ok: true });
 });
 
