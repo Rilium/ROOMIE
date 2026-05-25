@@ -437,6 +437,72 @@ function serializeAddon(addon) {
   };
 }
 
+function bookingStartDate(booking) {
+  const date = booking?.date || '1970-01-01';
+  const start = booking?.start || '00:00';
+  const value = new Date(`${date}T${start}:00`);
+  return Number.isNaN(value.getTime()) ? new Date(0) : value;
+}
+
+function buildDashboardSummary(user, db) {
+  const now = new Date();
+  const bookings = (db.bookings || [])
+    .filter(b => b.userId === user.id)
+    .map(b => serializeBooking(ensureBookingAccess(b, db.config)));
+  const sorted = [...bookings].sort((a, b) => bookingStartDate(a) - bookingStartDate(b));
+  const upcoming = sorted.filter(b => activeStatuses().includes(b.status) && bookingStartDate(b) >= now);
+  const next = upcoming[0] || sorted.find(b => activeStatuses().includes(b.status)) || null;
+  const completed = bookings.filter(b => ['confirmed', 'completed'].includes(b.status));
+  const monthCount = completed.filter(b => {
+    const d = bookingStartDate(b);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  const totalSpent = bookings.reduce((sum, b) => sum + Number(b.totalChips || 0), 0);
+  const toNeon = Math.max(0, 5 - monthCount);
+  const favorite = completed.reduce((acc, b) => {
+    const key = `${b.start || '20:00'}|${bookingStartDate(b).getDay()}`;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const favoriteKey = Object.entries(favorite).sort((a, b) => b[1] - a[1])[0]?.[0] || '20:00|5';
+  const [favoriteStart, favoriteDay] = favoriteKey.split('|');
+  const recommended = {
+    dayIndex: Number(favoriteDay || 5),
+    start: favoriteStart || '20:00',
+    durationHours: 2,
+    title: bookings.length ? 'Riprendi il tuo slot forte' : 'Prima sessione consigliata',
+    copy: bookings.length
+      ? 'Stesso ritmo del tuo gruppo, meno decisioni da prendere.'
+      : 'Ranked Session da 2h: prezzo chiaro, esperienza completa, zero overthinking.'
+  };
+  const mission = next
+    ? { title: 'Arriva senza attrito', copy: 'Codici, accesso guidato e addon sono pronti nella prossima sessione.', cta: 'APRI ACCESSO', page: 'confirm' }
+    : user.chips >= Number(db.config?.hourlyPrice || 12)
+      ? { title: 'Blocca la prima serata', copy: 'Hai già chips per partire. Scegli preset, ora e gruppo.', cta: 'PRENOTA ORA', page: 'room' }
+      : { title: 'Carica la chip', copy: 'Ricarica il saldo e blocca il primo slot senza uscire dal flow.', cta: 'RICARICA', page: 'token' };
+  const recommendedAddons = (db.addons || [])
+    .filter(a => a.status === 'active')
+    .sort((a, b) => Number(b.soldToday || 0) - Number(a.soldToday || 0))
+    .slice(0, 3)
+    .map(serializeAddon);
+  return {
+    user: publicUser(user),
+    bookings,
+    next,
+    history: [...bookings].sort((a, b) => bookingStartDate(b) - bookingStartDate(a)).slice(0, 6),
+    stats: {
+      totalBookings: bookings.length,
+      totalSpent,
+      monthCount,
+      toNeon,
+      chips: Number(user.chips || 0)
+    },
+    mission,
+    recommended,
+    recommendedAddons
+  };
+}
+
 seedDb();
 
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
@@ -531,11 +597,11 @@ app.get('/api/auth/google', (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
-    response_type: 'id_token',
+    response_type: 'code',
     scope: 'openid email profile',
     state,
-    nonce: state,
-    prompt: 'select_account'
+    prompt: 'select_account',
+    access_type: 'online'
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
 });
@@ -753,6 +819,15 @@ app.get('/api/bookings', requireAuth, (req, res) => {
   bookings.forEach(b => ensureBookingAccess(b, db.config));
   writeDb(db);
   res.json({ bookings: bookings.map(serializeBooking) });
+});
+
+app.get('/api/dashboard', requireAuth, (req, res) => {
+  const db = readDb();
+  const user = db.users.find(u => u.id === req.session.userId);
+  if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
+  const summary = buildDashboardSummary(user, db);
+  writeDb(db);
+  res.json(summary);
 });
 
 app.post('/api/bookings', requireAuth, (req, res) => {

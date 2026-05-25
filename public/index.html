@@ -1180,6 +1180,15 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .dash-partner-card{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:space-between;gap:14px}
 .dash-partner-code{font-family:'Barlow Condensed',sans-serif;font-size:2rem;font-weight:900;color:var(--neon);line-height:1;letter-spacing:.04em}
 .dash-section-label{font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.dash-reco-card{margin-top:14px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.38);border-radius:14px;padding:12px 14px;display:grid;gap:4px;max-width:420px}
+.dash-reco-card span{font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.dash-reco-card strong{font-family:'Barlow Condensed',sans-serif;font-size:1.7rem;line-height:1;color:#fff}
+.dash-reco-card small{font-size:.78rem;color:rgba(255,255,255,.66);line-height:1.35}
+.dash-insight-card{background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:16px}
+.dash-insight-card div{font-weight:900;color:#fff}
+.dash-insight-card span{display:block;font-size:.78rem;color:var(--muted);margin-top:4px}
+.dash-insight-card.accent{background:linear-gradient(135deg,rgba(200,255,0,.1),rgba(0,255,209,.045));border-color:rgba(200,255,0,.28)}
+.dash-insight-card.accent span{color:var(--neon)}
 .arrival-card{
   position:relative;overflow:hidden;border:1px solid rgba(0,255,209,.28);border-radius:16px;
   background:linear-gradient(135deg,rgba(0,255,209,.12),rgba(200,255,0,.06) 46%,var(--dark2));
@@ -1687,6 +1696,7 @@ body.auth-logged-out .app-subbar{display:none!important}
   .dash-mini-stat{padding:12px}
   .dash-mini-stat strong{font-size:1.6rem}
   .dash-primary-grid{grid-template-columns:1fr}
+  #dashboard-insights{grid-template-columns:1fr!important}
   .dash-main{padding-bottom:96px}
   .booking-body{padding:16px 16px 8px}
   .booking-shell{padding-bottom:116px!important}
@@ -3067,8 +3077,8 @@ body.auth-logged-out .app-subbar{display:none!important}
         </div>
         <div class="post-auth-card" style="margin-top:10px">
           <div class="post-auth-label">Slot consigliato</div>
-          <div class="post-auth-value" style="font-size:1.7rem">Stasera 20:00</div>
-          <div class="post-auth-meta">Ranked Session · 2h · perfetta per gruppo.</div>
+          <div class="post-auth-value" id="post-auth-slot" style="font-size:1.7rem">Stasera 20:00</div>
+          <div class="post-auth-meta" id="post-auth-slot-copy">Ranked Session · 2h · perfetta per gruppo.</div>
         </div>
       </div>
       <div class="post-auth-actions">
@@ -3621,6 +3631,10 @@ async function initAuth(initialPage='home') {
     currentUser = data.user;
     applyAuthState();
     showPage(initialPage, false);
+    if(params.get('auth') === 'social' && currentUser?.role !== 'admin') {
+      window.setTimeout(() => showPostAuthWow('login'), 220);
+      cleanQueryParam('auth');
+    }
     showStripeStatus();
   } catch (_err) {
     currentUser = null;
@@ -3751,13 +3765,26 @@ function showPostAuthWow(kind='login') {
   if(!modal) return;
   const balance = document.getElementById('post-auth-balance');
   const buying = document.getElementById('post-auth-buying');
+  const slot = document.getElementById('post-auth-slot');
+  const slotCopy = document.getElementById('post-auth-slot-copy');
   const chips = Number(currentUser?.chips || walletBalance || 0);
   if(balance) balance.textContent = chips + ' chips';
   if(buying) buying.textContent = kind === 'register'
     ? 'Welcome chips attive. Puoi bloccare la prima sessione.'
     : chips >= 24 ? 'Hai già abbastanza chips per una Ranked Session.' : 'Ricarica e blocca il prossimo slot.';
+  if(slot) slot.textContent = nextPrimeSlotLabel();
+  if(slotCopy) slotCopy.textContent = chips >= 24
+    ? 'Ranked Session · 2h · pronta da bloccare con il tuo saldo.'
+    : 'Ricarica rapida e torni qui con lo slot già impostato.';
   modal.classList.remove('hidden');
   burstConfetti(kind === 'register' ? 110 : 84);
+}
+
+function nextPrimeSlotLabel() {
+  const d = new Date();
+  const hour = d.getHours();
+  const label = hour >= 18 ? 'Stasera 21:00' : hour >= 12 ? 'Stasera 20:00' : 'Oggi 20:00';
+  return label;
 }
 
 function updateWalletUI() {
@@ -3907,18 +3934,22 @@ async function loadAdminSummary() {
 async function loadDashboardData() {
   if(!currentUser || location.protocol === 'file:') return;
   try {
-    const data = await api('/api/bookings');
+    const data = await api('/api/dashboard').catch(async () => {
+      const fallback = await api('/api/bookings');
+      return {bookings:fallback.bookings || [], stats:null, mission:null, recommendedAddons:[]};
+    });
     const bookings = data.bookings || [];
     const sorted = [...bookings].sort((a,b) => bookingSortValue(a) - bookingSortValue(b));
     const now = new Date();
     const upcoming = sorted.filter(b => activeStatusesClient().includes(b.status) && bookingIsUpcoming(b));
     const past = [...bookings].sort((a,b) => bookingSortValue(b) - bookingSortValue(a));
-    const totalSpent = bookings.reduce((sum, b) => sum + Number(b.totalChips || 0), 0);
+    const stats = data.stats || {};
+    const totalSpent = Number(stats.totalSpent ?? bookings.reduce((sum, b) => sum + Number(b.totalChips || 0), 0));
     const count = document.getElementById('dashboard-session-count');
-    if(count) count.textContent = bookings.length;
+    if(count) count.textContent = Number(stats.totalBookings ?? bookings.length);
     const spent = document.getElementById('dashboard-chips-spent');
     if(spent) spent.textContent = totalSpent;
-    const next = upcoming[0] || sorted.find(b => activeStatusesClient().includes(b.status));
+    const next = data.next || upcoming[0] || sorted.find(b => activeStatusesClient().includes(b.status));
     if(next) applyBookingToAccess(next);
     const nextBox = document.getElementById('dashboard-next-session');
     if(nextBox) {
@@ -3941,19 +3972,32 @@ async function loadDashboardData() {
             <button class="quiet-action" onclick="showPage('room')"><i class="fas fa-redo"></i> RIPRENOTA</button>
           </div>`;
       } else {
+        const mission = data.mission || {title:'Blocca la prossima serata', copy:'Scegli un preset, invita chi vuoi e arrivi con accesso, codici e addon già pronti.', cta:'PRENOTA ORA', page:'room'};
+        const rec = data.recommended || {};
+        const addons = (data.recommendedAddons || []).map(a => `<span class="shop-reco-pill">${a.brand || 'ROOMIE'} · ${a.name}</span>`).join('');
         nextBox.classList.add('session-launchpad');
-        nextBox.innerHTML = `<div class="session-kicker"><i class="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div><div class="session-main-title">Blocca la prossima serata.</div><div style="font-size:.92rem;color:rgba(255,255,255,.72);line-height:1.5;margin-top:10px;max-width:34rem">Scegli un preset, invita chi vuoi e arrivi con accesso, codici e addon già pronti.</div><div class="session-action-grid"><button class="btn-neon" onclick="showPage('room')"><i class="fas fa-calendar-check"></i> PRENOTA ORA</button><button class="quiet-action" onclick="showPage('shop')"><i class="fas fa-shopping-bag"></i> SHOP</button></div>`;
+        nextBox.innerHTML = `<div class="session-kicker"><i class="fas fa-bullseye"></i> PROSSIMA MOSSA</div>
+          <div class="session-main-title">${mission.title}</div>
+          <div style="font-size:.92rem;color:rgba(255,255,255,.72);line-height:1.5;margin-top:10px;max-width:34rem">${mission.copy}</div>
+          <div class="dash-reco-card">
+            <span>${rec.title || 'Slot consigliato'}</span>
+            <strong>${rec.start || '20:00'} · ${rec.durationHours || 2}h</strong>
+            <small>${rec.copy || 'Setup bilanciato per partire senza pensarci troppo.'}</small>
+          </div>
+          ${addons ? `<div class="shop-reco-strip">${addons}</div>` : ''}
+          <div class="session-action-grid"><button class="btn-neon" onclick="showPage('${mission.page || 'room'}')"><i class="fas fa-calendar-check"></i> ${mission.cta || 'PRENOTA ORA'}</button><button class="quiet-action" onclick="showPage('shop')"><i class="fas fa-shopping-bag"></i> SHOP</button></div>`;
       }
     }
     const dashInsights = document.getElementById('dashboard-insights');
     if(dashInsights) {
-      const monthCount = bookings.filter(b => {
+      const monthCount = Number(stats.monthCount ?? bookings.filter(b => {
         if(!b.date) return false;
         const d = new Date(b.date + 'T12:00:00');
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      }).length;
-      const toNeon = Math.max(0, 5 - monthCount);
-      dashInsights.innerHTML = `<div style="background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff"><i class="fas fa-fire"></i> ${monthCount} sessioni</div><div style="font-size:.78rem;color:var(--muted)">questo mese</div></div><div style="background:linear-gradient(135deg,rgba(200,255,0,.1),rgba(0,255,209,.045));border:1px solid rgba(200,255,0,.28);border-radius:10px;padding:14px"><div style="font-weight:900;color:#fff">NEON CHIP</div><div style="font-size:.78rem;color:var(--neon)">${toNeon ? `mancano ${toNeon} sessioni` : 'sbloccabile ora'}</div></div>`;
+      }).length);
+      const toNeon = Number(stats.toNeon ?? Math.max(0, 5 - monthCount));
+      const chips = Number(stats.chips ?? currentUser?.chips ?? walletBalance ?? 0);
+      dashInsights.innerHTML = `<div class="dash-insight-card"><div><i class="fas fa-fire"></i> ${monthCount} sessioni</div><span>questo mese</span></div><div class="dash-insight-card accent"><div>NEON CHIP</div><span>${toNeon ? `mancano ${toNeon} sessioni` : 'sbloccabile ora'}</span></div><div class="dash-insight-card"><div>${chips} chips</div><span>saldo disponibile</span></div>`;
     }
     const nextStaticTitle = document.getElementById('dashboard-next-booking-title');
     const nextStatic = document.getElementById('dashboard-next-booking-card');
@@ -3970,9 +4014,10 @@ async function loadDashboardData() {
     }
     const history = document.getElementById('dashboard-history-list');
     const historyTitle = document.getElementById('dashboard-history-title');
-    if(historyTitle) historyTitle.style.display = past.length ? 'block' : 'none';
+    const historyItems = data.history || past;
+    if(historyTitle) historyTitle.style.display = historyItems.length ? 'block' : 'none';
     if(history) {
-      history.innerHTML = past.slice(0, 6).map(b => {
+      history.innerHTML = historyItems.slice(0, 6).map(b => {
         const d = b.date ? new Date(b.date + 'T12:00:00') : new Date();
         const day = String(d.getDate()).padStart(2,'0');
         const month = d.toLocaleDateString('it-IT', {month:'short'}).toUpperCase();
