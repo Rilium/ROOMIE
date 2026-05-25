@@ -13,6 +13,7 @@ const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'roomie-data') : path.jo
 const DB_FILE = path.join(DATA_DIR, 'roomie-db.json');
 const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || '';
 const ALLOW_LOCAL_DB = !process.env.VERCEL && process.env.NODE_ENV !== 'production';
+const IS_PRODUCTION_RUNTIME = process.env.VERCEL || process.env.NODE_ENV === 'production';
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const SESSION_COOKIE = 'roomie.auth';
 const SESSION_MAX_AGE = 1000 * 60 * 60 * 12;
@@ -127,7 +128,40 @@ function normalizeDb(db) {
   if (!Array.isArray(db.addonOrders)) { db.addonOrders = []; changed = true; }
   if (!Array.isArray(db.blockedSlots)) { db.blockedSlots = []; changed = true; }
   if (!Array.isArray(db.stripeSessions)) { db.stripeSessions = []; changed = true; }
+  if (applyAdminBootstrap(db)) changed = true;
   return { db, changed };
+}
+
+function applyAdminBootstrap(db) {
+  const password = process.env.ADMIN_PASSWORD || '';
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH || '';
+  if (!password && !passwordHash) return false;
+  const username = normalizeUsername(process.env.ADMIN_USERNAME || 'admin');
+  const name = String(process.env.ADMIN_NAME || 'ROOMIE Admin').trim();
+  let changed = false;
+  let admin = db.users.find(u => u.role === 'admin') || db.users.find(u => normalizeUsername(u.username) === username);
+  if (!admin) {
+    admin = {
+      id: 'usr_admin',
+      username,
+      name,
+      role: 'admin',
+      chips: 999,
+      passwordHash: passwordHash || bcrypt.hashSync(password, 10),
+      createdAt: new Date().toISOString()
+    };
+    db.users.push(admin);
+    return true;
+  }
+  const nextHash = passwordHash || bcrypt.hashSync(password, 10);
+  if (normalizeUsername(admin.username) !== username) { admin.username = username; changed = true; }
+  if (admin.name !== name) { admin.name = name; changed = true; }
+  if (admin.role !== 'admin') { admin.role = 'admin'; changed = true; }
+  if (admin.suspended) { admin.suspended = false; changed = true; }
+  if (!admin.passwordHash || !bcrypt.compareSync(password || crypto.randomBytes(18).toString('hex'), admin.passwordHash)) {
+    if (admin.passwordHash !== nextHash) { admin.passwordHash = nextHash; changed = true; }
+  }
+  return changed;
 }
 
 async function readDb() {
@@ -608,6 +642,9 @@ app.post('/api/auth/login', async (req, res) => {
   if (!user || !bcrypt.compareSync(String(password || ''), user.passwordHash)) {
     return res.status(401).json({ error: 'BAD_CREDENTIALS' });
   }
+  if (IS_PRODUCTION_RUNTIME && user.role === 'admin' && String(password || '') === 'admin') {
+    return res.status(403).json({ error: 'ADMIN_DEFAULT_PASSWORD_DISABLED' });
+  }
   if (user.suspended) return res.status(403).json({ error: 'USER_SUSPENDED' });
   if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
   req.session.userId = user.id;
@@ -827,6 +864,23 @@ app.get('/api/health/storage', async (_req, res) => {
       error: 'STORAGE_UNAVAILABLE'
     });
   }
+});
+
+app.get('/api/health/payments', (_req, res) => {
+  const secret = process.env.STRIPE_SECRET_KEY || '';
+  const publishable = process.env.STRIPE_PUBLISHABLE_KEY || '';
+  const webhook = process.env.STRIPE_WEBHOOK_SECRET || '';
+  res.json({
+    stripe: {
+      secretConfigured: Boolean(secret),
+      publishableConfigured: Boolean(publishable),
+      webhookConfigured: Boolean(webhook),
+      mode: secret.startsWith('sk_live_') ? 'live' : secret.startsWith('sk_test_') ? 'test' : 'unknown',
+      checkoutReady: Boolean(secret),
+      webhookReady: Boolean(secret && webhook),
+      endpoint: 'https://roomie.rilio.it/api/stripe/webhook'
+    }
+  });
 });
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
