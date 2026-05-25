@@ -5478,19 +5478,80 @@ const legalDocs = {
   terms: {
     title: 'TERMINI E CONDIZIONI',
     meta: 'Condizioni d’uso del servizio Roomie',
-    url: '/legal/termini-condizioni-roomie.docx'
+    url: '/legal/termini-condizioni-roomie.docx',
+    fallback: `
+      <h1>Termini e Condizioni Roomie</h1>
+      <p><strong>Ultimo aggiornamento:</strong> 25 maggio 2026</p>
+      <h2>1. Servizio</h2>
+      <p>Roomie consente di prenotare a ore uno spazio privato in Via Terni, Torino, con accesso tramite codice temporaneo, chip fisica NFC o strumenti equivalenti indicati nell'app.</p>
+      <h2>2. Account e prenotazioni</h2>
+      <p>L'utente deve fornire dati corretti, custodire le credenziali e usare la room solo nella fascia oraria prenotata. La prenotazione è personale, salvo inviti o guest pass generati dalla piattaforma.</p>
+      <h2>3. Chips, pagamenti e rimborsi</h2>
+      <p>Le chips sono credito prepagato interno: 1 chip equivale a 1 euro di valore di utilizzo nel servizio Roomie. Eventuali rimborsi o storni sono valutati secondo stato della prenotazione, utilizzo e norme applicabili.</p>
+      <h2>4. Accesso fisico e responsabilità</h2>
+      <p>L'utente deve richiudere cassaforte, riporre la chiave della serranda quando prevista, chiudere la porta e lasciare lo spazio in condizioni corrette. Danni, usi impropri o mancata restituzione degli strumenti di accesso possono generare addebiti.</p>
+      <h2>5. Regole della room</h2>
+      <p>Non sono consentiti comportamenti pericolosi, attività illegali, danneggiamenti, disturbo al vicinato o accessi fuori prenotazione. Roomie può sospendere account o accessi in caso di abuso.</p>
+      <h2>6. Contatti</h2>
+      <p>Per supporto o richieste: contatta Roomie dai canali indicati nell'app.</p>`
   },
   privacy: {
     title: 'PRIVACY POLICY',
     meta: 'Informativa sul trattamento dei dati personali',
-    url: '/legal/privacy-policy-roomie.docx'
+    url: '/legal/privacy-policy-roomie.docx',
+    fallback: `
+      <h1>Privacy Policy Roomie</h1>
+      <p><strong>Ultimo aggiornamento:</strong> 25 maggio 2026</p>
+      <h2>1. Dati trattati</h2>
+      <p>Roomie tratta dati di account, contatto, prenotazione, pagamenti, saldo chips, log di accesso, preferenze e interazioni necessarie a erogare il servizio.</p>
+      <h2>2. Finalità</h2>
+      <p>I dati sono usati per registrazione, autenticazione, gestione prenotazioni, pagamenti, accesso fisico alla room, sicurezza, assistenza, comunicazioni operative e miglioramento del servizio.</p>
+      <h2>3. Base giuridica</h2>
+      <p>Il trattamento si basa su esecuzione del contratto, obblighi legali, legittimo interesse alla sicurezza e, dove richiesto, consenso dell'utente.</p>
+      <h2>4. Conservazione</h2>
+      <p>I dati sono conservati per il tempo necessario a fornire il servizio, rispettare obblighi normativi e gestire contestazioni o sicurezza.</p>
+      <h2>5. Diritti</h2>
+      <p>L'utente può chiedere accesso, rettifica, cancellazione, limitazione, opposizione e portabilità secondo la normativa applicabile.</p>
+      <h2>6. Sicurezza</h2>
+      <p>Roomie adotta misure tecniche e organizzative ragionevoli per proteggere account, pagamenti e accessi.</p>`
   },
   cookie: {
     title: 'COOKIE POLICY',
     meta: 'Cookie, sessione, pagamenti e preferenze',
-    url: '/legal/cookie-policy-roomie.docx'
+    url: '/legal/cookie-policy-roomie.docx',
+    fallback: `
+      <h1>Cookie Policy Roomie</h1>
+      <p><strong>Ultimo aggiornamento:</strong> 25 maggio 2026</p>
+      <h2>1. Cookie tecnici</h2>
+      <p>Roomie usa cookie tecnici per login, sessione, sicurezza, preferenze e corretto funzionamento dell'app.</p>
+      <h2>2. Cookie di pagamento e terze parti</h2>
+      <p>Servizi come Stripe, Google o Apple possono usare tecnologie proprie per autenticazione, pagamento, prevenzione frodi e sicurezza.</p>
+      <h2>3. Preferenze</h2>
+      <p>Alcune impostazioni, come sessione persistente o stato dell'interfaccia, possono essere salvate per migliorare l'esperienza.</p>
+      <h2>4. Gestione</h2>
+      <p>L'utente può gestire o cancellare i cookie dal browser. La disattivazione dei cookie tecnici può impedire login, prenotazioni o pagamenti.</p>`
   }
 };
+
+function legalDocDownloadLink(doc) {
+  return `<p style="margin-top:18px"><a href="${doc.url}" target="_blank" rel="noopener" style="color:#111;font-weight:900">Apri il documento originale DOCX</a></p>`;
+}
+
+function waitForMammoth(timeout=2600) {
+  if(window.mammoth) return Promise.resolve(window.mammoth);
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const timer = window.setInterval(() => {
+      if(window.mammoth) {
+        window.clearInterval(timer);
+        resolve(window.mammoth);
+      } else if(Date.now() - start > timeout) {
+        window.clearInterval(timer);
+        reject(new Error('MAMMOTH_TIMEOUT'));
+      }
+    }, 120);
+  });
+}
 
 async function openLegalDoc(type) {
   const doc = legalDocs[type];
@@ -5505,15 +5566,15 @@ async function openLegalDoc(type) {
   if(body) body.innerHTML = '<div class="legal-loading"><span class="roomie-chip roomie-chip-loader" aria-hidden="true"></span> Caricamento documento...</div>';
   modal?.classList.remove('hidden');
   try {
-    if(!window.mammoth) throw new Error('MAMMOTH_NOT_READY');
+    await waitForMammoth();
     const response = await fetch(doc.url);
     if(!response.ok) throw new Error('DOC_NOT_FOUND');
     const arrayBuffer = await response.arrayBuffer();
     const result = await window.mammoth.convertToHtml({arrayBuffer});
-    if(body) body.innerHTML = result.value || '<p>Documento vuoto.</p>';
-  } catch (_err) {
-    if(body) body.innerHTML = '<p><strong>Documento non disponibile.</strong></p><p>Riprova tra qualche secondo o ricarica la pagina.</p>';
-    showToast({title:'Documento non caricato', copy:'Ricarica la pagina e riprova.', type:'warn'});
+    if(body) body.innerHTML = (result.value || doc.fallback) + legalDocDownloadLink(doc);
+  } catch (err) {
+    if(body) body.innerHTML = doc.fallback + legalDocDownloadLink(doc);
+    showToast({title:'Documento aperto', copy:'Ti mostro la versione leggibile in app.', type:'info'});
   }
 }
 
