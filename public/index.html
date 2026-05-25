@@ -78,7 +78,7 @@
   --token:#C8FF00;
   --r:8px;
 }
-html{scroll-behavior:smooth;overflow-x:hidden}
+html{scroll-behavior:smooth;overflow-x:hidden;width:100%;max-width:100%}
 html.lenis,
 html.lenis body{height:auto}
 html.lenis.lenis-smooth{scroll-behavior:auto!important}
@@ -92,6 +92,8 @@ body{
   font-size:16px;
   line-height:1.5;
   overflow-x:hidden;
+  width:100%;
+  max-width:100%;
   min-height:100vh;
 }
 img{max-width:100%;display:block}
@@ -1352,7 +1354,7 @@ body.auth-logged-out .mobile-bottom-nav,
 body.auth-logged-out .nav,
 body.auth-logged-out .app-subbar,
 body.auth-logged-out .page{display:none!important}
-.login-page{min-height:100svh;display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden;background:var(--dark)}
+.login-page{min-height:100svh;display:grid;place-items:center;padding:24px 16px;position:relative;overflow:hidden;background:var(--dark);width:100%;max-width:100%}
 .login-page::before{
   content:'';position:absolute;inset:0;
   background:
@@ -1363,8 +1365,9 @@ body.auth-logged-out .page{display:none!important}
   opacity:.95;transform:scale(1.02);transition:background-image .8s ease;
 }
 .login-page::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.024) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.65) 44%,transparent 100%);pointer-events:none}
-.login-shell{width:min(1060px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,430px);gap:18px;align-items:stretch;position:relative;z-index:1}
+.login-shell{width:min(430px,calc(100% - 32px));max-width:100%;display:block;position:relative;z-index:1}
 .auth-landing{
+  display:none!important;
   min-height:620px;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:28px;
   display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;position:relative;
   background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018));
@@ -1376,7 +1379,7 @@ body.auth-logged-out .page{display:none!important}
 .login-brand{font-family:'Bebas Neue',sans-serif;font-size:4.8rem;line-height:.84;color:var(--neon);letter-spacing:.02em;text-shadow:0 0 32px rgba(200,255,0,.32);margin-top:42px}
 .login-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(3.4rem,7vw,6.8rem);color:#fff;line-height:.86;letter-spacing:.01em;margin:18px 0 16px;max-width:650px}
 .login-sub{color:rgba(255,255,255,.74);font-size:1.05rem;line-height:1.5;margin-bottom:0;max-width:560px}
-.auth-proof-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:34px;max-width:620px}
+.auth-proof-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:34px;max-width:620px}
 .auth-proof{border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;background:rgba(0,0,0,.28);min-height:96px}
 .auth-proof strong{display:block;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:1.55rem;line-height:1;font-weight:900;margin-bottom:6px}
 .auth-proof span{display:block;color:rgba(255,255,255,.58);font-size:.78rem;font-weight:800;line-height:1.28}
@@ -1385,7 +1388,7 @@ body.auth-logged-out .page{display:none!important}
 .auth-live-title{color:#fff;font-weight:900;font-size:.92rem}
 .auth-live-meta{color:rgba(255,255,255,.56);font-size:.78rem;font-weight:800;margin-top:2px}
 .auth-live-status{color:var(--dark);background:var(--neon);border-radius:999px;padding:6px 9px;font-size:.66rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
-.auth-panel{background:rgba(15,15,15,.94);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(20px)}
+.auth-panel{background:rgba(15,15,15,.94);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(20px);margin:0 auto}
 .auth-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
 .auth-panel-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;color:#fff;line-height:1}
 .auth-panel-sub{color:rgba(255,255,255,.58);font-size:.82rem;font-weight:800;margin-top:4px}
@@ -1414,21 +1417,61 @@ body.auth-logged-out .page{display:none!important}
 .auth-offline.visible{display:block}
 .auth-check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem;font-weight:800;margin:-2px 0 14px}
 .auth-check input{accent-color:var(--neon);width:16px;height:16px}
+.post-auth-box{
+  max-width:940px;min-height:min(78vh,680px);padding:0;overflow:hidden;
+  display:grid;grid-template-columns:minmax(0,1fr) 360px;border-radius:28px;
+  background:#080808;border:1px solid rgba(255,255,255,.12);
+}
+.post-auth-box::before{
+  content:'';position:absolute;inset:-1px;z-index:0;pointer-events:none;
+  background:radial-gradient(circle at 28% 12%,rgba(200,255,0,.22),transparent 28%),radial-gradient(circle at 82% 22%,rgba(0,255,209,.14),transparent 24%);
+}
+.post-auth-box>*{position:relative;z-index:1}
+.post-auth-visual{
+  position:relative;min-height:520px;padding:30px;display:flex;flex-direction:column;justify-content:flex-end;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.9),rgba(0,0,0,.52) 48%,rgba(0,0,0,.12)),
+    url('assets/images/roomie-hero-slide-2.webp') center/cover;
+}
+.post-auth-visual::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.78));pointer-events:none}
+.post-auth-copy{position:relative;z-index:1;max-width:540px}
+.post-auth-kicker{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(200,255,0,.28);border-radius:999px;background:rgba(0,0,0,.48);padding:8px 12px;color:var(--neon);font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
+.post-auth-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(3.2rem,7vw,6.4rem);font-weight:900;line-height:.84;color:#fff;letter-spacing:.01em}
+.post-auth-title span{color:var(--neon)}
+.post-auth-sub{color:rgba(255,255,255,.74);font-size:1rem;line-height:1.45;margin-top:14px;max-width:440px}
+.post-auth-panel{padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:18px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018))}
+.post-auth-card{border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;background:rgba(255,255,255,.045)}
+.post-auth-label{font-size:.68rem;color:var(--muted);font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.post-auth-value{font-family:'Barlow Condensed',sans-serif;color:#fff;font-size:2rem;font-weight:900;line-height:1}
+.post-auth-meta{color:rgba(255,255,255,.58);font-size:.82rem;font-weight:800;margin-top:4px;line-height:1.35}
+.post-auth-actions{display:grid;gap:10px}
+.post-auth-actions .btn-neon,.post-auth-actions .btn-outline-neon{width:100%;justify-content:center}
+.post-auth-chip-stage{
+  display:flex;align-items:center;justify-content:center;min-height:118px;margin:4px 0 18px;
+}
+.post-auth-chip-stage .roomie-chip{--chip-size:104px;animation:chipSpin 2.8s cubic-bezier(.22,1,.36,1) infinite}
+.post-auth-card + .post-auth-card{margin-top:16px!important}
+.modal-box.post-auth-box{position:relative}
 @media(max-width:820px){
-  .login-page{place-items:start center;padding:14px 12px 22px;overflow:auto}
-  .login-shell{grid-template-columns:1fr;gap:12px}
+  .login-page{place-items:start center;padding:14px 12px 22px;overflow-y:auto;overflow-x:hidden}
+  .login-shell{width:100%;max-width:430px;grid-template-columns:1fr;gap:12px}
   .auth-landing{min-height:auto;padding:20px;border-radius:20px}
   .login-brand{font-size:3rem;margin-top:26px}
   .login-title{font-size:3.55rem;margin:14px 0 12px}
   .login-sub{font-size:.92rem}
-  .auth-proof-grid{grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:20px}
+  .auth-proof-grid{grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:20px}
   .auth-proof{padding:10px;min-height:auto}
   .auth-proof strong{font-size:1.25rem}
   .auth-proof span{font-size:.68rem}
   .auth-live-card{display:none}
   .auth-panel{border-radius:20px;padding:18px}
+  .post-auth-box{grid-template-columns:1fr;min-height:0;border-radius:22px}
+  .post-auth-visual{min-height:390px;padding:22px}
+  .post-auth-panel{padding:18px}
 }
 @media(max-width:420px){
+  .login-shell{max-width:100%}
+  .auth-panel{width:100%;padding:16px}
   .auth-proof-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .login-title{font-size:3rem}
   .auth-proof{padding:10px 8px;text-align:center}
@@ -1603,6 +1646,9 @@ body.auth-logged-out .page{display:none!important}
   .bk-chip{gap:12px}
 }
 @media (pointer:coarse), (max-width:760px){
+  html,body,.login-page{overflow-x:hidden!important;max-width:100%!important}
+  .login-page{overscroll-behavior-x:none}
+  .login-page::before{transform:none}
   body::before{display:none}
   .motion-reveal,.motion-card,.motion-parallax,.motion-soft-blur{
     opacity:1!important;
@@ -2934,6 +2980,39 @@ body.auth-logged-out .page{display:none!important}
   </div>
 </div>
 
+<!-- Post-auth wow modal -->
+<div class="modal-overlay hidden" id="modal-post-auth">
+  <div class="modal-box post-auth-box">
+    <button class="modal-close" onclick="closeModal('modal-post-auth')"><i class="fas fa-times"></i></button>
+    <section class="post-auth-visual" aria-label="Roomie pronta">
+      <div class="post-auth-copy">
+        <div class="post-auth-kicker"><i class="fas fa-sparkles"></i> Accesso completato</div>
+        <div class="post-auth-title">SEI<br><span>DENTRO.</span></div>
+        <div class="post-auth-sub">La room è pronta quando vuoi: scegli uno slot, invita il gruppo, entra con chip o codice.</div>
+      </div>
+    </section>
+    <aside class="post-auth-panel">
+      <div>
+        <div class="post-auth-chip-stage"><span class="roomie-chip" aria-hidden="true"></span></div>
+        <div class="post-auth-card">
+          <div class="post-auth-label">Il tuo saldo</div>
+          <div class="post-auth-value" id="post-auth-balance">0 chips</div>
+          <div class="post-auth-meta" id="post-auth-buying">Pronto per bloccare la room.</div>
+        </div>
+        <div class="post-auth-card" style="margin-top:10px">
+          <div class="post-auth-label">Slot consigliato</div>
+          <div class="post-auth-value" style="font-size:1.7rem">Stasera 20:00</div>
+          <div class="post-auth-meta">Ranked Session · 2h · perfetta per gruppo.</div>
+        </div>
+      </div>
+      <div class="post-auth-actions">
+        <button class="btn-neon" onclick="closeModal('modal-post-auth');showPage('room')"><i class="fas fa-calendar-check"></i> PRENOTA ORA</button>
+        <button class="btn-outline-neon" onclick="closeModal('modal-post-auth');showPage('dashboard')">VAI AL PROFILO</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
 <!-- NFC modal -->
 <div class="modal-overlay hidden" id="modal-nfc">
   <div class="modal-box">
@@ -3551,6 +3630,21 @@ function applyAuthState() {
   updatePrice();
 }
 
+function showPostAuthWow(kind='login') {
+  if(currentUser?.role === 'admin') return;
+  const modal = document.getElementById('modal-post-auth');
+  if(!modal) return;
+  const balance = document.getElementById('post-auth-balance');
+  const buying = document.getElementById('post-auth-buying');
+  const chips = Number(currentUser?.chips || walletBalance || 0);
+  if(balance) balance.textContent = chips + ' chips';
+  if(buying) buying.textContent = kind === 'register'
+    ? 'Welcome chips attive. Puoi bloccare la prima sessione.'
+    : chips >= 24 ? 'Hai già abbastanza chips per una Ranked Session.' : 'Ricarica e blocca il prossimo slot.';
+  modal.classList.remove('hidden');
+  burstConfetti(kind === 'register' ? 110 : 84);
+}
+
 function updateWalletUI() {
   const chips = Number(currentUser?.chips ?? walletBalance ?? 0);
   walletBalance = chips;
@@ -3598,8 +3692,9 @@ async function login(event) {
     });
     currentUser = data.user;
     applyAuthState();
-    showPage(currentUser.role === 'admin' ? 'admin' : 'dashboard', false);
-    showToast({title:'Bentornato', copy:'Saldo, chips e prenotazioni sono aggiornati.'});
+    showPage(currentUser.role === 'admin' ? 'admin' : 'home', false);
+    if(currentUser.role === 'admin') showToast({title:'Bentornato admin', copy:'Back office operativo pronto.'});
+    else showPostAuthWow('login');
   } catch (err) {
     showAuthError(authErrorMessage(err.message));
   } finally {
@@ -3630,8 +3725,8 @@ async function register(event) {
     });
     currentUser = data.user;
     applyAuthState();
-    showPage('dashboard', false);
-    showToast({title:'Account creato', copy:'Hai 24 chips welcome già nel saldo.'});
+    showPage('home', false);
+    showPostAuthWow('register');
   } catch (err) {
     showAuthError(authErrorMessage(err.message));
   } finally {
@@ -5612,10 +5707,11 @@ function showToast(msg) {
   }, 3100);
 }
 
-function burstConfetti() {
+function burstConfetti(count=44) {
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const colors = ['#C8FF00','#00FFD1','#ffffff'];
-  for(let i=0;i<44;i++){
+  const total = Math.min(140, Math.max(24, count));
+  for(let i=0;i<total;i++){
     const p = document.createElement('span');
     p.className = 'confetti-piece';
     p.style.left = Math.random()*100 + 'vw';
