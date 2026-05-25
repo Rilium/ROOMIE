@@ -3337,7 +3337,7 @@ function showAuthError(message) {
 
 function socialLogin(provider) {
   if(location.protocol === 'file:') {
-    showAuthError('Apri la versione online per usare il social login.');
+    window.location.href = 'https://roomie.rilio.it/api/auth/' + provider;
     return;
   }
   window.location.href = '/api/auth/' + provider;

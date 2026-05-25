@@ -145,6 +145,80 @@ function googleTokenErrorCode(token = {}) {
   return 'GOOGLE_TOKEN_ERROR';
 }
 
+function decodeJwtPayload(token) {
+  try {
+    const payload = String(token || '').split('.')[1];
+    if (!payload) return {};
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch (_err) {
+    return {};
+  }
+}
+
+function googleCallbackBridge() {
+  return `<!doctype html>
+<html lang="it">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROOMIE Google Login</title></head>
+<body style="margin:0;background:#050505;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh">
+  <div style="text-align:center;padding:24px">
+    <div style="font-size:32px;font-weight:900;letter-spacing:.08em;margin-bottom:10px">ROOMIE</div>
+    <div style="color:#bdbdbd">Accesso Google in corso...</div>
+  </div>
+  <script>
+  (async function(){
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const body = { id_token: hash.get('id_token'), state: hash.get('state') };
+    try {
+      const res = await fetch('/api/auth/google/token', {
+        method:'POST',
+        credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok || !data.redirect) throw new Error(data.error || 'SOCIAL_LOGIN_ERROR');
+      location.replace(data.redirect);
+    } catch (err) {
+      location.replace('/?auth_error=' + encodeURIComponent(err.message || 'SOCIAL_LOGIN_ERROR'));
+    }
+  })();
+  </script>
+</body>
+</html>`;
+}
+
+function upsertGoogleUserFromProfile(profile) {
+  const email = normalizeEmail(profile.email);
+  if (!email) return null;
+  const db = readDb();
+  let user = db.users.find(u => normalizeEmail(u.email) === email || (u.provider === 'google' && u.providerId === String(profile.sub || '')));
+  if (!user) {
+    user = {
+      id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex'),
+      username: uniqueUsername(db, safeUsernameFromEmail(email, 'google')),
+      email,
+      name: String(profile.name || email.split('@')[0]).trim(),
+      role: 'user',
+      chips: 24,
+      provider: 'google',
+      providerId: String(profile.sub || ''),
+      avatar: profile.picture || '',
+      passwordHash: bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 10),
+      createdAt: new Date().toISOString()
+    };
+    db.users.push(user);
+    writeDb(db);
+    logEvent('social_register', user.id, { provider: 'google', email });
+  } else {
+    user.provider = user.provider || 'google';
+    user.providerId = user.providerId || String(profile.sub || '');
+    user.avatar = user.avatar || profile.picture || '';
+    user.name = user.name || String(profile.name || email.split('@')[0]).trim();
+    writeDb(db);
+  }
+  return user;
+}
+
 function parseCookies(header = '') {
   return String(header || '').split(';').reduce((cookies, part) => {
     const index = part.indexOf('=');
@@ -457,9 +531,10 @@ app.get('/api/auth/google', (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
-    response_type: 'code',
+    response_type: 'id_token',
     scope: 'openid email profile',
     state,
+    nonce: state,
     prompt: 'select_account'
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
@@ -468,6 +543,10 @@ app.get('/api/auth/google', (req, res) => {
 app.get('/api/auth/google/callback', async (req, res) => {
   try {
     const { code, state } = req.query || {};
+    if (!code) {
+      res.type('html').send(googleCallbackBridge());
+      return;
+    }
     if (!code || !state || state !== req.session.oauthState) {
       return redirectWithAuthError(req, res, 'SOCIAL_STATE_ERROR');
     }
@@ -503,31 +582,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
     if (!profileRes.ok || !email) {
       return redirectWithAuthError(req, res, 'GOOGLE_PROFILE_ERROR');
     }
-    const db = readDb();
-    let user = db.users.find(u => normalizeEmail(u.email) === email || (u.provider === 'google' && u.providerId === profile.sub));
-    if (!user) {
-      user = {
-        id: crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(12).toString('hex'),
-        username: uniqueUsername(db, safeUsernameFromEmail(email, 'google')),
-        email,
-        name: String(profile.name || email.split('@')[0]).trim(),
-        role: 'user',
-        chips: 24,
-        provider: 'google',
-        providerId: String(profile.sub || ''),
-        avatar: profile.picture || '',
-        passwordHash: bcrypt.hashSync(crypto.randomBytes(24).toString('hex'), 10),
-        createdAt: new Date().toISOString()
-      };
-      db.users.push(user);
-      writeDb(db);
-      logEvent('social_register', user.id, { provider: 'google', email });
-    } else {
-      user.provider = user.provider || 'google';
-      user.providerId = user.providerId || String(profile.sub || '');
-      user.avatar = user.avatar || profile.picture || '';
-      writeDb(db);
-    }
+    const user = upsertGoogleUserFromProfile(profile);
+    if (!user) return redirectWithAuthError(req, res, 'GOOGLE_PROFILE_ERROR');
     if (user.suspended) return redirectWithAuthError(req, res, 'USER_SUSPENDED');
     req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
     req.session.userId = user.id;
@@ -536,6 +592,51 @@ app.get('/api/auth/google/callback', async (req, res) => {
     res.redirect(`${appBaseUrl(req)}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`);
   } catch (_err) {
     redirectWithAuthError(req, res, 'SOCIAL_LOGIN_ERROR');
+  }
+});
+
+app.post('/api/auth/google/token', async (req, res) => {
+  try {
+    const idToken = String(req.body?.id_token || '');
+    const state = String(req.body?.state || '');
+    if (!idToken || !state || state !== req.session.oauthState) {
+      return res.status(401).json({ error: 'SOCIAL_STATE_ERROR' });
+    }
+    const tokenRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    const tokenInfo = await tokenRes.json();
+    const jwtPayload = decodeJwtPayload(idToken);
+    const issuerOk = tokenInfo.iss === 'https://accounts.google.com' || tokenInfo.iss === 'accounts.google.com';
+    if (!tokenRes.ok || tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID || !issuerOk) {
+      console.error('Google id_token validation failed', {
+        status: tokenRes.status,
+        error: tokenInfo.error,
+        audMatches: tokenInfo.aud === process.env.GOOGLE_CLIENT_ID,
+        iss: tokenInfo.iss
+      });
+      return res.status(401).json({ error: 'GOOGLE_TOKEN_ERROR' });
+    }
+    if ((tokenInfo.nonce || jwtPayload.nonce) !== req.session.oauthState) {
+      return res.status(401).json({ error: 'SOCIAL_STATE_ERROR' });
+    }
+    delete req.session.oauthState;
+    const profile = {
+      ...jwtPayload,
+      ...tokenInfo,
+      sub: tokenInfo.sub || jwtPayload.sub,
+      email: tokenInfo.email || jwtPayload.email,
+      name: tokenInfo.name || jwtPayload.name,
+      picture: tokenInfo.picture || jwtPayload.picture
+    };
+    const user = upsertGoogleUserFromProfile(profile);
+    if (!user) return res.status(401).json({ error: 'GOOGLE_PROFILE_ERROR' });
+    if (user.suspended) return res.status(403).json({ error: 'USER_SUSPENDED' });
+    req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 30;
+    req.session.userId = user.id;
+    res.commitSession();
+    logEvent('social_login', user.id, { provider: 'google', email: profile.email, mode: 'id_token' });
+    res.json({ user: publicUser(user), redirect: `/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social` });
+  } catch (_err) {
+    res.status(500).json({ error: 'SOCIAL_LOGIN_ERROR' });
   }
 });
 
