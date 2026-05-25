@@ -1216,9 +1216,22 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .quick-control{min-height:68px;border-radius:13px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);color:#fff;padding:10px;text-align:left;font-weight:900}
 .quick-control i{display:block;color:var(--neon);font-size:1.05rem;margin-bottom:6px}
 .quick-control span{display:block;color:var(--muted);font-size:.68rem;font-weight:800;margin-top:2px}
-.drawer-panel{position:fixed;inset:0;z-index:4200;background:rgba(0,0,0,.55);display:flex;justify-content:flex-start}
-.drawer-box{width:min(310px,84vw);height:100%;background:var(--dark2);border-right:1px solid var(--border);padding:22px 18px;box-shadow:20px 0 60px rgba(0,0,0,.45)}
-.drawer-link{width:100%;display:flex;align-items:center;justify-content:space-between;background:var(--dark3);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:13px 14px;margin-top:8px;font-weight:800}
+.drawer-panel{position:fixed;inset:0;z-index:4200;background:rgba(0,0,0,.62);display:flex;justify-content:flex-start;backdrop-filter:blur(6px)}
+.drawer-box{width:min(354px,88vw);height:100%;background:linear-gradient(180deg,rgba(28,28,28,.98),rgba(13,13,13,.98));border-right:1px solid rgba(255,255,255,.1);padding:18px;box-shadow:24px 0 70px rgba(0,0,0,.55);overflow-y:auto}
+.drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
+.drawer-brand{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--neon);line-height:1;letter-spacing:.05em}
+.drawer-user{font-size:.8rem;color:rgba(255,255,255,.58);font-weight:800;margin-top:3px}
+.drawer-primary{width:100%;display:flex;align-items:center;justify-content:space-between;background:var(--neon);border:0;border-radius:12px;color:var(--dark);padding:14px 15px;margin:14px 0 16px;font-weight:950;letter-spacing:.02em}
+.drawer-section{font-size:.68rem;color:rgba(255,255,255,.42);font-weight:950;letter-spacing:.12em;text-transform:uppercase;margin:16px 2px 8px}
+.drawer-link{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);border-radius:12px;color:var(--text);padding:12px;margin-top:8px;font-weight:900;text-align:left}
+.drawer-link:hover{border-color:rgba(200,255,0,.38);background:rgba(200,255,0,.07)}
+.drawer-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;background:rgba(200,255,0,.09);color:var(--neon);flex:none}
+.drawer-main{display:block;color:#fff;font-size:.93rem;line-height:1.1}
+.drawer-sub{display:block;color:rgba(255,255,255,.48);font-size:.73rem;font-weight:800;margin-top:3px;line-height:1.25}
+.drawer-chevron{color:rgba(255,255,255,.34);font-size:.82rem}
+.drawer-admin{border-color:rgba(255,90,31,.34);background:rgba(255,90,31,.08)}
+.drawer-admin .drawer-icon{background:rgba(255,90,31,.12);color:var(--orange)}
+.drawer-logout{margin-top:18px;color:#ffb08a;border-color:rgba(255,90,31,.28);background:rgba(255,90,31,.08)}
 .preset-title i,.inside-tab i,.trust-pill i,.shop-tab i,.drawer-link span:first-child i,.btn-neon i,.btn-addon i,.cart-pay i,.ps-btn i,.subbar-title i,.live-status-card i,.confirm-emoji i,.section-label i,.access-secondary-btn i,.access-hold-btn i{
   margin-right:8px;
 }
@@ -2691,6 +2704,7 @@ body.auth-logged-out .page{display:none!important}
 
 <footer class="legal-footer" aria-label="Documenti legali Roomie">
   <span>ROOMIE</span>
+  <button type="button" onclick="openLegalDoc('terms')">Termini e Condizioni</button>
   <button type="button" onclick="openLegalDoc('privacy')">Privacy Policy</button>
   <button type="button" onclick="openLegalDoc('cookie')">Cookie Policy</button>
   <span>Via Terni · Torino</span>
@@ -2703,22 +2717,22 @@ body.auth-logged-out .page{display:none!important}
 <!-- Side menu -->
 <div class="drawer-panel hidden" id="side-menu" onclick="if(event.target===this) closeMenu()">
   <div class="drawer-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+    <div class="drawer-head">
       <div>
-        <div style="font-family:'Bebas Neue';font-size:2rem;color:var(--neon);line-height:1">ROOMIE</div>
-        <div style="font-size:.78rem;color:var(--muted);font-weight:800" id="drawer-user-label">Utente · 120 chips</div>
+        <div class="drawer-brand">ROOMIE</div>
+        <div class="drawer-user" id="drawer-user-label">Utente · 120 chips</div>
       </div>
       <button class="modal-close" style="position:static" onclick="closeMenu()"><i class="fas fa-times"></i></button>
     </div>
-    <button class="drawer-link" onclick="menuGo('dashboard')"><span><i class="fas fa-user-circle"></i> Profilo</span><span><i class="fas fa-chevron-right"></i></span></button>
-    <button class="drawer-link" onclick="menuGo('room')"><span><i class="fas fa-calendar-check"></i> Prenota</span><span><i class="fas fa-chevron-right"></i></span></button>
-    <button class="drawer-link" onclick="menuGo('token')"><span><i class="fas fa-coin"></i> Chips</span><span><i class="fas fa-chevron-right"></i></span></button>
-    <button class="drawer-link" onclick="menuGo('shop')"><span><i class="fas fa-shopping-bag"></i> Shop e addon</span><span><i class="fas fa-chevron-right"></i></span></button>
-    <button class="drawer-link" onclick="menuGo('confirm')"><span><i class="fas fa-key"></i> Accesso prossima sessione</span><span><i class="fas fa-chevron-right"></i></span></button>
-    <button class="drawer-link hidden" id="drawer-admin-link" onclick="menuGo('admin')"><span>Admin panel</span><span>SYSTEM</span></button>
-    <button class="drawer-link" onclick="openLegalDoc('privacy')"><span><i class="fas fa-shield-alt"></i> Privacy Policy</span><span>DOCX</span></button>
-    <button class="drawer-link" onclick="openLegalDoc('cookie')"><span><i class="fas fa-cookie-bite"></i> Cookie Policy</span><span>DOCX</span></button>
-    <button class="drawer-link" onclick="logout()" style="margin-top:18px"><span>Logout</span><span><i class="fas fa-power-off"></i></span></button>
+    <button class="drawer-primary" onclick="menuGo('room')"><span><i class="fas fa-calendar-check"></i> Prenota la room</span><i class="fas fa-arrow-right"></i></button>
+    <div class="drawer-section">Spazio personale</div>
+    <button class="drawer-link" onclick="menuGo('dashboard')"><span class="drawer-icon"><i class="fas fa-user-circle"></i></span><span><span class="drawer-main">Profilo</span><span class="drawer-sub">Saldo, sessioni, streak e inviti</span></span><span class="drawer-chevron"><i class="fas fa-chevron-right"></i></span></button>
+    <button class="drawer-link" onclick="menuGo('token')"><span class="drawer-icon"><i class="fas fa-coins"></i></span><span><span class="drawer-main">Chips</span><span class="drawer-sub">Ricarica e storico saldo</span></span><span class="drawer-chevron"><i class="fas fa-chevron-right"></i></span></button>
+    <button class="drawer-link" onclick="menuGo('confirm')"><span class="drawer-icon"><i class="fas fa-key"></i></span><span><span class="drawer-main">Accesso</span><span class="drawer-sub">Codici, serranda e porta</span></span><span class="drawer-chevron"><i class="fas fa-chevron-right"></i></span></button>
+    <div class="drawer-section">Durante la sessione</div>
+    <button class="drawer-link" onclick="menuGo('shop')"><span class="drawer-icon"><i class="fas fa-shopping-bag"></i></span><span><span class="drawer-main">Shop e addon</span><span class="drawer-sub">Snack, streaming, setup extra</span></span><span class="drawer-chevron"><i class="fas fa-chevron-right"></i></span></button>
+    <button class="drawer-link hidden drawer-admin" id="drawer-admin-link" onclick="menuGo('admin')"><span class="drawer-icon"><i class="fas fa-sliders-h"></i></span><span><span class="drawer-main">Admin panel</span><span class="drawer-sub">Back office operativo</span></span><span class="drawer-chevron">SYSTEM</span></button>
+    <button class="drawer-link drawer-logout" onclick="logout()"><span class="drawer-icon"><i class="fas fa-power-off"></i></span><span><span class="drawer-main">Logout</span><span class="drawer-sub">Esci da questo dispositivo</span></span><span class="drawer-chevron"><i class="fas fa-chevron-right"></i></span></button>
   </div>
 </div>
 
@@ -5326,6 +5340,11 @@ function copyPartnerCode() {
 
 // ── LEGAL DOCS ──
 const legalDocs = {
+  terms: {
+    title: 'TERMINI E CONDIZIONI',
+    meta: 'Condizioni d’uso del servizio Roomie',
+    url: '/legal/termini-condizioni-roomie.docx'
+  },
   privacy: {
     title: 'PRIVACY POLICY',
     meta: 'Informativa sul trattamento dei dati personali',
