@@ -1461,8 +1461,8 @@ body.auth-logged-out .app-subbar{display:none!important}
   padding:0;text-decoration:underline;text-underline-offset:3px;
 }
 .post-auth-box{
-  max-width:940px;min-height:min(78vh,680px);padding:0;overflow:hidden;
-  display:grid;grid-template-columns:minmax(0,1fr) 360px;border-radius:28px;
+  width:min(940px,calc(100vw - 32px));max-width:940px;min-height:560px;padding:0;overflow:hidden;
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);border-radius:28px;
   background:#080808;border:1px solid rgba(255,255,255,.12);
 }
 .post-auth-box::before{
@@ -1471,13 +1471,14 @@ body.auth-logged-out .app-subbar{display:none!important}
 }
 .post-auth-box>*{position:relative;z-index:1}
 .post-auth-visual{
-  position:relative;min-height:520px;padding:30px;display:flex;flex-direction:column;justify-content:flex-end;
+  position:relative;min-height:560px;padding:34px;display:flex;flex-direction:column;justify-content:center;
   background:
-    linear-gradient(90deg,rgba(0,0,0,.9),rgba(0,0,0,.52) 48%,rgba(0,0,0,.12)),
+    linear-gradient(90deg,rgba(0,0,0,.92),rgba(0,0,0,.58) 48%,rgba(0,0,0,.18)),
+    linear-gradient(0deg,rgba(0,0,0,.72),rgba(0,0,0,.08) 48%,rgba(0,0,0,.45)),
     url('assets/images/roomie-hero-slide-2.webp') center/cover;
 }
-.post-auth-visual::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.78));pointer-events:none}
-.post-auth-copy{position:relative;z-index:1;max-width:540px}
+.post-auth-visual::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 18% 50%,rgba(200,255,0,.16),transparent 36%);pointer-events:none}
+.post-auth-copy{position:relative;z-index:1;max-width:460px}
 .post-auth-kicker{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(200,255,0,.28);border-radius:999px;background:rgba(0,0,0,.48);padding:8px 12px;color:var(--neon);font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
 .post-auth-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(3.2rem,7vw,6.4rem);font-weight:900;line-height:.84;color:#fff;letter-spacing:.01em}
 .post-auth-title span{color:var(--neon)}
@@ -1512,8 +1513,8 @@ body.auth-logged-out .app-subbar{display:none!important}
   .auth-proof span{font-size:.68rem}
   .auth-live-card{display:none}
   .auth-panel{border-radius:20px;padding:18px}
-  .post-auth-box{grid-template-columns:1fr;min-height:0;border-radius:22px}
-  .post-auth-visual{min-height:310px;padding:22px}
+  .post-auth-box{width:calc(100vw - 24px);grid-template-columns:1fr;min-height:0;border-radius:22px;max-height:92svh;overflow-y:auto}
+  .post-auth-visual{min-height:300px;padding:24px;justify-content:flex-end;background-position:center}
   .post-auth-panel{padding:18px;gap:14px}
   .post-auth-chip-stage{min-height:76px;margin:0 0 12px}
   .post-auth-chip-stage .roomie-chip{--chip-size:72px}
@@ -1524,6 +1525,9 @@ body.auth-logged-out .app-subbar{display:none!important}
   .post-auth-card.balance .post-auth-meta{margin-top:0}
 }
 @media(max-width:420px){
+  .post-auth-box{width:calc(100vw - 16px)}
+  .post-auth-title{font-size:3.6rem}
+  .post-auth-sub{font-size:.92rem}
   .login-shell{max-width:100%}
   .auth-panel{width:100%;padding:16px}
   .auth-proof-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1736,7 +1740,7 @@ body.auth-logged-out .app-subbar{display:none!important}
 </head>
 <body class="auth-logged-out">
 
-<div class="login-page" id="auth-screen">
+<div class="login-page hidden" id="auth-screen">
   <div class="login-shell">
     <section class="auth-landing" aria-label="Roomie accesso">
       <div>
