@@ -700,7 +700,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.get('/api/auth/google', (req, res) => {
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  if (!process.env.GOOGLE_CLIENT_ID) {
     return redirectWithAuthError(req, res, 'GOOGLE_NOT_CONFIGURED');
   }
   const state = crypto.randomBytes(18).toString('hex');
@@ -709,11 +709,11 @@ app.get('/api/auth/google', (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: `${appBaseUrl(req)}/api/auth/google/callback`,
-    response_type: 'code',
+    response_type: 'id_token',
     scope: 'openid email profile',
+    nonce: state,
     state,
-    prompt: 'select_account',
-    access_type: 'online'
+    prompt: 'select_account'
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
 });
@@ -833,6 +833,8 @@ app.get('/api/health/oauth', (_req, res) => {
       clientSecretPresent: Boolean(googleClientSecret),
       clientSecretLooksValid: /^GOCSPX-/.test(googleClientSecret),
       clientSecretLength: googleClientSecret.length,
+      flow: 'id_token',
+      secretRequired: false,
       redirectUri: 'https://roomie.rilio.it/api/auth/google/callback'
     }
   });
