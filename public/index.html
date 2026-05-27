@@ -52,16 +52,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.15.3/css/all.css"
   integrity="sha384-iKbFRxucmOHIcpWdX9NTZ5WETOPm0Goy0WmfyNcl52qSYtc2Buk0NCe6jU1sWWNB" crossorigin="anonymous">
-<script>
-  window.tailwind = window.tailwind || {};
-  window.tailwind.config = { corePlugins: { preflight: false } };
-</script>
-<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullpage.js@4.0.37/dist/fullpage.min.css">
-<script src="https://cdn.jsdelivr.net/npm/fullpage.js@4.0.37/dist/fullpage.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -220,12 +213,42 @@ body::before{
 .roomie-chip-lg{--chip-size:148px;margin:14px auto}
 .roomie-chip-sm{--chip-size:22px}
 .roomie-chip-loader{--chip-size:86px;animation:chipSpin 1.05s cubic-bezier(.22,1,.36,1) infinite}
+.roomie-chip-auth{--chip-size:132px;animation:chipFastSpin .72s cubic-bezier(.22,1,.36,1) infinite}
 .roomie-loader-copy{font-family:'Barlow Condensed',sans-serif;font-size:1.65rem;font-weight:900;line-height:1;color:var(--neon);letter-spacing:.02em;text-align:center}
 .roomie-loader-sub{font-size:.8rem;color:rgba(255,255,255,.58);font-weight:800;text-align:center;margin-top:6px}
 @keyframes chipSpin{
   0%,72%,100%{transform:rotateY(0deg) rotateZ(0deg)}
   82%{transform:rotateY(180deg) rotateZ(8deg)}
   92%{transform:rotateY(360deg) rotateZ(0deg)}
+}
+@keyframes chipFastSpin{
+  0%{transform:rotateY(0deg) rotateZ(0deg)}
+  100%{transform:rotateY(360deg) rotateZ(12deg)}
+}
+.auth-transition-loader{
+  position:fixed;inset:0;z-index:6200;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(200,255,0,.16),transparent 34%),
+    linear-gradient(180deg,rgba(0,0,0,.96),rgba(6,8,3,.98));
+  backdrop-filter:blur(14px);
+}
+.auth-transition-card{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  padding:30px 24px;text-align:center;
+}
+.auth-transition-brand{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(3.2rem,10vw,6.2rem);
+  line-height:.82;letter-spacing:.08em;color:var(--neon);
+  text-shadow:0 0 22px rgba(200,255,0,.72),0 0 70px rgba(200,255,0,.32);
+}
+.auth-transition-copy{
+  color:#fff;font-family:'Barlow Condensed',sans-serif;
+  font-size:1.25rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;
+}
+.auth-transition-sub{
+  color:rgba(255,255,255,.58);font-size:.88rem;font-weight:800;max-width:300px;line-height:1.45;
 }
 .btn-nav{
   background:var(--neon);color:var(--dark);
@@ -267,8 +290,12 @@ body::before{
 body.page-home .page.active{padding-bottom:0}
 body.page-home.fullpage-enabled{overflow:hidden}
 body.page-home.fullpage-enabled .nav{position:fixed;left:0;right:0}
-body.page-home.fullpage-enabled #page-home{padding-bottom:0}
-/* fullPage.js landing integration:
+body.page-home.fullpage-enabled #page-home{
+  padding-bottom:0;
+  transition:transform .78s cubic-bezier(.22,1,.36,1);
+  will-change:transform;
+}
+/* ROOMIE fullpage landing controller:
    - add .fp-home-section to vertical fullscreen landing sections
    - add data-horizontal="hero|inside" only where left/right slide navigation is supported */
 body.page-home.fullpage-enabled .fp-home-section{
@@ -280,6 +307,12 @@ body.page-home.fullpage-enabled .fp-home-section{
 }
 body.page-home.fullpage-enabled .fp-overflow{
   width:100%;
+}
+body.page-home.fullpage-enabled .fp-home-section{
+  display:flex;
+}
+body.page-home.fullpage-enabled .fp-home-section:not(.active){
+  pointer-events:none;
 }
 body.page-home.fullpage-enabled .fp-home-section.motion-reveal,
 body.page-home.fullpage-enabled .fp-home-section.motion-card,
@@ -1646,6 +1679,16 @@ body.auth-logged-out .app-subbar{display:none!important}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .hidden{display:none!important}
 .overflow-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.flex{display:flex}.inline-flex{display:inline-flex}.grid{display:grid}
+.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}
+.items-center{align-items:center}.items-start{align-items:flex-start}.items-end{align-items:flex-end}
+.justify-center{justify-content:center}.justify-between{justify-content:space-between}.justify-end{justify-content:flex-end}
+.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}.gap-16{gap:16px}
+.w-full{width:100%}.max-w-full{max-width:100%}
+.text-center{text-align:center}.text-right{text-align:right}.text-left{text-align:left}
+.mx-auto{margin-left:auto;margin-right:auto}
+.mb-32{margin-bottom:32px}
+.p-0{padding:0}.px-0{padding-left:0;padding-right:0}.py-0{padding-top:0;padding-bottom:0}
 
 /* ── RESPONSIVE ── */
 @media(max-width:600px){
@@ -3233,6 +3276,15 @@ body.auth-logged-out .app-subbar{display:none!important}
   <div><div class="toast-title">Fatto</div><div class="toast-copy">Operazione completata.</div></div>
 </div>
 
+<div id="auth-transition-loader" class="auth-transition-loader hidden" role="status" aria-live="polite">
+  <div class="auth-transition-card">
+    <div class="auth-transition-brand">ROOMIE</div>
+    <span class="roomie-chip roomie-chip-auth" aria-hidden="true"></span>
+    <div class="auth-transition-copy" id="auth-loader-title">ACCESSO IN CORSO</div>
+    <div class="auth-transition-sub" id="auth-loader-sub">Stiamo preparando saldo, profilo e prossima sessione.</div>
+  </div>
+</div>
+
 <script>
 // ── STATE ──
 let currentPage = 'home';
@@ -3267,8 +3319,11 @@ let heroSwipeStartY = null;
 let lenis = null;
 let fullpageInstance = null;
 let fullpageClickBound = false;
+let landingSectionIndex = 0;
 let horizontalSwipeStartX = null;
 let horizontalSwipeStartY = null;
+let verticalSwipeStartX = null;
+let verticalSwipeStartY = null;
 let motionInitialized = false;
 let motionTriggers = [];
 let motionResizeTimer = null;
@@ -3404,47 +3459,58 @@ function initPremiumMotion() {
 }
 
 function shouldUseFullpageLanding() {
-  return !prefersReducedMotion() && location.protocol !== 'file:' && Boolean(window.fullpage);
+  return !prefersReducedMotion();
 }
 
 function initLandingFullpage() {
-  if(currentPage !== 'home' || fullpageInstance || window.fullpage_api || !shouldUseFullpageLanding()) return;
+  if(currentPage !== 'home' || fullpageInstance || !shouldUseFullpageLanding()) return;
   const home = document.getElementById('page-home');
   if(!home) return;
   document.body.classList.add('fullpage-enabled');
   if(lenis?.stop) lenis.stop();
-  fullpageInstance = new fullpage('#page-home', {
-    licenseKey:'OPEN-SOURCE-GPLV3-LICENSE',
-    sectionSelector:'.fp-home-section',
-    slideSelector:'.fp-slide',
-    credits:{enabled:false},
-    navigation:false,
-    controlArrows:false,
-    autoScrolling:true,
-    fitToSection:true,
-    scrollingSpeed:780,
-    easingcss3:'cubic-bezier(.22,1,.36,1)',
-    scrollOverflow:true,
-    bigSectionsDestination:'top',
-    responsiveWidth:0,
-    normalScrollElements:'.modal-overlay,.modal-box,.drawer-panel,.drawer-content,.login-page,.auth-panel,.legal-modal-box,.inside-tabs,.logos-strip,.cart-panel,.booking-sticky,.mobile-bottom-nav,.nav',
-    normalScrollElementTouchThreshold:8,
-    afterRender() {
-      bindLandingHorizontalNavigation();
-      window.setTimeout(() => window.fullpage_api?.reBuild?.(), 120);
-    },
-    afterLoad() {
-      bindLandingHorizontalNavigation();
-    }
-  }) || window.fullpage_api || true;
+  fullpageInstance = {enabled:true};
+  window.fullpage_api = {
+    moveTo:index => setLandingSection(Number(index) - 1, true),
+    silentMoveTo:index => setLandingSection(Number(index) - 1, false),
+    reBuild:updateLandingFullpagePosition,
+    destroy:destroyLandingFullpage
+  };
+  bindLandingFullpageControls();
+  setLandingSection(0, false);
 }
 
 function destroyLandingFullpage() {
-  if(!fullpageInstance && !window.fullpage_api) return;
-  try { window.fullpage_api?.destroy?.('all'); } catch (_err) {}
+  if(!fullpageInstance) return;
   fullpageInstance = null;
+  window.fullpage_api = null;
   document.body.classList.remove('fullpage-enabled');
+  document.getElementById('page-home')?.style.removeProperty('transform');
+  document.querySelectorAll('#page-home .fp-home-section').forEach(section => section.classList.remove('active'));
   if(lenis?.start && !isTouchLikeDevice()) lenis.start();
+}
+
+function landingSections() {
+  return Array.from(document.querySelectorAll('#page-home .fp-home-section'));
+}
+
+function setLandingSection(index, animated=true) {
+  const sections = landingSections();
+  if(!sections.length) return;
+  landingSectionIndex = Math.max(0, Math.min(sections.length - 1, Number.isFinite(index) ? index : 0));
+  const home = document.getElementById('page-home');
+  if(home) {
+    home.style.transitionDuration = animated ? '.78s' : '0s';
+    home.style.transform = `translate3d(0,${landingSectionIndex * -100}svh,0)`;
+  }
+  sections.forEach((section, i) => {
+    section.classList.toggle('active', i === landingSectionIndex);
+    section.setAttribute('aria-hidden', i === landingSectionIndex ? 'false' : 'true');
+  });
+}
+
+function updateLandingFullpagePosition() {
+  if(!fullpageInstance) return;
+  setLandingSection(landingSectionIndex, false);
 }
 
 function refreshLandingFullpage() {
@@ -3471,7 +3537,7 @@ function isClickNavExcluded(target) {
 }
 
 function getActiveLandingSection() {
-  return document.querySelector('#page-home .fp-section.active') || document.querySelector('#page-home .fp-home-section');
+  return landingSections()[landingSectionIndex] || document.querySelector('#page-home .fp-home-section');
 }
 
 function navigateLandingHorizontal(direction) {
@@ -3516,6 +3582,40 @@ function bindLandingHorizontalNavigation() {
     if(Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.1) return;
     navigateLandingHorizontal(dx < 0 ? 1 : -1);
   }, {passive:true});
+}
+
+function bindLandingFullpageControls() {
+  bindLandingHorizontalNavigation();
+  if(document.body.dataset.fullpageControlsBound) return;
+  document.body.dataset.fullpageControlsBound = 'true';
+  let wheelLocked = false;
+  document.addEventListener('wheel', e => {
+    if(currentPage !== 'home' || !document.body.classList.contains('fullpage-enabled')) return;
+    if(isClickNavExcluded(e.target)) return;
+    e.preventDefault();
+    if(wheelLocked || Math.abs(e.deltaY) < 12) return;
+    wheelLocked = true;
+    setLandingSection(landingSectionIndex + (e.deltaY > 0 ? 1 : -1), true);
+    window.setTimeout(() => { wheelLocked = false; }, 820);
+  }, {passive:false});
+  document.addEventListener('pointerdown', e => {
+    if(currentPage !== 'home' || !document.body.classList.contains('fullpage-enabled')) return;
+    if(isClickNavExcluded(e.target)) return;
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    verticalSwipeStartX = e.clientX;
+    verticalSwipeStartY = e.clientY;
+  }, {passive:true});
+  document.addEventListener('pointerup', e => {
+    if(verticalSwipeStartX === null || verticalSwipeStartY === null) return;
+    const dx = e.clientX - verticalSwipeStartX;
+    const dy = e.clientY - verticalSwipeStartY;
+    verticalSwipeStartX = null;
+    verticalSwipeStartY = null;
+    if(currentPage !== 'home' || !document.body.classList.contains('fullpage-enabled')) return;
+    if(Math.abs(dy) < 48 || Math.abs(dy) < Math.abs(dx) * 1.12) return;
+    setLandingSection(landingSectionIndex + (dy < 0 ? 1 : -1), true);
+  }, {passive:true});
+  window.addEventListener('resize', updateLandingFullpagePosition, {passive:true});
 }
 
 function clearMotionTriggers() {
@@ -3804,6 +3904,7 @@ async function initAuth(initialPage='home') {
   if(location.protocol === 'file:') {
     currentUser = null;
     applyAuthState();
+    showPage('home', false);
     document.getElementById('auth-offline')?.classList.add('visible');
     if(authError) {
       openAuth('login');
@@ -3834,6 +3935,19 @@ async function initAuth(initialPage='home') {
       showAuthError('Accedi per vedere la ricarica completata.');
     }
   }
+}
+
+function showAuthTransition(title='ACCESSO IN CORSO', sub='Stiamo preparando saldo, profilo e prossima sessione.') {
+  const loader = document.getElementById('auth-transition-loader');
+  const titleEl = document.getElementById('auth-loader-title');
+  const subEl = document.getElementById('auth-loader-sub');
+  if(titleEl) titleEl.textContent = title;
+  if(subEl) subEl.textContent = sub;
+  loader?.classList.remove('hidden');
+}
+
+function hideAuthTransition() {
+  document.getElementById('auth-transition-loader')?.classList.add('hidden');
 }
 
 function setAuthMode(mode) {
@@ -3924,9 +4038,11 @@ function socialLogin(provider) {
     }
   }
   if(location.protocol === 'file:') {
+    showAuthTransition('ACCESSO GOOGLE', 'Ti portiamo alla versione online per completare il login.');
     window.location.href = 'https://roomie.rilio.it/api/auth/' + provider;
     return;
   }
+  showAuthTransition('ACCESSO GOOGLE', 'Google conferma il profilo, poi torni nella tua room.');
   window.location.href = '/api/auth/' + provider;
 }
 
@@ -4018,11 +4134,16 @@ async function login(event) {
       body: JSON.stringify({ username, password, remember: document.getElementById('login-remember')?.checked })
     });
     currentUser = data.user;
+    showAuthTransition('ACCESSO COMPLETATO', 'Stiamo preparando dashboard, saldo chips e prossima sessione.');
     applyAuthState();
     showPage(currentUser.role === 'admin' ? 'admin' : 'home', false);
-    if(currentUser.role === 'admin') showToast({title:'Bentornato admin', copy:'Back office operativo pronto.'});
-    else showPostAuthWow('login');
+    window.setTimeout(() => {
+      hideAuthTransition();
+      if(currentUser.role === 'admin') showToast({title:'Bentornato admin', copy:'Back office operativo pronto.'});
+      else showPostAuthWow('login');
+    }, 900);
   } catch (err) {
+    hideAuthTransition();
     showAuthError(authErrorMessage(err.message));
   } finally {
     if(btn) btn.textContent = 'LOGIN';
@@ -4058,10 +4179,15 @@ async function register(event) {
       body:JSON.stringify(payload)
     });
     currentUser = data.user;
+    showAuthTransition('ACCOUNT CREATO', 'Welcome chips attive. Prepariamo la tua prima sessione Roomie.');
     applyAuthState();
     showPage('home', false);
-    showPostAuthWow('register');
+    window.setTimeout(() => {
+      hideAuthTransition();
+      showPostAuthWow('register');
+    }, 980);
   } catch (err) {
+    hideAuthTransition();
     showAuthError(authErrorMessage(err.message));
   } finally {
     if(btn) btn.textContent = 'CREA ACCOUNT';

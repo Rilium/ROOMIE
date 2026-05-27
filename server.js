@@ -249,11 +249,26 @@ function decodeJwtPayload(token) {
 function googleCallbackBridge() {
   return `<!doctype html>
 <html lang="it">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROOMIE Google Login</title></head>
-<body style="margin:0;background:#050505;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh">
-  <div style="text-align:center;padding:24px">
-    <div style="font-size:32px;font-weight:900;letter-spacing:.08em;margin-bottom:10px">ROOMIE</div>
-    <div style="color:#bdbdbd">Accesso Google in corso...</div>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ROOMIE Google Login</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#050505;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;overflow:hidden}
+    body:before{content:'';position:fixed;inset:0;background:radial-gradient(circle at 50% 42%,rgba(200,255,0,.18),transparent 34%),linear-gradient(180deg,rgba(0,0,0,.96),rgba(6,8,3,.98))}
+    .wrap{position:relative;text-align:center;padding:28px;display:flex;flex-direction:column;align-items:center;gap:18px}
+    .brand{font-family:Impact,Arial Black,sans-serif;font-size:clamp(54px,14vw,104px);line-height:.82;letter-spacing:.08em;color:#c8ff00;text-shadow:0 0 22px rgba(200,255,0,.72),0 0 70px rgba(200,255,0,.32)}
+    .chip{width:132px;height:132px;border-radius:50%;position:relative;background:radial-gradient(circle at 34% 28%,#fff 0 7%,transparent 8%),radial-gradient(circle at 50% 50%,#151515 0 33%,#c8ff00 34% 44%,#111 45% 58%,#c8ff00 59% 72%,#050505 73% 100%);border:1px solid rgba(255,255,255,.24);box-shadow:inset 0 1px 3px rgba(255,255,255,.35),inset 0 -6px 12px rgba(0,0,0,.75),0 0 44px rgba(200,255,0,.56);animation:spin .72s cubic-bezier(.22,1,.36,1) infinite}
+    .chip:before{content:'R';position:absolute;inset:24%;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#f7ffd6,#a6d800);color:#111;font-size:44px;font-weight:900}
+    .copy{font-size:18px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.sub{max-width:310px;color:rgba(255,255,255,.58);line-height:1.45;font-size:14px;font-weight:700}
+    @keyframes spin{from{transform:rotateY(0deg) rotateZ(0deg)}to{transform:rotateY(360deg) rotateZ(12deg)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">ROOMIE</div>
+    <div class="chip" aria-hidden="true"></div>
+    <div class="copy">ACCESSO GOOGLE</div>
+    <div class="sub">Confermiamo il profilo e prepariamo saldo chips, dashboard e prossima sessione.</div>
   </div>
   <script>
   (async function(){
