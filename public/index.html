@@ -323,6 +323,7 @@ body.page-home.fullpage-enabled .fp-home-section.motion-soft-blur{
   filter:none!important;
 }
 body.page-home.fullpage-enabled #inside-section,
+body.page-home.fullpage-enabled #home-rules-section,
 body.page-home.fullpage-enabled #home-how-section{
   display:flex;
   flex-direction:column;
@@ -1545,6 +1546,10 @@ body.auth-logged-out .app-subbar{display:none!important}
   display:grid;grid-template-columns:1fr;border-radius:28px;
   background:#080808;border:1px solid rgba(255,255,255,.12);
 }
+.modal-box.post-auth-box .modal-close{
+  top:12px;right:12px;left:auto;z-index:30;
+  background:rgba(0,0,0,.86);border-color:rgba(255,255,255,.28);
+}
 .post-auth-box::before{
   content:'';position:absolute;inset:-1px;z-index:0;pointer-events:none;
   background:radial-gradient(circle at 28% 12%,rgba(200,255,0,.22),transparent 28%),radial-gradient(circle at 82% 22%,rgba(0,255,209,.14),transparent 24%);
@@ -1559,10 +1564,32 @@ body.auth-logged-out .app-subbar{display:none!important}
 }
 .post-auth-visual::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 18% 50%,rgba(200,255,0,.16),transparent 36%);pointer-events:none}
 .post-auth-copy{position:relative;z-index:1;max-width:460px}
+.post-auth-side-cards{
+  position:absolute;right:18px;bottom:18px;z-index:3;width:min(250px,40%);
+  display:grid;gap:10px;
+}
+.post-auth-side-card{
+  border:1px solid rgba(255,255,255,.18);border-radius:14px;
+  background:rgba(9,9,9,.72);backdrop-filter:blur(10px);padding:12px;
+}
+.post-auth-side-label{
+  font-size:.64rem;font-weight:900;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;
+}
+.post-auth-side-chip{
+  display:flex;align-items:center;gap:10px;color:#fff;font-weight:800;font-size:.88rem;
+}
+.post-auth-side-chip .roomie-chip{--chip-size:40px;animation:chipSpin 2s cubic-bezier(.22,1,.36,1) infinite}
+.post-auth-slot-time{
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;color:#fff;font-size:1.6rem;line-height:1;
+}
+.post-auth-slot-copy{
+  color:rgba(255,255,255,.64);font-size:.78rem;font-weight:800;margin-top:4px;margin-bottom:10px;line-height:1.35;
+}
 .post-auth-kicker{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(200,255,0,.28);border-radius:999px;background:rgba(0,0,0,.48);padding:8px 12px;color:var(--neon);font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
 .post-auth-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(3.2rem,7vw,6.4rem);font-weight:900;line-height:.84;color:#fff;letter-spacing:.01em}
 .post-auth-title span{color:var(--neon)}
 .post-auth-sub{color:rgba(255,255,255,.74);font-size:1rem;line-height:1.45;margin-top:14px;max-width:440px}
+.post-auth-sub-actions{margin-top:16px;display:flex;flex-wrap:wrap;gap:10px}
 .post-auth-panel{padding:24px 28px 28px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:18px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018))}
 .post-auth-card{border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;background:rgba(255,255,255,.045)}
 .post-auth-card.balance{
@@ -1595,6 +1622,10 @@ body.auth-logged-out .app-subbar{display:none!important}
   .auth-panel{border-radius:20px;padding:18px}
   .post-auth-box{width:calc(100vw - 24px);grid-template-columns:1fr;min-height:0;border-radius:22px;max-height:92svh;overflow-y:auto}
   .post-auth-visual{min-height:260px;padding:24px;justify-content:flex-end;background-position:center}
+  .post-auth-sub-actions{flex-direction:column}
+  .post-auth-side-cards{position:static;width:100%;margin-top:14px;grid-template-columns:1fr 1fr}
+  .post-auth-side-card{padding:10px}
+  .post-auth-slot-time{font-size:1.3rem}
   .post-auth-panel{padding:18px;gap:14px;grid-template-columns:1fr}
   .post-auth-chip-stage{min-height:76px;margin:0 0 12px}
   .post-auth-chip-stage .roomie-chip{--chip-size:72px}
@@ -1606,6 +1637,7 @@ body.auth-logged-out .app-subbar{display:none!important}
 }
 @media(max-width:420px){
   .post-auth-box{width:calc(100vw - 16px)}
+  .post-auth-side-cards{grid-template-columns:1fr}
   .post-auth-title{font-size:3.6rem}
   .post-auth-sub{font-size:.92rem}
   .login-shell{max-width:100%}
@@ -1712,6 +1744,7 @@ body.auth-logged-out .app-subbar{display:none!important}
   body.page-home.fullpage-enabled .fp-home-section{min-height:100svh;padding-top:72px;padding-bottom:20px}
   body.page-home.fullpage-enabled .hero{height:100svh;min-height:0;padding-top:78px;padding-bottom:74px}
   body.page-home.fullpage-enabled #inside-section,
+  body.page-home.fullpage-enabled #home-rules-section,
   body.page-home.fullpage-enabled #home-how-section{justify-content:flex-start;max-width:100%;padding-left:16px;padding-right:16px}
   body.page-home.fullpage-enabled #inside-section .section-title{font-size:3.15rem}
   body.page-home.fullpage-enabled #inside-section .section-sub{margin-bottom:18px}
@@ -2111,11 +2144,15 @@ body.auth-logged-out .app-subbar{display:none!important}
     </div>
     </div>
 
-    <!-- Regole -->
-    <div class="mt-32" style="background:var(--dark2);border:1px solid #333;border-radius:14px;padding:24px">
-      <p class="section-label mb-8">Le regole (poche, semplici)</p>
+  </section>
+
+  <section class="section fp-home-section" id="home-rules-section">
+    <span class="section-label">Regole room</span>
+    <h2 class="section-title">POCHE REGOLE.<br>ZERO DUBBI.</h2>
+    <p class="section-sub">Spazio privato, liberta' totale nel rispetto della room. Qui hai tutto chiaro prima di entrare.</p>
+    <div style="background:var(--dark2);border:1px solid #333;border-radius:14px;padding:24px">
       <p style="font-size:1.05rem;color:var(--text);line-height:1.7;margin-bottom:12px">
-        Lo spazio è tuo per le ore che prenoti. Fai quello che vuoi.
+        Lo spazio e' tuo per le ore che prenoti. Fai quello che vuoi.
         <strong style="color:var(--neon)">Se rompi, paghi.</strong> Semplice.
         Ci sono le telecamere, quindi nessun malinteso.
       </p>
@@ -3167,6 +3204,22 @@ body.auth-logged-out .app-subbar{display:none!important}
         <div class="post-auth-kicker"><i class="fas fa-sparkles"></i> Accesso completato</div>
         <div class="post-auth-title">SEI<br><span>DENTRO.</span></div>
         <div class="post-auth-sub">La room è pronta quando vuoi: scegli uno slot, invita il gruppo, entra con chip o codice.</div>
+        <div class="post-auth-sub-actions">
+          <button class="btn-neon" onclick="closeModal('modal-post-auth');showPage('room')"><i class="fas fa-calendar-check"></i> BLOCCA ORA</button>
+          <button class="btn-outline-neon" onclick="closeModal('modal-post-auth');showPage('dashboard')">PROFILO</button>
+        </div>
+      </div>
+      <div class="post-auth-side-cards">
+        <div class="post-auth-side-card">
+          <div class="post-auth-side-label">ROOMIE CHIP</div>
+          <div class="post-auth-side-chip"><span class="roomie-chip" aria-hidden="true"></span><span>Fiche NFC pronta</span></div>
+        </div>
+        <div class="post-auth-side-card">
+          <div class="post-auth-side-label">SLOT CONSIGLIATO</div>
+          <div class="post-auth-slot-time" id="post-auth-slot-side">Stasera 20:00</div>
+          <div class="post-auth-slot-copy">Ranked Session 2h con setup completo.</div>
+          <button class="btn-neon w-full" onclick="closeModal('modal-post-auth');showPage('room')">PRENOTA ORA</button>
+        </div>
       </div>
     </section>
     <aside class="post-auth-panel">
@@ -4064,16 +4117,23 @@ function showPostAuthWow(kind='login') {
   if(currentUser?.role === 'admin') return;
   const modal = document.getElementById('modal-post-auth');
   if(!modal) return;
+  modal.classList.add('hidden');
+  modal.scrollTop = 0;
+  const modalBox = modal.querySelector('.post-auth-box');
+  if(modalBox) modalBox.scrollTop = 0;
   const balance = document.getElementById('post-auth-balance');
   const buying = document.getElementById('post-auth-buying');
   const slot = document.getElementById('post-auth-slot');
+  const slotSide = document.getElementById('post-auth-slot-side');
   const slotCopy = document.getElementById('post-auth-slot-copy');
   const chips = Number(currentUser?.chips || walletBalance || 0);
+  const primeSlot = nextPrimeSlotLabel();
   if(balance) balance.textContent = chips + ' chips';
   if(buying) buying.textContent = kind === 'register'
     ? 'Welcome chips attive. Puoi bloccare la prima sessione.'
     : chips >= 24 ? 'Hai già abbastanza chips per una Ranked Session.' : 'Ricarica e blocca il prossimo slot.';
-  if(slot) slot.textContent = nextPrimeSlotLabel();
+  if(slot) slot.textContent = primeSlot;
+  if(slotSide) slotSide.textContent = primeSlot;
   if(slotCopy) slotCopy.textContent = chips >= 24
     ? 'Ranked Session · 2h · pronta da bloccare con il tuo saldo.'
     : 'Ricarica rapida e torni qui con lo slot già impostato.';
