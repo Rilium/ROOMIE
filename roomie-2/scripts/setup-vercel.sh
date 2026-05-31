@@ -1,97 +1,78 @@
 #!/bin/bash
 # ── setup-vercel.sh ────────────────────────────────────────────────────────────
-# Crea progetto Vercel, carica env vars, fa il primo deploy.
+# Imposta env vars e deploya su Vercel (progetto già linkato con `vercel link`).
 # Esegui da roomie-2/:  bash scripts/setup-vercel.sh
 # ──────────────────────────────────────────────────────────────────────────────
 set -e
 cd "$(dirname "$0")/.."
 
-PROJECT_NAME="dev-roomie"
 DATABASE_URL="postgresql://neondb_owner:npg_MlY6dVRSpkU8@ep-billowing-voice-aqardtsi-pooler.c-8.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
 SESSION_SECRET="$(openssl rand -hex 32)"
 
 echo ""
-echo "⚡ ROOMIE-2 — Vercel setup"
-echo "──────────────────────────────"
+echo "⚡ ROOMIE-2 — Vercel env + deploy"
+echo "──────────────────────────────────"
 echo ""
 
-# ── 1. Link progetto ──────────────────────────────────────────────────────────
-echo "→ Creo/collego progetto '$PROJECT_NAME'..."
-vercel link --project "$PROJECT_NAME" --yes 2>/dev/null || {
-  echo "  (progetto non esiste, lo creo...)"
-  vercel project add "$PROJECT_NAME"
-  vercel link --project "$PROJECT_NAME" --yes
-}
-echo "  ✓ progetto collegato"
-echo ""
+# ── Env vars obbligatorie ─────────────────────────────────────────────────────
+echo "→ Carico DATABASE_URL e SESSION_SECRET..."
+printf '%s' "$DATABASE_URL"   | vercel env add DATABASE_URL   production --force 2>/dev/null || \
+printf '%s' "$DATABASE_URL"   | vercel env add DATABASE_URL   production
+printf '%s' "$SESSION_SECRET" | vercel env add SESSION_SECRET production --force 2>/dev/null || \
+printf '%s' "$SESSION_SECRET" | vercel env add SESSION_SECRET production
+echo "  ✓"
 
-# ── 2. Env vars obbligatorie ──────────────────────────────────────────────────
-echo "→ Carico env vars obbligatorie (DATABASE_URL, SESSION_SECRET)..."
-echo "$DATABASE_URL"  | vercel env add DATABASE_URL   production --force 2>/dev/null || \
-echo "$DATABASE_URL"  | vercel env add DATABASE_URL   production
-echo "$SESSION_SECRET"| vercel env add SESSION_SECRET production --force 2>/dev/null || \
-echo "$SESSION_SECRET"| vercel env add SESSION_SECRET production
-echo "  ✓ DB + session"
+# ── Stripe (opzionale) ────────────────────────────────────────────────────────
 echo ""
-
-# ── 3. Chiavi Stripe (opzionale per debug) ────────────────────────────────────
-echo "Hai le chiavi Stripe test? (premi invio per saltare)"
+echo "Chiavi Stripe test? (invio per saltare)"
 read -r -p "  sk_test_... : " STRIPE_SECRET
 read -r -p "  pk_test_... : " STRIPE_PUB
 read -r -p "  whsec_...   : " STRIPE_WEBHOOK
 
 if [[ -n "$STRIPE_SECRET" ]]; then
-  echo "$STRIPE_SECRET" | vercel env add STRIPE_SECRET_KEY     production --force 2>/dev/null || \
-  echo "$STRIPE_SECRET" | vercel env add STRIPE_SECRET_KEY     production
-  echo "$STRIPE_PUB"    | vercel env add STRIPE_PUBLISHABLE_KEY production --force 2>/dev/null || \
-  echo "$STRIPE_PUB"    | vercel env add STRIPE_PUBLISHABLE_KEY production
-  echo "$STRIPE_WEBHOOK"| vercel env add STRIPE_WEBHOOK_SECRET  production --force 2>/dev/null || \
-  echo "$STRIPE_WEBHOOK"| vercel env add STRIPE_WEBHOOK_SECRET  production
+  printf '%s' "$STRIPE_SECRET"  | vercel env add STRIPE_SECRET_KEY      production --force 2>/dev/null || printf '%s' "$STRIPE_SECRET"  | vercel env add STRIPE_SECRET_KEY      production
+  printf '%s' "$STRIPE_PUB"     | vercel env add STRIPE_PUBLISHABLE_KEY production --force 2>/dev/null || printf '%s' "$STRIPE_PUB"     | vercel env add STRIPE_PUBLISHABLE_KEY production
+  printf '%s' "$STRIPE_WEBHOOK" | vercel env add STRIPE_WEBHOOK_SECRET  production --force 2>/dev/null || printf '%s' "$STRIPE_WEBHOOK" | vercel env add STRIPE_WEBHOOK_SECRET  production
   echo "  ✓ Stripe"
 else
-  echo "  ↷ Stripe saltato (wallet topup non funzionerà)"
+  echo "  ↷ Stripe saltato"
 fi
-echo ""
 
-# ── 4. Google OAuth (opzionale per debug) ─────────────────────────────────────
-read -r -p "Google Client ID (premi invio per saltare): " GOOGLE_ID
-read -r -p "Google Client Secret: " GOOGLE_SECRET
+# ── Google OAuth (opzionale) ──────────────────────────────────────────────────
+echo ""
+read -r -p "Google Client ID (invio per saltare): " GOOGLE_ID
+read -r -p "Google Client Secret:                 " GOOGLE_SECRET
 
 if [[ -n "$GOOGLE_ID" ]]; then
-  echo "$GOOGLE_ID"    | vercel env add GOOGLE_CLIENT_ID     production --force 2>/dev/null || \
-  echo "$GOOGLE_ID"    | vercel env add GOOGLE_CLIENT_ID     production
-  echo "$GOOGLE_SECRET"| vercel env add GOOGLE_CLIENT_SECRET production --force 2>/dev/null || \
-  echo "$GOOGLE_SECRET"| vercel env add GOOGLE_CLIENT_SECRET production
+  printf '%s' "$GOOGLE_ID"     | vercel env add GOOGLE_CLIENT_ID     production --force 2>/dev/null || printf '%s' "$GOOGLE_ID"     | vercel env add GOOGLE_CLIENT_ID     production
+  printf '%s' "$GOOGLE_SECRET" | vercel env add GOOGLE_CLIENT_SECRET production --force 2>/dev/null || printf '%s' "$GOOGLE_SECRET" | vercel env add GOOGLE_CLIENT_SECRET production
   echo "  ✓ Google OAuth"
 else
   echo "  ↷ Google OAuth saltato"
 fi
-echo ""
 
-# ── 5. Primo deploy ───────────────────────────────────────────────────────────
-echo "→ Deploy in corso..."
-DEPLOY_URL=$(vercel --yes 2>&1 | grep -E "https://" | tail -1)
+# ── Deploy ────────────────────────────────────────────────────────────────────
 echo ""
-echo "  ✓ Deploy completato"
-echo ""
+echo "→ Deploy..."
+DEPLOY_OUT=$(vercel --yes 2>&1)
+DEPLOY_URL=$(echo "$DEPLOY_OUT" | grep -Eo 'https://[a-zA-Z0-9._-]+\.vercel\.app' | tail -1)
+echo "$DEPLOY_OUT" | tail -5
 
-# ── 6. APP_URL ────────────────────────────────────────────────────────────────
+# ── APP_URL ───────────────────────────────────────────────────────────────────
 if [[ -n "$DEPLOY_URL" ]]; then
-  echo "$DEPLOY_URL" | vercel env add APP_URL production --force 2>/dev/null || \
-  echo "$DEPLOY_URL" | vercel env add APP_URL production
-  echo "  ✓ APP_URL impostato a $DEPLOY_URL"
+  printf '%s' "$DEPLOY_URL" | vercel env add APP_URL production --force 2>/dev/null || \
+  printf '%s' "$DEPLOY_URL" | vercel env add APP_URL production
   echo ""
-  echo "→ Rideploy con APP_URL corretto..."
-  vercel --yes
-  echo ""
+  echo "→ Rideploy con APP_URL=$DEPLOY_URL..."
+  vercel --yes 2>&1 | tail -3
 fi
 
+echo ""
 echo "╔══════════════════════════════════════════╗"
-echo "║  ✅  ROOMIE-2 deployato!                 ║"
+echo "║  ✅  ROOMIE-2 online!                    ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
-echo "URL: $DEPLOY_URL"
+echo "  URL → $DEPLOY_URL"
 echo ""
-echo "Prossimo step se usi Google OAuth:"
-echo "  Google Console → Authorized redirect URIs → aggiungi:"
+echo "Se usi Google OAuth aggiungi questo redirect URI:"
 echo "  $DEPLOY_URL/api/auth/google/callback"
