@@ -136,9 +136,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 `
 
-export async function GET(req: Request) {
-  const url = new URL(req.url)
-  const runMigration = url.searchParams.get('migrate') === '1'
+export async function GET() {
+  const runMigration = true
 
   const results: Record<string, unknown> = {
     DATABASE_URL: process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.slice(0, 30) + '...)' : 'MISSING',
