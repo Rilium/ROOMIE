@@ -21,20 +21,23 @@ echo ""
 # Modifica questi valori prima di runnare
 
 DATABASE_URL_PROD="postgresql://neondb_owner:npg_MlY6dVRSpkU8@ep-billowing-voice-aqardtsi-pooler.c-8.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require"
-DATABASE_URL_STAGING="$DATABASE_URL_PROD"  # stessa DB o una staging separata
+DATABASE_URL_STAGING="$DATABASE_URL_PROD"  # stessa DB — crea una staging separata se vuoi
 
-SESSION_SECRET_PROD="CAMBIA-QUESTO-SEGRETO-PROD-32CHAR-MIN"
-SESSION_SECRET_STAGING="CAMBIA-QUESTO-SEGRETO-STAGING-32CHAR"
+# ⚠️  CAMBIA QUESTI — genera con: openssl rand -hex 32
+SESSION_SECRET_PROD="$(openssl rand -hex 32)"
+SESSION_SECRET_STAGING="$(openssl rand -hex 32)"
 
-STRIPE_SECRET_PROD="sk_live_..."
+# ⚠️  INSERISCI LE CHIAVI STRIPE REALI
+STRIPE_SECRET_PROD="sk_live_..."           # Dashboard Stripe → Developers → API keys
 STRIPE_SECRET_STAGING="sk_test_..."
-STRIPE_WEBHOOK_SECRET_PROD="whsec_..."
-STRIPE_WEBHOOK_SECRET_STAGING="whsec_..."
+STRIPE_WEBHOOK_SECRET_PROD="whsec_..."     # Dashboard Stripe → Webhooks → endpoint prod
+STRIPE_WEBHOOK_SECRET_STAGING="whsec_..."  # Dashboard Stripe → Webhooks → endpoint staging
 STRIPE_PUBLISHABLE_PROD="pk_live_..."
 STRIPE_PUBLISHABLE_STAGING="pk_test_..."
 
-GOOGLE_CLIENT_ID="GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="GOCSPX-..."
+# ⚠️  INSERISCI LE CREDENZIALI GOOGLE OAUTH
+GOOGLE_CLIENT_ID="INSERISCI.apps.googleusercontent.com"   # console.cloud.google.com
+GOOGLE_CLIENT_SECRET="GOCSPX-INSERISCI"
 
 APP_URL_PROD="https://roomie.rilio.it"
 APP_URL_STAGING="https://staging.roomie.rilio.it"
