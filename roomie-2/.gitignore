@@ -1,0 +1,32 @@
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env*.local
+.env
+
+# Build
+*.tsbuildinfo
+next-env.d.ts
+
+# OS / Editor
+.DS_Store
+*.swp
+*.swo
+.fuse_hidden*
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# Local data (dev only)
+data/roomie-db.json

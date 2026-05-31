@@ -1,0 +1,138 @@
+import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
+
+export const viewport: Viewport = {
+  themeColor: '#0D0D0D',
+}
+
+export const metadata: Metadata = {
+  title: 'ROOMIE Torino | Room privata a ore in Via Terni',
+  description: 'ROOMIE è la tua room privata a Torino: prenoti a ore, entri con chip o codice e hai spazio, console, streaming e vibe per la tua serata.',
+  robots: 'index,follow,max-image-preview:large',
+  applicationName: 'ROOMIE',
+  appleWebApp: { title: 'ROOMIE' },
+  metadataBase: new URL('https://roomie.rilio.it'),
+  alternates: { canonical: '/' },
+  openGraph: {
+    locale: 'it_IT',
+    type: 'website',
+    siteName: 'ROOMIE',
+    title: 'ROOMIE Torino | La tua room privata a ore',
+    description: 'Prenoti la room, entri con chip o codice, hai uno spazio privato a Torino per gaming, film, partite e serate con amici.',
+    url: 'https://roomie.rilio.it/',
+    images: [{
+      url: 'https://roomie.rilio.it/assets/seo/roomie-og.jpg',
+      secureUrl: 'https://roomie.rilio.it/assets/seo/roomie-og.jpg',
+      type: 'image/jpeg',
+      width: 1200,
+      height: 630,
+      alt: 'ROOMIE, room privata a ore in Via Terni a Torino',
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ROOMIE Torino | La tua room privata a ore',
+    description: 'Gaming, film, partite e serate: prenoti a ore ed entri con chip o codice.',
+    images: {
+      url: 'https://roomie.rilio.it/assets/seo/roomie-og.jpg',
+      alt: 'ROOMIE, room privata a ore in Via Terni a Torino',
+    },
+  },
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="it">
+      <head>
+        {/* Structured data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'LocalBusiness',
+              name: 'ROOMIE',
+              url: 'https://roomie.rilio.it/',
+              image: 'https://roomie.rilio.it/assets/seo/roomie-og.jpg',
+              description: 'Room privata prenotabile a ore a Torino, con accesso digitale, console, streaming e spazio per serate con amici.',
+              address: {
+                '@type': 'PostalAddress',
+                streetAddress: 'Via Terni',
+                addressLocality: 'Torino',
+                addressRegion: 'Piemonte',
+                addressCountry: 'IT',
+              },
+              priceRange: 'Da 12 chips/ora',
+              areaServed: 'Torino',
+            }),
+          }}
+        />
+
+        {/* Animated favicon placeholder — set by roomie.js initAnimatedFavicon() */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <link id="roomie-favicon" rel="icon" type="image/png" href="/favicon.ico" />
+
+        {/* Google Fonts */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap"
+          rel="stylesheet"
+        />
+
+        {/* FontAwesome Pro 5 */}
+        <link
+          rel="stylesheet"
+          href="https://pro.fontawesome.com/releases/v5.15.3/css/all.css"
+          integrity="sha384-iKbFRxucmOHIcpWdX9NTZ5WETOPm0Goy0WmfyNcl52qSYtc2Buk0NCe6jU1sWWNB"
+          crossOrigin="anonymous"
+        />
+
+        {/* Bootstrap CSS 5.3.3 */}
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossOrigin="anonymous"
+        />
+
+        {/* ROOMIE custom CSS */}
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=css-split1" />
+
+        {/* GSAP — must load before roomie.js */}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
+          strategy="beforeInteractive"
+        />
+        <Script
+          src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"
+          strategy="beforeInteractive"
+        />
+        <Script
+          src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"
+          strategy="beforeInteractive"
+        />
+
+        {/* Mammoth (docx reader for legal docs) */}
+        <Script
+          src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"
+          strategy="beforeInteractive"
+        />
+      </head>
+      <body className="auth-logged-out app-booting" suppressHydrationWarning>
+        {children}
+
+        {/* Bootstrap JS */}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+
+        {/* ROOMIE app logic — must run after DOM */}
+        <Script src="/assets/js/roomie.js?v=css-split1" strategy="afterInteractive" />
+      </body>
+    </html>
+  )
+}
