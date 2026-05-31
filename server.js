@@ -50,15 +50,6 @@ function createDefaultDb() {
   return {
     users: [
       {
-        id: 'usr_admin',
-        username: 'admin',
-        name: 'System Admin',
-        role: 'admin',
-        chips: 999,
-        passwordHash: bcrypt.hashSync('admin', 10),
-        createdAt: now
-      },
-      {
         id: 'usr_marco',
         username: 'marco',
         name: 'Marco B.',
@@ -128,8 +119,26 @@ function normalizeDb(db) {
   if (!Array.isArray(db.addonOrders)) { db.addonOrders = []; changed = true; }
   if (!Array.isArray(db.blockedSlots)) { db.blockedSlots = []; changed = true; }
   if (!Array.isArray(db.stripeSessions)) { db.stripeSessions = []; changed = true; }
+  if (removeLegacyAdminSeed(db)) changed = true;
   if (applyAdminBootstrap(db)) changed = true;
   return { db, changed };
+}
+
+function removeLegacyAdminSeed(db) {
+  const hasConfiguredAdmin = Boolean(process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD_HASH);
+  if (hasConfiguredAdmin) return false;
+  const idx = db.users.findIndex(u =>
+    u &&
+    u.id === 'usr_admin' &&
+    normalizeUsername(u.username) === 'admin' &&
+    u.name === 'System Admin' &&
+    u.role === 'admin' &&
+    u.passwordHash &&
+    bcrypt.compareSync('admin', u.passwordHash)
+  );
+  if (idx === -1) return false;
+  db.users.splice(idx, 1);
+  return true;
 }
 
 function applyAdminBootstrap(db) {
@@ -1001,6 +1010,28 @@ app.get('/api/dashboard', requireAuth, async (req, res) => {
   const summary = buildDashboardSummary(user, db);
   await writeDb(db);
   res.json(summary);
+});
+
+app.get('/api/friends/platform', requireAuth, async (req, res) => {
+  const db = await readDb();
+  const user = db.users.find(u => u.id === req.session.userId);
+  if (!user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
+  const friends = db.users
+    .filter(u => u.id !== user.id && u.role !== 'admin' && !u.suspended)
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .map(u => ({
+      id: u.id,
+      username: u.username,
+      name: u.name || u.username,
+      initials: String((u.name || u.username || 'U'))
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(part => part[0] || '')
+        .join('')
+        .toUpperCase(),
+      meta: '@' + (u.username || 'utente')
+    }));
+  res.json({ friends });
 });
 
 app.post('/api/bookings', requireAuth, async (req, res) => {

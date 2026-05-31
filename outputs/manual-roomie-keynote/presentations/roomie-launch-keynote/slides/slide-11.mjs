@@ -1,0 +1,2 @@
+import {bg,bebas,sub,label,image,card,page,A,C} from './common.mjs';
+export async function slide11(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);await image(s,ctx,A+'/session.jpg',0,0,1280,720);card(s,ctx,58,82,470,450,{fill:'rgba(0,0,0,.72)',stroke:'rgba(200,255,0,.22)'});label(s,ctx,'SESSIONE',88,116);bebas(s,ctx,"QUANDO SEI\nDENTRO,\nCAMBIA TUTTO.",88,175,380,230,{size:58});sub(s,ctx,'Addon. +1h. Aiuto. Room control.',92,444,350,{size:22});page(s,ctx,11);return s;}

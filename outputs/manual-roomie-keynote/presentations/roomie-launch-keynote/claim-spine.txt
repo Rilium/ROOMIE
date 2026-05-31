@@ -1,0 +1,3 @@
+Thesis: ROOMIE turns a rented room into a physical-digital clubhouse ritual.
+Audience: launch/product viewers who should want to try it immediately.
+Arc: need -> reveal -> booking -> access -> in-session -> ecosystem -> call to action.

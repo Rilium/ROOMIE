@@ -2,11 +2,10 @@ import { randomUUID } from 'crypto'
 import {
   getBookingById,
   listAddons,
-  createAddonOrder,
-  adjustUserChips,
-  recordTransaction,
+  createAddonOrderAtomic,
   logEvent,
   publicUser,
+  getUserById,
 } from '@/lib/neon-db'
 import { requireAuth, storageGuard } from '@/lib/api-helpers'
 import { ACTIVE_STATUSES } from '@/lib/utils'
@@ -55,36 +54,42 @@ export async function POST(req: Request) {
   }
 
   const totalChips = orderItems.reduce((sum, item) => sum + item.total, 0)
-  if (user.chips < totalChips) {
-    return Response.json(
-      { error: 'INSUFFICIENT_CHIPS', chips: user.chips, required: totalChips },
-      { status: 402 },
-    )
-  }
-
-  const newChips = await adjustUserChips(user.id, -totalChips)
-  await recordTransaction({
-    userId: user.id,
-    type: 'addon_debit',
-    chipsDelta: -totalChips,
-    chipsAfter: newChips,
-    note: `addon_order:${booking.id}`,
-  })
-
   const orderId = randomUUID()
-  await createAddonOrder({
-    id: orderId,
-    userId: user.id,
-    bookingId: booking.id,
-    totalChips,
-    items: orderItems,
-  })
 
-  void logEvent('addon_order_paid', user.id, { orderId, totalChips })
+  // ── Atomic: debit chips + record tx + insert order + update sold_today ─────
+  try {
+    const { newChips } = await createAddonOrderAtomic(
+      user.id,
+      orderId,
+      booking.id,
+      orderItems,
+      totalChips,
+    )
 
-  const updatedUser = { ...user, chips: newChips }
-  return Response.json({
-    order: { id: orderId, userId: user.id, bookingId: booking.id, items: orderItems, totalChips, status: 'paid', createdAt: new Date().toISOString() },
-    user: publicUser(updatedUser),
-  }, { status: 201 })
+    void logEvent('addon_order_paid', user.id, { orderId, totalChips })
+
+    const freshUser = await getUserById(user.id)
+    const updatedUser = freshUser ?? { ...user, chips: newChips }
+
+    return Response.json({
+      order: {
+        id: orderId,
+        userId: user.id,
+        bookingId: booking.id,
+        items: orderItems,
+        totalChips,
+        status: 'paid',
+        createdAt: new Date().toISOString(),
+      },
+      user: publicUser(updatedUser),
+    }, { status: 201 })
+  } catch (err) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_CHIPS') {
+      return Response.json(
+        { error: 'INSUFFICIENT_CHIPS', required: totalChips },
+        { status: 402 },
+      )
+    }
+    throw err
+  }
 }

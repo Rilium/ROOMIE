@@ -1,8 +1,8 @@
 import {
   getBookingById,
   extendBooking,
-  adjustUserChips,
-  recordTransaction,
+  extendBookingAtomic,
+  hasBookingConflictNeon,
   logEvent,
   getConfig,
   publicUser,
@@ -10,7 +10,6 @@ import {
 } from '@/lib/neon-db'
 import { requireAuth, storageGuard } from '@/lib/api-helpers'
 import { addHoursToTime, serializeBooking } from '@/lib/utils'
-import { hasBookingConflictNeon } from '@/lib/neon-db'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const guard = storageGuard()
@@ -39,35 +38,45 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
   }
 
-  if (user.role !== 'admin' && user.chips < price) {
-    return Response.json(
-      { error: 'INSUFFICIENT_CHIPS', chips: user.chips, required: price },
-      { status: 402 },
-    )
-  }
-
-  let charged = 0
-  let updatedUser = user
-  if (user.role !== 'admin') {
-    const newChips = await adjustUserChips(user.id, -price)
-    await recordTransaction({
-      userId: user.id,
-      type: 'booking_debit',
-      chipsDelta: -price,
-      chipsAfter: newChips,
-      refId: booking.id,
-      note: `extend:${hours}h`,
+  // ── Admin extends free — no atomic needed ──────────────────────────────────
+  if (user.role === 'admin') {
+    const updated = await extendBooking(booking.id, newEnd, 0)
+    void logEvent('booking_extended_admin', user.id, { bookingId: booking.id, hours })
+    return Response.json({
+      booking: serializeBooking(updated ?? { ...booking, end: newEnd }),
+      user: publicUser(user),
+      charged: 0,
     })
-    charged = price
-    updatedUser = { ...user, chips: newChips }
   }
 
-  const updated = await extendBooking(booking.id, newEnd, price)
-  void logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price })
+  // ── Atomic: debit chips + record tx + extend booking ──────────────────────
+  try {
+    const { booking: updated, newChips } = await extendBookingAtomic(
+      user.id,
+      booking.id,
+      booking.date,
+      booking.end,
+      newEnd,
+      price,
+    )
 
-  return Response.json({
-    booking: serializeBooking(updated ?? { ...booking, end: newEnd }),
-    user: publicUser(updatedUser),
-    charged,
-  })
+    void logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price })
+
+    const freshUser = await getUserById(user.id)
+    const updatedUser = freshUser ?? { ...user, chips: newChips }
+
+    return Response.json({
+      booking: serializeBooking(updated),
+      user: publicUser(updatedUser),
+      charged: price,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_CHIPS') {
+      return Response.json(
+        { error: 'INSUFFICIENT_CHIPS', required: price },
+        { status: 402 },
+      )
+    }
+    throw err
+  }
 }

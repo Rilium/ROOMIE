@@ -16,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const auth = await requireAdmin(req)
   if (auth instanceof Response) return auth
-  const { user } = auth
+  const { user: admin } = auth
 
   const { id } = await params
   const booking = await getBookingById(id)
@@ -24,18 +24,48 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const next = { ...booking }
+  const changedFields: string[] = []
 
   for (const key of ['date', 'start', 'end', 'room'] as const) {
-    if (body[key] !== undefined) next[key] = String(body[key])
+    if (body[key] !== undefined && body[key] !== booking[key]) {
+      next[key] = String(body[key])
+      changedFields.push(key)
+    }
   }
-  if (body.people !== undefined) next.people = Number(body.people || 1)
-  if (body.totalChips !== undefined) next.totalChips = Number(body.totalChips || booking.totalChips || 0)
+  if (body.people !== undefined) {
+    const p = Number(body.people || 1)
+    if (p !== booking.people) { next.people = p; changedFields.push('people') }
+  }
+
+  // ── totalChips override requires explicit reason ───────────────────────────
+  if (body.totalChips !== undefined) {
+    const reason = String(body.totalChipsReason || '').trim()
+    if (!reason || reason.length < 3) {
+      return Response.json(
+        { error: 'REASON_REQUIRED', detail: 'Provide totalChipsReason to override booking price' },
+        { status: 400 },
+      )
+    }
+    const newTotal = Number(body.totalChips || booking.totalChips || 0)
+    if (newTotal !== booking.totalChips) {
+      next.totalChips = newTotal
+      changedFields.push('totalChips')
+    }
+  }
+
   if (body.status !== undefined) {
     const status = String(body.status || '').trim() as Booking['status']
     if (!['confirmed', 'pending', 'completed', 'cancelled'].includes(status)) {
       return Response.json({ error: 'BAD_STATUS' }, { status: 400 })
     }
-    next.status = status
+    if (status !== booking.status) {
+      next.status = status
+      changedFields.push('status')
+    }
+  }
+
+  if (!changedFields.length) {
+    return Response.json({ booking: serializeBooking(booking) })
   }
 
   if (
@@ -58,7 +88,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       access_valid_until = (${next.date}::date + ${next.end}::time)::timestamptz
     WHERE id = ${id}
   `
-  void logEvent('admin_booking_update', user.id, { bookingId: id })
+
+  await logEvent('admin_booking_update', admin.id, {
+    bookingId: id,
+    changedFields,
+    before: changedFields.reduce((acc, k) => ({ ...acc, [k]: (booking as unknown as Record<string, unknown>)[k] }), {}),
+    after: changedFields.reduce((acc, k) => ({ ...acc, [k]: (next as unknown as Record<string, unknown>)[k] }), {}),
+    reason: body.totalChipsReason || undefined,
+  })
 
   return Response.json({ booking: serializeBooking(next) })
 }

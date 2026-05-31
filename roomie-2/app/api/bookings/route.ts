@@ -2,16 +2,15 @@ import { randomUUID } from 'crypto'
 import {
   getBookingsByUser,
   listBookings,
-  createBooking,
-  adjustUserChips,
-  recordTransaction,
+  createBookingAtomic,
   hasBookingConflictNeon,
   logEvent,
   getConfig,
   publicUser,
+  getUserById,
 } from '@/lib/neon-db'
 import { requireAuth, storageGuard } from '@/lib/api-helpers'
-import { calcBookingPrice, serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
+import { calcBookingPrice, serializeBooking } from '@/lib/utils'
 
 export async function GET(req: Request) {
   const guard = storageGuard()
@@ -73,49 +72,46 @@ export async function POST(req: Request) {
     return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
   }
 
-  // ── Balance check ─────────────────────────────────────────────────────────
-  if (user.chips < totalChips) {
-    return Response.json(
-      { error: 'INSUFFICIENT_CHIPS', chips: user.chips, required: totalChips },
-      { status: 402 },
-    )
-  }
-
-  // ── Debit chips ───────────────────────────────────────────────────────────
+  // ── Atomic: debit chips + record tx + insert booking in one transaction ────
   const id = randomUUID()
-  const newChips = await adjustUserChips(user.id, -totalChips)
-  await recordTransaction({
-    userId: user.id,
-    type: 'booking_debit',
-    chipsDelta: -totalChips,
-    chipsAfter: newChips,
-    refId: id,
-    note: `booking:${preset}:${date}`,
-  })
+  try {
+    const { booking, newChips } = await createBookingAtomic(
+      user.id,
+      {
+        id,
+        userId: user.id,
+        room: 'Via Terni',
+        date,
+        start,
+        end,
+        people,
+        preset,
+        durationHours: duration,
+        guests,
+        totalChips,
+        lockboxCode: cfg.lockboxCode,
+        accessValidUntil: `${date}T${end}:00`,
+      },
+      totalChips,
+      `booking:${preset}:${date}`,
+    )
 
-  const booking = await createBooking({
-    id,
-    userId: user.id,
-    room: 'Via Terni',
-    date,
-    start,
-    end,
-    people,
-    preset,
-    durationHours: duration,
-    guests,
-    totalChips,
-    lockboxCode: cfg.lockboxCode,
-    accessValidUntil: `${date}T${end}:00`,
-  })
+    void logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration })
 
-  void logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration })
+    const freshUser = await getUserById(user.id)
+    const updatedUser = freshUser ?? { ...user, chips: newChips }
 
-  // Return updated user chips
-  const updatedUser = { ...user, chips: newChips }
-
-  return Response.json(
-    { booking: serializeBooking(booking), user: publicUser(updatedUser) },
-    { status: 201 },
-  )
+    return Response.json(
+      { booking: serializeBooking(booking), user: publicUser(updatedUser) },
+      { status: 201 },
+    )
+  } catch (err) {
+    if (err instanceof Error && err.message === 'INSUFFICIENT_CHIPS') {
+      return Response.json(
+        { error: 'INSUFFICIENT_CHIPS', required: totalChips },
+        { status: 402 },
+      )
+    }
+    throw err
+  }
 }

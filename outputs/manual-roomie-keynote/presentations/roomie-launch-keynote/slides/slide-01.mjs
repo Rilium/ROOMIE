@@ -1,0 +1,2 @@
+import {bg,bebas,sub,label,image,overlay,chip,page,IMG,C} from './common.mjs';
+export async function slide01(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);await image(s,ctx,IMG+'/roomie-hero-slide-2.jpg',0,0,1280,720);overlay(s,ctx,.42);label(s,ctx,'ROOMIE KEYNOTE',64,58);bebas(s,ctx,"LA STANZA\nÈ TUA.",64,175,560,260,{size:92});sub(s,ctx,'Torino. A ore. Senza chiedere permesso.',68,470,560,{size:26});chip(s,ctx,1075,535,104);page(s,ctx,1);return s;}

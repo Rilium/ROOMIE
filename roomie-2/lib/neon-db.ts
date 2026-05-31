@@ -622,22 +622,196 @@ export async function creditStripeCheckoutSession(
     return { credited: false, reason: 'BAD_METADATA' }
   }
 
-  const result = await completeStripeSession(sessionId, String(session.payment_intent || ''))
-  if (!result) return { credited: false, reason: 'ALREADY_CREDITED' }
+  const sql = getDb()
 
-  const newChips = await adjustUserChips(result.userId, result.amountChips)
-  await recordTransaction({
-    userId: result.userId,
-    type: 'topup',
-    chipsDelta: result.amountChips,
-    chipsAfter: newChips,
-    refId: sessionId,
-    note: 'stripe_topup',
-  })
-  await logEvent('stripe_wallet_topup', result.userId, { amount: result.amountChips, sessionId })
+  // ── Atomic CTE: mark session paid + credit chips + record wallet tx ────────
+  // stripe_sessions.status = 'pending' is the idempotency guard.
+  // If already 'paid', session_update returns 0 rows → whole CTE is a no-op.
+  const rows = await sql`
+    WITH
+      session_update AS (
+        UPDATE stripe_sessions
+        SET status = 'paid',
+            payment_intent = ${String(session.payment_intent || '')},
+            paid_at = NOW()
+        WHERE id = ${sessionId} AND status = 'pending'
+        RETURNING user_id, amount_chips
+      ),
+      chip_credit AS (
+        UPDATE users
+        SET chips = chips + (SELECT amount_chips FROM session_update)
+        WHERE id = (SELECT user_id FROM session_update)
+        RETURNING id AS user_id, chips
+      ),
+      _tx AS (
+        INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
+        SELECT s.user_id, 'topup', s.amount_chips, c.chips, ${sessionId}, 'stripe_topup'
+        FROM session_update s
+        JOIN chip_credit c ON c.user_id = s.user_id
+      )
+    SELECT s.user_id, s.amount_chips, c.chips AS new_chips
+    FROM session_update s
+    JOIN chip_credit c ON c.user_id = s.user_id
+  `
 
-  const user = await getUserById(result.userId)
-  return { credited: true, user: user ? publicUser(user) : null, amount: result.amountChips }
+  if (!rows[0]) return { credited: false, reason: 'ALREADY_CREDITED' }
+
+  const creditedUserId = String(rows[0].user_id)
+  const creditedAmount = Number(rows[0].amount_chips)
+
+  await logEvent('stripe_wallet_topup', creditedUserId, { amount: creditedAmount, sessionId })
+
+  const user = await getUserById(creditedUserId)
+  return { credited: true, user: user ? publicUser(user) : null, amount: creditedAmount }
+}
+
+// ── ATOMIC OPERATIONS ─────────────────────────────────────────────────────────
+// The neon HTTP driver does NOT support async callbacks in .transaction().
+// All atomic operations use a single CTE query (data-modifying CTEs in PostgreSQL
+// are atomic — all DML executes within one implicit transaction).
+//
+// Pattern: chip deduct (with balance check) + wallet record + main insert, in one query.
+// If balance is insufficient, chip_deduct returns 0 rows → downstream CTEs are skipped
+// → outer SELECT returns 0 rows → caller checks and throws 'INSUFFICIENT_CHIPS'.
+
+type BookingInput = Parameters<typeof createBooking>[0]
+
+export async function createBookingAtomic(
+  userId: string,
+  bookingData: BookingInput,
+  totalChips: number,
+  note: string,
+): Promise<{ booking: Booking; newChips: number }> {
+  const sql = getDb()
+  const d = bookingData
+  const rows = await sql`
+    WITH
+      chip_deduct AS (
+        UPDATE users
+        SET chips = chips - ${totalChips}
+        WHERE id = ${userId} AND chips >= ${totalChips}
+        RETURNING chips
+      ),
+      _tx AS (
+        INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
+        SELECT ${userId}, 'booking_debit', ${-totalChips}, c.chips, ${d.id}, ${note}
+        FROM chip_deduct c
+      ),
+      bk AS (
+        INSERT INTO bookings (
+          id, user_id, room, date, start_time, end_time, people,
+          preset, duration_hours, guests, total_chips, live_mode,
+          lockbox_code, door_code, access_valid_from, access_valid_until
+        )
+        SELECT
+          ${d.id}, ${d.userId}, ${d.room ?? 'Via Terni'},
+          ${d.date}::date, ${d.start}::time, ${d.end}::time,
+          ${d.people}, ${d.preset}, ${d.durationHours}, ${d.guests}, ${d.totalChips},
+          ${d.liveMode ?? false},
+          ${d.lockboxCode ?? null}, ${d.doorCode ?? null},
+          ${d.accessValidFrom ?? null}, ${d.accessValidUntil ?? null}
+        WHERE EXISTS (SELECT 1 FROM chip_deduct)
+        RETURNING *
+      )
+    SELECT (SELECT chips FROM chip_deduct) AS new_chips, bk.*
+    FROM bk
+  `
+  if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
+  return {
+    booking: rowToBooking(rows[0]),
+    newChips: Number(rows[0].new_chips),
+  }
+}
+
+export type AddonOrderItem = {
+  id: string; name: string; brand: string; price: number; qty: number; total: number
+}
+
+export async function createAddonOrderAtomic(
+  userId: string,
+  orderId: string,
+  bookingId: string,
+  items: AddonOrderItem[],
+  totalChips: number,
+): Promise<{ newChips: number }> {
+  const sql = getDb()
+  const note = `addon_order:${bookingId}`
+
+  // Atomic: chip deduct + wallet record + order header in one CTE
+  const rows = await sql`
+    WITH
+      chip_deduct AS (
+        UPDATE users
+        SET chips = chips - ${totalChips}
+        WHERE id = ${userId} AND chips >= ${totalChips}
+        RETURNING chips
+      ),
+      _tx AS (
+        INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
+        SELECT ${userId}, 'addon_debit', ${-totalChips}, c.chips, ${orderId}, ${note}
+        FROM chip_deduct c
+      ),
+      _order AS (
+        INSERT INTO addon_orders (id, user_id, booking_id, total_chips)
+        SELECT ${orderId}, ${userId}, ${bookingId}, ${totalChips}
+        WHERE EXISTS (SELECT 1 FROM chip_deduct)
+      )
+    SELECT chips AS new_chips FROM chip_deduct
+  `
+  if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
+  const newChips = Number(rows[0].new_chips)
+
+  // Items + sold_today: run after the atomic core — order header guarantees existence
+  for (const item of items) {
+    await sql`
+      INSERT INTO addon_order_items (order_id, addon_id, name, brand, unit_price, qty, total)
+      VALUES (${orderId}, ${item.id}, ${item.name}, ${item.brand}, ${item.price}, ${item.qty}, ${item.total})
+    `
+    await sql`UPDATE addons SET sold_today = sold_today + ${item.qty} WHERE id = ${item.id}`
+  }
+
+  return { newChips }
+}
+
+export async function extendBookingAtomic(
+  userId: string,
+  bookingId: string,
+  bookingDate: string,
+  oldEnd: string,
+  newEnd: string,
+  price: number,
+): Promise<{ booking: Booking; newChips: number }> {
+  const sql = getDb()
+  const extNote = `extend:${oldEnd}->${newEnd}`
+  const rows = await sql`
+    WITH
+      chip_deduct AS (
+        UPDATE users
+        SET chips = chips - ${price}
+        WHERE id = ${userId} AND chips >= ${price}
+        RETURNING chips
+      ),
+      _tx AS (
+        INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
+        SELECT ${userId}, 'booking_debit', ${-price}, c.chips, ${bookingId}, ${extNote}
+        FROM chip_deduct c
+      ),
+      bk AS (
+        UPDATE bookings
+        SET end_time = ${newEnd}::time,
+            access_valid_until = (${bookingDate}::date + ${newEnd}::time)::timestamptz,
+            total_chips = total_chips + ${price}
+        WHERE id = ${bookingId} AND EXISTS (SELECT 1 FROM chip_deduct)
+        RETURNING *
+      )
+    SELECT (SELECT chips FROM chip_deduct) AS new_chips, bk.*
+    FROM bk
+  `
+  if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
+  return {
+    booking: rowToBooking(rows[0]),
+    newChips: Number(rows[0].new_chips),
+  }
 }
 
 // ── ADMIN SUMMARY ─────────────────────────────────────────────────────────────

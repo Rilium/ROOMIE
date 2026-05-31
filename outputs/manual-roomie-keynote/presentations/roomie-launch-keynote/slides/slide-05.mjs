@@ -1,0 +1,2 @@
+import {bg,bebas,sub,label,image,overlay,cta,page,A,C} from './common.mjs';
+export async function slide05(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);await image(s,ctx,A+'/home.jpg',0,0,1280,720);overlay(s,ctx,.66);label(s,ctx,'REVEAL',74,64);bebas(s,ctx,'ROOMIE.',74,208,470,110,{size:100,color:C.neon});sub(s,ctx,'Il tuo clubhouse privato a Torino.',78,342,520,{size:28});cta(s,ctx,'BLOCCA LA ROOM',78,455,310,72);page(s,ctx,5);return s;}

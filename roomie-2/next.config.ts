@@ -1,21 +1,38 @@
 import type { NextConfig } from 'next'
 import path from 'path'
 
+// ── ENV VALIDATION ────────────────────────────────────────────────────────────
+// Fail fast at build/boot time if critical vars are missing.
+// Only enforced in production (NODE_ENV=production) to keep local dev flexible.
+if (process.env.NODE_ENV === 'production') {
+  const REQUIRED = [
+    'DATABASE_URL',
+    'SESSION_SECRET',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_PUBLISHABLE_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'APP_URL',
+  ] as const
+
+  const missing = REQUIRED.filter(k => !process.env[k] || process.env[k]?.includes('...'))
+  if (missing.length) {
+    throw new Error(
+      `[ROOMIE] Missing required env vars in production:\n  ${missing.join('\n  ')}\n` +
+      `Run roomie-2/scripts/vercel-env-setup.sh to configure Vercel env vars.`
+    )
+  }
+
+  if ((process.env.SESSION_SECRET?.length ?? 0) < 32) {
+    throw new Error('[ROOMIE] SESSION_SECRET must be at least 32 characters')
+  }
+}
+
 const nextConfig: NextConfig = {
   // Fix: Next.js detects multiple lockfiles (parent ROOMIE dir + roomie-2).
-  // outputFileTracingRoot tells Next.js the correct project boundary.
   outputFileTracingRoot: path.join(__dirname, '../'),
 
-  // Serve static assets identici all'originale
-  // (public/ è già la dir di default in Next.js)
-
-  // Disabilita ESLint durante build per porting veloce
-  // eslint: { ignoreDuringBuilds: true },
-
-  // Stripe webhook richiede raw body — gestito a livello di route
-  // Non serve configurazione globale qui
-
-  // Rewrite /ui-preview-v2.html → /
   async redirects() {
     return [
       {
