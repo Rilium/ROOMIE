@@ -39,8 +39,11 @@ STRIPE_PUBLISHABLE_STAGING="pk_test_..."
 GOOGLE_CLIENT_ID="INSERISCI.apps.googleusercontent.com"   # console.cloud.google.com
 GOOGLE_CLIENT_SECRET="GOCSPX-INSERISCI"
 
-APP_URL_PROD="https://roomie.rilio.it"
-APP_URL_STAGING="https://staging.roomie.rilio.it"
+# ⚠️  Dopo il primo `vercel deploy`, copia qui l'URL auto-generato tipo:
+# https://roomie-2-abc123.vercel.app
+# e ri-esegui lo script (o aggiorna manualmente da Vercel Dashboard → Settings → Env Vars)
+APP_URL_PROD="https://INSERISCI-URL-VERCEL.vercel.app"
+APP_URL_STAGING="$APP_URL_PROD"
 
 # ── Production ────────────────────────────────────────────────────────────────
 echo "→ Carico env production..."
