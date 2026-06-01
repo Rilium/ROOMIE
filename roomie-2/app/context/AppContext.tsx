@@ -105,7 +105,7 @@ const defaultConfig: AppConfig = {
   dayPrice: 60,
   guestPassPrice: 2,
   maxPeople: 8,
-  lockboxCode: '4729',
+  lockboxCode: '0000',
 }
 
 const defaultBooking: BookingDraft = {
@@ -137,6 +137,7 @@ export function useApp() {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<PublicUser | null>(null)
+  const userRef = useRef<PublicUser | null>(null)
   const [config, setConfigState] = useState<AppConfig>(defaultConfig)
   const [activePage, setActivePage] = useState('home')
   const [authMode, setAuthModeState] = useState<'login' | 'register'>('login')
@@ -158,15 +159,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Init ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    Promise.all([apiMe(), apiAppConfig()]).then(([meRes, cfgRes]) => {
-      if (meRes.data?.user) setUserState(meRes.data.user)
-      if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
-      setLoading(false)
-
-      // Parse page from URL
-      const urlPage = new URLSearchParams(window.location.search).get('page')
-      if (urlPage) setActivePage(urlPage)
-    })
+    let mounted = true
+    const init = async () => {
+      let currentUser: PublicUser | null = null
+      try {
+        const [meRes, cfgRes] = await Promise.all([apiMe(), apiAppConfig()])
+        if (!mounted) return
+        currentUser = meRes.data?.user || null
+        if (currentUser) {
+          userRef.current = currentUser
+          setUserState(currentUser)
+        }
+        if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
+      } catch (err) {
+        console.error('[app:init] failed', err)
+      } finally {
+        if (!mounted) return
+        const urlPage = new URLSearchParams(window.location.search).get('page')
+        const protectedPages = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop']
+        if (urlPage) {
+          if (protectedPages.includes(urlPage) && !currentUser) {
+            setAuthModeState('login')
+            setAuthOpen(true)
+            setActivePage('home')
+          } else {
+            setActivePage(urlPage)
+          }
+        }
+        setLoading(false)
+      }
+    }
+    init()
+    return () => { mounted = false }
   }, [])
 
   // Modal handlers
@@ -191,7 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const payload = typeof msg === 'string' ? { title: msg } : msg
       setToast(payload)
     }
-    w.__roomie_getUser = () => user
+    w.__roomie_getUser = () => userRef.current
     // Modal bridges (called from roomie.js stubs and auth screen)
     w.openLegalDoc = (type: string) => setModalLegalDoc({ open: true, type: type as LegalDocType })
     w.openNfcModal = () => setModalNfc(true)
@@ -199,25 +223,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     w.openInviteModal = () => setModalInvite(true)
     w.openTokenBuyModal = (amount?: number) => setModalTokenBuy({ open: true, amount: amount ?? 20 })
     return () => {
-      delete w['__roomie_showPage']
-      delete w['__roomie_showToast']
-      delete w['__roomie_getUser']
-      delete w['openLegalDoc']
-      delete w['openNfcModal']
-      delete w['openCodeUnlockModal']
-      delete w['openInviteModal']
-      delete w['openTokenBuyModal']
+      ;[
+        '__roomie_showPage',
+        '__roomie_showToast',
+        '__roomie_getUser',
+        'openLegalDoc',
+        'openNfcModal',
+        'openCodeUnlockModal',
+        'openInviteModal',
+        'openTokenBuyModal',
+      ].forEach(key => { w[key] = undefined })
     }
-  }, [user])
+  }, [])
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
   const setUser = useCallback((u: PublicUser | null) => {
+    userRef.current = u
     setUserState(u)
   }, [])
 
   const logout = useCallback(async () => {
     await apiLogout()
+    userRef.current = null
     setUserState(null)
     setActivePage('home')
     setActiveSessionState(null)
@@ -242,13 +270,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const showPage = useCallback((page: string) => {
     // Pages that require auth
     const protectedPages = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop']
-    if (protectedPages.includes(page) && !user) {
+    if (protectedPages.includes(page) && !userRef.current) {
       openAuth('login')
       return
     }
     setActivePage(page)
     window.scrollTo(0, 0)
-  }, [user, openAuth])
+  }, [openAuth])
 
   // ── Toast ─────────────────────────────────────────────────────────────────
 

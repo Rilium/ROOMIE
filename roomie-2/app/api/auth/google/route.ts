@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto'
+import { NextResponse } from 'next/server'
 import { buildSessionCookie } from '@/lib/session'
 import { redirectWithAuthError, appBaseUrl } from '@/lib/api-helpers'
 
@@ -8,21 +9,22 @@ export async function GET(req: Request) {
   }
 
   const state = randomBytes(18).toString('hex')
-  const cookie = buildSessionCookie({ oauthState: state })
+  const cookie = buildSessionCookie({ oauthState: state }, 1000 * 60 * 10)
   const base = appBaseUrl(req)
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID,
     redirect_uri: `${base}/api/auth/google/callback`,
-    response_type: 'id_token',
+    response_type: 'code',
     scope: 'openid email profile',
-    nonce: state,
     state,
     prompt: 'select_account',
   })
 
-  return Response.redirect(
+  const res = NextResponse.redirect(
     `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
     302,
   )
+  res.headers.set('Set-Cookie', cookie)
+  return res
 }

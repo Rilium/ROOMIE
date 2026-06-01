@@ -1,11 +1,25 @@
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { getUserByUsername, getUserByEmail, createUser, logEvent, publicUser } from '@/lib/neon-db'
+import { getUserByUsername, getUserByEmail, createUser, isRateLimited, logEvent, publicUser } from '@/lib/neon-db'
 import { buildSessionCookie } from '@/lib/session'
-import { storageGuard } from '@/lib/api-helpers'
+import { storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { normalizeUsername, normalizeEmail } from '@/lib/utils'
 
+const WINDOW_MS = 60_000
+const MAX_ATTEMPTS = 5
+
+function rateLimitKey(req: Request, email: string) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  return `${ip}:${email || 'empty'}`
+}
+
 export async function POST(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   try {
     const guard = storageGuard()
     if (guard) return guard
@@ -16,6 +30,9 @@ export async function POST(req: Request) {
     const name = String(body.name || '').trim()
     const password = String(body.password || '')
     const remember = Boolean(body.remember)
+    if (await isRateLimited(rateLimitKey(req, email), MAX_ATTEMPTS, WINDOW_MS)) {
+      return Response.json({ error: 'TOO_MANY_ATTEMPTS' }, { status: 429 })
+    }
 
     if (!name || name.length < 2) {
       return Response.json({ error: 'BAD_NAME' }, { status: 400 })
@@ -49,7 +66,7 @@ export async function POST(req: Request) {
     const maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 12
     const cookie = buildSessionCookie({ userId: user.id }, maxAge)
 
-    void logEvent('register', user.id, { username, email })
+    await logEvent('register', user.id, { username, email })
 
     return Response.json(
       { user: publicUser(user) },
@@ -57,6 +74,6 @@ export async function POST(req: Request) {
     )
   } catch (err) {
     console.error('[register] unhandled error:', err)
-    return Response.json({ error: 'INTERNAL_ERROR', detail: String(err) }, { status: 500 })
+    return Response.json({ error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

@@ -33,6 +33,10 @@ function AppRouter() {
 
   // Sync active page class for legacy CSS
   useEffect(() => {
+    document.body.classList.forEach(className => {
+      if (className.startsWith('page-')) document.body.classList.remove(className)
+    })
+    document.body.classList.add(`page-${activePage}`)
     document.querySelectorAll('.page').forEach(el => {
       const id = el.id
       const shouldBeActive = id === `page-${activePage}`

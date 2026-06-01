@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=css-split1" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260601-nav5" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -131,7 +131,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE app logic — must run after DOM */}
-        <Script src="/assets/js/roomie.js?v=css-split1" strategy="afterInteractive" />
+        <Script src="/assets/js/roomie.js?v=prod-20260601-nav5" strategy="afterInteractive" />
       </body>
     </html>
   )

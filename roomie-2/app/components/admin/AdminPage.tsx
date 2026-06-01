@@ -9,7 +9,25 @@ import {
 } from '@/lib/client-api'
 import type { Booking, AppConfig, Addon } from '@/lib/types'
 
-type Tab = 'bookings' | 'users' | 'access' | 'commerce' | 'audit'
+type Tab = 'bookings' | 'users' | 'access' | 'commerce' | 'audit' | 'docs'
+
+const TAB_LABELS: Record<Tab, string> = {
+  bookings: 'Bookings',
+  users: 'Users',
+  access: 'Access',
+  commerce: 'Commerce',
+  audit: 'Audit',
+  docs: 'Documentazione',
+}
+
+const TAB_ICONS: Record<Tab, string> = {
+  bookings: 'fa-calendar-check',
+  users: 'fa-users',
+  access: 'fa-key',
+  commerce: 'fa-shopping-bag',
+  audit: 'fa-shield-alt',
+  docs: 'fa-book',
+}
 
 interface SummaryData {
   bookings: Booking[]
@@ -20,6 +38,42 @@ interface SummaryData {
   auditLog: any[]
   config: AppConfig
   stats: { revenue: number; bookingsCount: number; usersCount: number; pendingCount: number; revenueRoom: number; revenueAddon: number }
+}
+
+function formatAuditType(type: string) {
+  const labels: Record<string, string> = {
+    login: 'Login utente',
+    logout: 'Logout',
+    register: 'Registrazione',
+    social_login: 'Login Google',
+    social_register: 'Registrazione Google',
+    booking_created: 'Prenotazione creata',
+    booking_extended: 'Sessione estesa',
+    booking_extended_admin: 'Estensione admin',
+    addon_order_paid: 'Addon acquistato',
+    stripe_wallet_topup: 'Ricarica Stripe',
+    wallet_topup: 'Ricarica chips',
+    admin_config_update: 'Config aggiornata',
+    admin_addon_create: 'Addon creato',
+    admin_addon_update: 'Addon modificato',
+    admin_addon_delete: 'Addon eliminato',
+    admin_block_slot: 'Slot bloccato',
+    admin_unblock_slot: 'Slot sbloccato',
+    admin_booking_update: 'Booking modificato',
+    admin_booking_status: 'Stato booking',
+    admin_user_update: 'Utente modificato',
+    admin_wallet_adjust: 'Chips modificate',
+  }
+  return labels[type] || type || 'Evento'
+}
+
+function formatAuditDetails(details: Record<string, unknown> = {}) {
+  const entries = Object.entries(details).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  if (!entries.length) return 'Nessun dettaglio extra'
+  return entries
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
+    .join(' · ')
 }
 
 export default function AdminPage() {
@@ -68,12 +122,29 @@ export default function AdminPage() {
   useEffect(() => { load() }, [load])
 
   const saveConfig = async () => {
-    const cfg: Partial<AppConfig> = {
-      hourlyPrice: parseInt(priceHour) || 12,
-      dayPrice: parseInt(priceDay) || 60,
-      guestPassPrice: parseInt(priceGuest) || 2,
-      maxPeople: parseInt(maxPeople) || 8,
+    const values = {
+      hourlyPrice: Number(priceHour),
+      dayPrice: Number(priceDay),
+      guestPassPrice: Number(priceGuest),
+      maxPeople: Number(maxPeople),
       lockboxCode: lockboxCode.trim(),
+    }
+    const invalid =
+      !Number.isFinite(values.hourlyPrice) ||
+      !Number.isFinite(values.dayPrice) ||
+      !Number.isFinite(values.guestPassPrice) ||
+      !Number.isFinite(values.maxPeople) ||
+      !/^\d{4,6}$/.test(values.lockboxCode)
+    if (invalid) {
+      showToast({ title: 'Config non valida', copy: 'Controlla prezzi, capienza e codice cassaforte.', type: 'warn' })
+      return
+    }
+    const cfg: Partial<AppConfig> = {
+      hourlyPrice: values.hourlyPrice,
+      dayPrice: values.dayPrice,
+      guestPassPrice: values.guestPassPrice,
+      maxPeople: values.maxPeople,
+      lockboxCode: values.lockboxCode,
     }
     const { error } = await apiAdminPatchConfig(cfg)
     if (error) { showToast({ title: error, type: 'warn' }); return }
@@ -125,7 +196,8 @@ export default function AdminPage() {
   }
 
   const patchUserChips = async (id: string, delta: number) => {
-    await apiAdminPatchUserChips(id, delta)
+    const { error } = await apiAdminPatchUserChips(id, delta, `${delta > 0 ? 'Bonus' : 'Rettifica'} admin`)
+    if (error) { showToast({ title: error, type: 'warn' }); return }
     showToast({ title: `${delta > 0 ? '+' : ''}${delta} chips` })
     load()
   }
@@ -175,10 +247,10 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="admin-tabs">
-          {(['bookings', 'users', 'access', 'commerce', 'audit'] as Tab[]).map(t => (
+          {(['bookings', 'users', 'access', 'commerce', 'audit', 'docs'] as Tab[]).map(t => (
             <button key={t} className={`admin-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-              <i className={`fas ${t === 'bookings' ? 'fa-calendar-check' : t === 'users' ? 'fa-users' : t === 'access' ? 'fa-key' : t === 'commerce' ? 'fa-shopping-bag' : 'fa-shield-alt'}`}></i>
-              {' '}{t.charAt(0).toUpperCase() + t.slice(1)}
+              <i className={`fas ${TAB_ICONS[t]}`}></i>
+              {' '}{TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -333,19 +405,74 @@ export default function AdminPage() {
         {/* Audit panel */}
         {tab === 'audit' && !loading && (
           <div className="admin-panel active">
-            <div className="admin-toolbar"><div style={{ fontWeight: 900, color: '#fff' }}>AUDIT LOG</div></div>
+            <div className="admin-toolbar">
+              <div>
+                <div style={{ fontWeight: 900, color: '#fff' }}>AUDIT LOG</div>
+                <div style={{ color: 'var(--muted)', fontSize: '.78rem', marginTop: '3px' }}>
+                  Eventi operativi reali: auth, booking, wallet, addon e modifiche admin.
+                </div>
+              </div>
+            </div>
             <div className="admin-mini-list">
               {(data?.auditLog || []).slice(0, 50).map((entry: any, i: number) => (
-                <div key={i} className="admin-mini-item" style={{ fontSize: '.78rem' }}>
-                  <span style={{ color: 'var(--muted)' }}>{new Date(entry.at).toLocaleString('it-IT')}</span>
-                  <span style={{ color: 'var(--text)' }}>{entry.event}</span>
-                  <span style={{ color: 'var(--muted)' }}>uid:{entry.userId?.slice(0, 8)}</span>
+                <div key={entry.id || i} className="admin-mini-item" style={{ fontSize: '.78rem', alignItems: 'flex-start' }}>
+                  <div>
+                    <strong style={{ color: '#fff', display: 'block', marginBottom: '3px' }}>{formatAuditType(entry.type || entry.event)}</strong>
+                    <span style={{ color: 'var(--muted)' }}>{formatAuditDetails(entry.details)}</span>
+                  </div>
+                  <div style={{ textAlign: 'right', minWidth: '150px' }}>
+                    <span style={{ color: 'var(--muted)', display: 'block' }}>{new Date(entry.createdAt || entry.at).toLocaleString('it-IT')}</span>
+                    <span style={{ color: 'var(--muted)' }}>uid:{entry.userId?.slice(0, 8) || 'system'}</span>
+                  </div>
                 </div>
               ))}
               {(data?.auditLog || []).length === 0 && (
                 <div style={{ color: 'var(--muted)', padding: '16px' }}>Nessun evento registrato.</div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Documentazione panel */}
+        {tab === 'docs' && (
+          <div className="admin-panel active">
+            <div className="admin-toolbar">
+              <div>
+                <div style={{ fontWeight: 900, color: '#fff' }}>DOCUMENTAZIONE</div>
+                <div style={{ color: 'var(--muted)', fontSize: '.78rem', marginTop: '3px' }}>
+                  Documentazione tecnica e operativa completa (architettura, DB, API, deploy).
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a
+                  href="/docs/index.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="admin-page-btn"
+                  style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fas fa-external-link-alt"></i> Apri in nuova scheda
+                </a>
+                <a
+                  href="/docs/ROOMIE-Documentazione.docx"
+                  className="admin-page-btn"
+                  style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <i className="fas fa-file-word"></i> Scarica .docx
+                </a>
+              </div>
+            </div>
+            <iframe
+              src="/docs/index.html"
+              title="Documentazione ROOMIE"
+              style={{
+                width: '100%',
+                height: '70vh',
+                border: '1px solid var(--line, #262b36)',
+                borderRadius: '10px',
+                background: '#0f1115',
+              }}
+            />
           </div>
         )}
 

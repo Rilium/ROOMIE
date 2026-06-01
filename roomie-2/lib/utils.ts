@@ -2,7 +2,6 @@
 // Pure utility functions shared across API routes.
 
 import type { Booking, DbUser, Addon, AppConfig } from './types'
-import { publicUser } from './neon-db'
 
 export function normalizeUsername(value: unknown): string {
   return String(value || '').trim().toLowerCase()
@@ -12,6 +11,10 @@ export function normalizeEmail(value: unknown): string {
   return String(value || '').trim().toLowerCase()
 }
 
+export function isValidEmailString(value: unknown): value is string {
+  return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+}
+
 export function addHoursToTime(time: string, hours: number): string {
   const [hh, mm] = String(time || '00:00').split(':').map(Number)
   const totalMinutes = (Number(hh || 0) * 60) + Number(mm || 0) + Number(hours || 0) * 60
@@ -19,13 +22,86 @@ export function addHoursToTime(time: string, hours: number): string {
   return `${String(Math.floor(next / 60)).padStart(2, '0')}:${String(next % 60).padStart(2, '0')}`
 }
 
+export function isValidDateString(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  )
+}
+
+export function isValidTimeString(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{2}:\d{2}$/.test(value)) return false
+  const [hh, mm] = value.split(':').map(Number)
+  return Number.isInteger(hh) && Number.isInteger(mm) && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59
+}
+
+function zonedParts(date: Date, timeZone = 'Europe/Rome') {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value || 0)
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second'),
+  }
+}
+
+function localDateTimeToUtcIso(date: string, time: string, addDays = 0, timeZone = 'Europe/Rome'): string {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+  let utcMs = Date.UTC(year, month - 1, day + addDays, hour, minute, 0)
+
+  // Convert wall-clock Europe/Rome time to UTC without relying on server TZ.
+  for (let i = 0; i < 2; i += 1) {
+    const parts = zonedParts(new Date(utcMs), timeZone)
+    const asIfUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+    utcMs -= asIfUtc - Date.UTC(year, month - 1, day + addDays, hour, minute, 0)
+  }
+
+  return new Date(utcMs).toISOString()
+}
+
+export function bookingAccessUntilIso(date: string, start: string, end: string): string {
+  const crossesMidnight = end <= start
+  return localDateTimeToUtcIso(date, end, crossesMidnight ? 1 : 0)
+}
+
 export const ACTIVE_STATUSES: Booking['status'][] = ['confirmed', 'pending']
 
 export function bookingStartDate(booking: Booking): Date {
   const date = booking?.date || '1970-01-01'
   const start = booking?.start || '00:00'
-  const value = new Date(`${date}T${start}:00`)
+  const value = new Date(localDateTimeToUtcIso(date, start))
   return Number.isNaN(value.getTime()) ? new Date(0) : value
+}
+
+function bookingEndDate(booking: Booking): Date {
+  const date = booking?.date || '1970-01-01'
+  const start = booking?.start || '00:00'
+  const end = booking?.end || '00:00'
+  const value = new Date(bookingAccessUntilIso(date, start, end))
+  if (Number.isNaN(value.getTime())) return new Date(0)
+  return value
+}
+
+export function isBookingLiveNow(booking: Booking, now = new Date()): boolean {
+  if (!ACTIVE_STATUSES.includes(booking.status)) return false
+  return now >= bookingStartDate(booking) && now <= bookingEndDate(booking)
 }
 
 export function serializeBooking(booking: Booking): Booking {
@@ -130,7 +206,15 @@ export async function buildDashboardSummary(user: DbUser, bookings: Booking[], a
     .map(serializeAddon)
 
   return {
-    user: publicUser(user),
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email || '',
+      name: user.name,
+      role: user.role,
+      chips: Number(user.chips || 0),
+      suspended: Boolean(user.suspended),
+    },
     bookings: serialized,
     next,
     history: [...serialized]

@@ -13,8 +13,10 @@ export async function GET(req: Request) {
   const data = await adminSummary()
 
   const bookingRevenue = data.bookings.reduce((sum, b) => sum + Number(b.totalChips || 0), 0)
-  // addon revenue would come from addon_orders — omit for now, add table later
-  const addonRevenue = 0
+  const addonOrders = data.addonOrders ?? []
+  const addonRevenue = addonOrders
+    .filter(order => order.status === 'paid')
+    .reduce((sum, order) => sum + Number(order.totalChips || 0), 0)
 
   const usersById = new Map(data.users.map(u => [u.id, u]))
   const enrichedBookings = data.bookings.map(b => {
@@ -45,14 +47,14 @@ export async function GET(req: Request) {
     access: {
       shutter: 'online',
       door: 'online',
-      lockboxCode: data.config.lockboxCode || '4729',
+      lockboxCode: data.config.lockboxCode || '0000',
       power: 'ready',
       lastTap: new Date().toISOString(),
     },
     config: data.config,
     addons: data.addons.map(serializeAddon),
-    addonOrders: [],
+    addonOrders,
     blockedSlots: data.blockedSlots,
-    auditLog: data.recentAccess.slice(0, 20),
+    auditLog: (data.auditLog?.length ? data.auditLog : data.recentAccess).slice(0, 50),
   })
 }

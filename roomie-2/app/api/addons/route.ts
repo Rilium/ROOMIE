@@ -1,7 +1,15 @@
 import { listAddons } from '@/lib/neon-db'
+import { storageGuard } from '@/lib/api-helpers'
 import { serializeAddon } from '@/lib/utils'
 
 export async function GET() {
-  const addons = await listAddons()
-  return Response.json({ addons: addons.map(serializeAddon) })
+  const guard = storageGuard()
+  if (guard) return guard
+
+  try {
+    const addons = await listAddons()
+    return Response.json({ addons: addons.map(serializeAddon) })
+  } catch (_err) {
+    return Response.json({ error: 'ADDONS_UNAVAILABLE' }, { status: 500 })
+  }
 }

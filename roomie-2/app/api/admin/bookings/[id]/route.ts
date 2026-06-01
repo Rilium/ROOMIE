@@ -1,16 +1,12 @@
-import { getBookingById, hasBookingConflictNeon, logEvent } from '@/lib/neon-db'
-import { neon } from '@neondatabase/serverless'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
-import { serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
+import { getBookingById, hasBookingConflictNeon, logEvent, patchBookingAdmin } from '@/lib/neon-db'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import { bookingAccessUntilIso, isValidDateString, isValidTimeString, serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 
-function getDb() {
-  const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL is not set')
-  return neon(url)
-}
-
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -32,6 +28,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       changedFields.push(key)
     }
   }
+  if (!isValidDateString(next.date)) {
+    return Response.json({ error: 'BAD_BOOKING_DATE' }, { status: 400 })
+  }
+  if (!isValidTimeString(next.start) || !isValidTimeString(next.end) || next.start === next.end) {
+    return Response.json({ error: 'BAD_BOOKING_TIME' }, { status: 400 })
+  }
   if (body.people !== undefined) {
     const p = Number(body.people || 1)
     if (p !== booking.people) { next.people = p; changedFields.push('people') }
@@ -42,7 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const reason = String(body.totalChipsReason || '').trim()
     if (!reason || reason.length < 3) {
       return Response.json(
-        { error: 'REASON_REQUIRED', detail: 'Provide totalChipsReason to override booking price' },
+        { error: 'REASON_REQUIRED' },
         { status: 400 },
       )
     }
@@ -75,19 +77,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
   }
 
-  const sql = getDb()
-  await sql`
-    UPDATE bookings SET
-      date         = ${next.date}::date,
-      start_time   = ${next.start}::time,
-      end_time     = ${next.end}::time,
-      room         = ${next.room},
-      people       = ${next.people},
-      total_chips  = ${next.totalChips},
-      status       = ${next.status},
-      access_valid_until = (${next.date}::date + ${next.end}::time)::timestamptz
-    WHERE id = ${id}
-  `
+  const accessValidUntil = bookingAccessUntilIso(next.date, next.start, next.end)
+  const updated = await patchBookingAdmin(id, next, accessValidUntil)
 
   await logEvent('admin_booking_update', admin.id, {
     bookingId: id,
@@ -97,5 +88,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     reason: body.totalChipsReason || undefined,
   })
 
-  return Response.json({ booking: serializeBooking(next) })
+  return Response.json({ booking: serializeBooking(updated || next) })
 }

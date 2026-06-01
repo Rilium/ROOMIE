@@ -5,25 +5,22 @@ import {
   redirectWithAuthError,
   appBaseUrl,
   googleTokenErrorCode,
-  googleCallbackBridgeHtml,
 } from '@/lib/api-helpers'
-import { normalizeEmail } from '@/lib/utils'
+import { isValidEmailString, normalizeEmail } from '@/lib/utils'
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
+    const error = url.searchParams.get('error')
 
-    // No code → implicit flow bridge page (hash fragment)
-    if (!code) {
-      return new Response(googleCallbackBridgeHtml(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      })
+    if (error) {
+      return redirectWithAuthError(req, error === 'access_denied' ? 'GOOGLE_CANCELLED' : 'GOOGLE_TOKEN_ERROR')
     }
 
     const session = getSessionFromRequest(req)
-    if (!state || state !== session.oauthState) {
+    if (!code || !state || state !== session.oauthState) {
       return redirectWithAuthError(req, 'SOCIAL_STATE_ERROR')
     }
 
@@ -57,9 +54,11 @@ export async function GET(req: Request) {
       headers: { Authorization: `Bearer ${token.access_token as string}` },
     })
     const profile = (await profileRes.json()) as Record<string, unknown>
-    const email = normalizeEmail(profile.email)
+    const rawEmail = typeof profile.email === 'string' ? profile.email : ''
+    const rawSub = typeof profile.sub === 'string' ? profile.sub : ''
+    const email = normalizeEmail(rawEmail)
 
-    if (!profileRes.ok || !email) {
+    if (!profileRes.ok || !isValidEmailString(email) || !rawSub) {
       return redirectWithAuthError(req, 'GOOGLE_PROFILE_ERROR')
     }
 
@@ -70,13 +69,14 @@ export async function GET(req: Request) {
     const maxAge = 1000 * 60 * 60 * 24 * 30
     const cookie = buildSessionCookie({ userId: user.id }, maxAge)
 
-    void logEvent('social_login', user.id, { provider: 'google', email })
+    await logEvent('social_login', user.id, { provider: 'google', email })
 
     const redirectUrl = `${base}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`
     const res = NextResponse.redirect(redirectUrl, 302)
     res.headers.set('Set-Cookie', cookie)
     return res
-  } catch (_err) {
+  } catch (err) {
+    console.error('Google callback failed', err)
     return redirectWithAuthError(req, 'SOCIAL_LOGIN_ERROR')
   }
 }

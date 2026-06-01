@@ -7,10 +7,13 @@ import {
   publicUser,
   getUserById,
 } from '@/lib/neon-db'
-import { requireAuth, storageGuard } from '@/lib/api-helpers'
-import { ACTIVE_STATUSES } from '@/lib/utils'
+import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import { isBookingLiveNow } from '@/lib/utils'
 
 export async function POST(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -24,8 +27,8 @@ export async function POST(req: Request) {
   if (!booking || (booking.userId !== user.id && user.role !== 'admin')) {
     return Response.json({ error: 'ACTIVE_BOOKING_REQUIRED' }, { status: 400 })
   }
-  if (!(ACTIVE_STATUSES as string[]).includes(booking.status)) {
-    return Response.json({ error: 'ACTIVE_BOOKING_REQUIRED' }, { status: 400 })
+  if (!isBookingLiveNow(booking)) {
+    return Response.json({ error: 'LIVE_BOOKING_REQUIRED' }, { status: 409 })
   }
 
   const allAddons = await listAddons()
@@ -66,7 +69,7 @@ export async function POST(req: Request) {
       totalChips,
     )
 
-    void logEvent('addon_order_paid', user.id, { orderId, totalChips })
+    await logEvent('addon_order_paid', user.id, { orderId, totalChips })
 
     const freshUser = await getUserById(user.id)
     const updatedUser = freshUser ?? { ...user, chips: newChips }

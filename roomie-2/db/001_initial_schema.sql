@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS config (
   day_price        INTEGER NOT NULL DEFAULT 60,
   guest_pass_price INTEGER NOT NULL DEFAULT 2,
   max_people       INTEGER NOT NULL DEFAULT 8,
-  lockbox_code     TEXT    NOT NULL DEFAULT '4729',
+  lockbox_code     TEXT    NOT NULL DEFAULT '0000',
   door_code        TEXT    NOT NULL DEFAULT '0000',
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -101,10 +101,23 @@ CREATE TABLE IF NOT EXISTS addons (
   status      TEXT        NOT NULL DEFAULT 'active'
                             CHECK (status IN ('active','soldout','hidden','deleted')),
   sold_today  INTEGER     NOT NULL DEFAULT 0,
+  sold_today_date DATE     NOT NULL DEFAULT CURRENT_DATE,
   sort_order  INTEGER     NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+INSERT INTO addons (id, category, brand, name, description, price, status, sold_today, sort_order)
+VALUES
+  ('dazn',       'featured', 'DAZN',    'DAZN Partita',        'Champions League, Serie A e big match dentro la sessione.', 5,  'active', 3, 10),
+  ('cinema',     'featured', 'NETFLIX',  'Cinema Mode',         'Audio ottimizzato, streaming fullscreen e luci basse.',      3,  'active', 2, 20),
+  ('horror',     'modes',    'ROOMIE',   'Mood Horror',         'Luci rosse, atmosfera dark e setup da film.',                4,  'active', 0, 30),
+  ('gaming-pro', 'modes',    'PS5',      'Gaming Pro Setup',    'Monitor extra, headset premium e setup competitivo.',        8,  'active', 1, 40),
+  ('neon-party', 'modes',    'SPOTIFY',  'Neon Party',          'Luci dinamiche e playlist pronta per la serata.',            5,  'active', 0, 50),
+  ('pizza',      'snacks',   'PARTNER',  'Pizza Margherita',    'Delivery partner locale, pronta durante la sessione.',       9,  'active', 2, 60),
+  ('beer',       'snacks',   'LOCAL',    'Birra Artigianale x4','Quattro birre locali fredde.',                                12, 'active', 1, 70),
+  ('snack',      'snacks',   'MOVIE',    'Snack Box',           'Popcorn, patatine, nachos e mix dolce/salato.',              7,  'active', 4, 80)
+ON CONFLICT (id) DO NOTHING;
 
 -- ── ADDON ORDERS ──────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS addon_orders (
@@ -183,6 +196,19 @@ CREATE TABLE IF NOT EXISTS stripe_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stripe_sessions_user_id ON stripe_sessions (user_id);
+
+-- ── AUDIT LOG ─────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS audit_log (
+  id         TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  type       TEXT        NOT NULL,
+  user_id    TEXT        REFERENCES users (id) ON DELETE SET NULL,
+  details    JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id    ON audit_log (user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_type       ON audit_log (type);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
 
 -- ── UPDATED_AT TRIGGER ────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at()

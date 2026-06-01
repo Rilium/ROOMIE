@@ -1,15 +1,11 @@
-import { getUserById, logEvent, publicUser } from '@/lib/neon-db'
-import { neon } from '@neondatabase/serverless'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
-import { normalizeEmail } from '@/lib/utils'
-
-function getDb() {
-  const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL is not set')
-  return neon(url)
-}
+import { getUserByEmail, getUserById, logEvent, patchUserAdmin, publicUser } from '@/lib/neon-db'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import { isValidEmailString, normalizeEmail } from '@/lib/utils'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -24,27 +20,38 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const updates: Record<string, unknown> = {}
 
-  if (body.name !== undefined) updates.name = String(body.name || user.name).trim()
-  if (body.email !== undefined) updates.email = normalizeEmail(body.email)
+  if (body.name !== undefined) {
+    const name = String(body.name || '').trim()
+    if (name.length < 2) return Response.json({ error: 'BAD_NAME' }, { status: 400 })
+    updates.name = name
+  }
+  if (body.email !== undefined) {
+    const email = normalizeEmail(body.email)
+    if (!isValidEmailString(email)) return Response.json({ error: 'BAD_EMAIL' }, { status: 400 })
+    const existing = await getUserByEmail(email)
+    if (existing && existing.id !== id) return Response.json({ error: 'EMAIL_TAKEN' }, { status: 409 })
+    updates.email = email
+  }
   if (body.role !== undefined) {
     const role = String(body.role)
     if (!['user', 'admin'].includes(role)) {
       return Response.json({ error: 'BAD_ROLE' }, { status: 400 })
     }
+    if (id === admin.id && role !== 'admin') {
+      return Response.json({ error: 'CANNOT_DEMOTE_SELF' }, { status: 400 })
+    }
     updates.role = role
   }
-  if (body.suspended !== undefined) updates.suspended = Boolean(body.suspended)
+  if (body.suspended !== undefined) {
+    const suspended = Boolean(body.suspended)
+    if (id === admin.id && suspended) {
+      return Response.json({ error: 'CANNOT_SUSPEND_SELF' }, { status: 400 })
+    }
+    updates.suspended = suspended
+  }
 
-  const sql = getDb()
-  await sql`
-    UPDATE users SET
-      name      = COALESCE(${(updates.name as string) ?? null}, name),
-      email     = COALESCE(${(updates.email as string) ?? null}, email),
-      role      = COALESCE(${(updates.role as string) ?? null}, role),
-      suspended = COALESCE(${(updates.suspended as boolean) ?? null}, suspended)
-    WHERE id = ${id}
-  `
+  const updated = await patchUserAdmin(id, updates)
 
-  void logEvent('admin_user_update', admin.id, { targetUserId: id })
-  return Response.json({ user: publicUser({ ...user, ...updates } as typeof user) })
+  await logEvent('admin_user_update', admin.id, { targetUserId: id })
+  return Response.json({ user: publicUser(updated || ({ ...user, ...updates } as typeof user)) })
 }

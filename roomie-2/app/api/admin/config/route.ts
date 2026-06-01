@@ -1,7 +1,10 @@
 import { patchConfig, logEvent } from '@/lib/neon-db'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 
 export async function PATCH(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -12,13 +15,18 @@ export async function PATCH(req: Request) {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const patch: Record<string, unknown> = {}
 
+  const ranges = {
+    hourlyPrice: { min: 1, max: 250 },
+    dayPrice: { min: 1, max: 2000 },
+    guestPassPrice: { min: 0, max: 100 },
+    maxPeople: { min: 1, max: 30 },
+  } as const
+
   for (const key of ['hourlyPrice', 'dayPrice', 'guestPassPrice', 'maxPeople'] as const) {
     if (body[key] !== undefined) {
       const value = Number(body[key])
-      if (!Number.isFinite(value) || value < 0) {
-        return Response.json({ error: 'BAD_CONFIG' }, { status: 400 })
-      }
-      if (key === 'maxPeople' && (!Number.isInteger(value) || value < 1 || value > 30)) {
+      const range = ranges[key]
+      if (!Number.isInteger(value) || value < range.min || value > range.max) {
         return Response.json({ error: 'BAD_CONFIG' }, { status: 400 })
       }
       patch[key] = value
@@ -33,7 +41,9 @@ export async function PATCH(req: Request) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const config = await patchConfig(patch as any)
-  void logEvent('admin_config_update', user.id, patch)
+  const auditPatch = { ...patch }
+  if ('lockboxCode' in auditPatch) auditPatch.lockboxCode = '[redacted]'
+  await logEvent('admin_config_update', user.id, auditPatch)
 
   return Response.json({ config })
 }

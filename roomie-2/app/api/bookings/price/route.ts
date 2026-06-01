@@ -12,8 +12,10 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const preset = searchParams.get('preset') || 'ranked'
-  const duration = Math.max(1, Number(searchParams.get('duration') || 2))
-  const guests = Math.max(0, Number(searchParams.get('guests') || 0))
+  const durationRaw = Number(searchParams.get('duration') || 2)
+  const guestsRaw = Number(searchParams.get('guests') || 0)
+  const duration = Number.isFinite(durationRaw) ? Math.max(1, Math.min(24, durationRaw)) : 2
+  const guests = Number.isFinite(guestsRaw) ? Math.max(0, Math.min(20, Math.floor(guestsRaw))) : 0
 
   const cfg = await getConfig()
   const totalChips = calcBookingPrice(preset, duration, guests, cfg)

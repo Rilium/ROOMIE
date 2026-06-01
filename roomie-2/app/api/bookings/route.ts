@@ -9,12 +9,15 @@ import {
   publicUser,
   getUserById,
 } from '@/lib/neon-db'
-import { requireAuth, storageGuard } from '@/lib/api-helpers'
-import { calcBookingPrice, serializeBooking } from '@/lib/utils'
+import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import { bookingAccessUntilIso, calcBookingPrice, isValidDateString, isValidTimeString, serializeBooking } from '@/lib/utils'
 
 export async function GET(req: Request) {
   const guard = storageGuard()
   if (guard) return guard
+
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
 
   const auth = await requireAuth(req)
   if (auth instanceof Response) return auth
@@ -27,12 +30,10 @@ export async function GET(req: Request) {
   return Response.json({ bookings: bookings.map(serializeBooking) })
 }
 
-// ── Validate HH:MM time string ─────────────────────────────────────────────
-function isValidTime(t: unknown): t is string {
-  return typeof t === 'string' && /^\d{2}:\d{2}$/.test(t)
-}
-
 export async function POST(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -46,11 +47,14 @@ export async function POST(req: Request) {
   const date = body.date as string
   const start = body.start as string
   const end = body.end as string
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+  if (!isValidDateString(date)) {
     return Response.json({ error: 'BAD_BOOKING_DATE' }, { status: 400 })
   }
-  if (!isValidTime(start) || !isValidTime(end)) {
+  if (!isValidTimeString(start) || !isValidTimeString(end)) {
     return Response.json({ error: 'BAD_BOOKING_TIME' }, { status: 400 })
+  }
+  if (start === end) {
+    return Response.json({ error: 'BAD_BOOKING_TIME_RANGE' }, { status: 400 })
   }
 
   // ── Validate people ────────────────────────────────────────────────────────
@@ -90,13 +94,13 @@ export async function POST(req: Request) {
         guests,
         totalChips,
         lockboxCode: cfg.lockboxCode,
-        accessValidUntil: `${date}T${end}:00`,
+        accessValidUntil: bookingAccessUntilIso(date, start, end),
       },
       totalChips,
       `booking:${preset}:${date}`,
     )
 
-    void logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration })
+    await logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration })
 
     const freshUser = await getUserById(user.id)
     const updatedUser = freshUser ?? { ...user, chips: newChips }

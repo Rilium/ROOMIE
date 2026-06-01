@@ -533,9 +533,12 @@ function addHoursToTime(time, hours) {
 }
 
 async function api(path, options = {}) {
+  const method = String(options.method || 'GET').toUpperCase();
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if(['POST','PATCH','PUT','DELETE'].includes(method)) headers['X-ROOMIE-CSRF'] = getRoomieCsrfToken();
   const res = await fetch(path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers,
     ...options
   });
   const data = await res.json().catch(() => ({}));
@@ -545,6 +548,16 @@ async function api(path, options = {}) {
     throw err;
   }
   return data;
+}
+
+function getRoomieCsrfToken() {
+  const existing = document.cookie.split(';').map(p => p.trim()).find(p => p.startsWith('roomie.csrf='))?.split('=')[1];
+  if(existing) return decodeURIComponent(existing);
+  const bytes = new Uint8Array(24);
+  window.crypto.getRandomValues(bytes);
+  const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  document.cookie = `roomie.csrf=${encodeURIComponent(token)}; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+  return token;
 }
 
 function initHeroCarousel() {
@@ -704,7 +717,7 @@ function moveNext(el, nextId) {
 
 function verifyCode() {
   const code = ['cd1','cd2','cd3','cd4'].map(id=>document.getElementById(id)?.value||'').join('');
-  if(code === (activeAccess.doorCode || '4729')) {
+  if(activeAccess.doorCode && code === activeAccess.doorCode) {
     closeModal('modal-code-unlock');
     unlockDoor();
   } else {
@@ -1035,7 +1048,7 @@ async function buyTokens() {
   try {
     const res = await fetch('/api/stripe/topup-checkout', {
       method:'POST', credentials:'include',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','X-ROOMIE-CSRF':getRoomieCsrfToken()},
       body: JSON.stringify({amount})
     });
     const d = await res.json();

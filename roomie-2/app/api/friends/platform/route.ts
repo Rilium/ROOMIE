@@ -8,10 +8,18 @@ export async function GET(req: Request) {
   const auth = await requireAuth(req)
   if (auth instanceof Response) return auth
   const { user } = auth
+  const q = new URL(req.url).searchParams.get('q')?.trim().toLowerCase() || ''
+  if (q.length < 2) return Response.json({ friends: [] })
 
   const allUsers = await listUsers()
   const friends = allUsers
     .filter(u => u.id !== user.id && u.role !== 'admin' && !u.suspended)
+    .filter(u => {
+      const username = String(u.username || '').toLowerCase()
+      const name = String(u.name || '').toLowerCase()
+      return username.includes(q) || name.includes(q)
+    })
+    .slice(0, 8)
     .map(u => ({
       id: u.id,
       username: u.username,

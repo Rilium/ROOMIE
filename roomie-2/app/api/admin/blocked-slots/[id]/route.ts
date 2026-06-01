@@ -1,7 +1,10 @@
 import { deleteBlockedSlot, logEvent } from '@/lib/neon-db'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -12,6 +15,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { id } = await params
   await deleteBlockedSlot(id)
 
-  void logEvent('admin_unblock_slot', user.id, { slotId: id })
+  await logEvent('admin_unblock_slot', user.id, { slotId: id })
   return Response.json({ ok: true })
 }

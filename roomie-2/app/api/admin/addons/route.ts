@@ -1,10 +1,13 @@
 import { randomUUID } from 'crypto'
 import { createAddon, logEvent } from '@/lib/neon-db'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { serializeAddon } from '@/lib/utils'
 import type { Addon } from '@/lib/types'
 
 export async function POST(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -29,6 +32,6 @@ export async function POST(req: Request) {
     status: (body.status as Addon['status']) || 'active',
   })
 
-  void logEvent('admin_addon_create', user.id, { addonId: addon.id })
+  await logEvent('admin_addon_create', user.id, { addonId: addon.id })
   return Response.json({ addon: serializeAddon(addon) }, { status: 201 })
 }

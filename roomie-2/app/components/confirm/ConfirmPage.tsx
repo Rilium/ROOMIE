@@ -2,41 +2,75 @@
 
 import { useState, useCallback } from 'react'
 import { useApp } from '@/app/context/AppContext'
+import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
+import type { Booking } from '@/lib/types'
+import { apiLogAccess } from '@/lib/client-api'
 
 export default function ConfirmPage() {
-  const { booking, activeSession, setActiveSession, showPage, showToast, config } = useApp()
+  const { booking, activeSession, setActiveSession, showPage, showToast } = useApp()
   const [accessStep, setAccessStep] = useState(0)
   const [codeVisible, setCodeVisible] = useState(false)
   const [keyDone, setKeyDone] = useState(false)
   const [shutterDone, setShutterDone] = useState(false)
 
   const b = activeSession?.booking || booking
+  const bookingForAccess = b ? ({
+    ...b,
+    id: (b as any).id || 'draft',
+    userId: (b as any).userId || 'draft',
+    people: (b as any).people || (b as any).guests || 1,
+    status: (b as any).status || 'confirmed',
+    createdAt: (b as any).createdAt || new Date().toISOString(),
+  } as Booking) : null
+  const lockboxCode = (b as any)?.lockboxCode || '0000'
+  const bookingId = (b as any)?.id as string | undefined
+  const accessLive = bookingForAccess ? isBookingLiveNow(bookingForAccess) : false
+  const startsAt = bookingForAccess ? bookingStartDate(bookingForAccess) : null
+  const accessDateLabel = startsAt
+    ? startsAt.toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : 'orario prenotato'
 
   const copyCode = useCallback(() => {
-    const code = config.lockboxCode || '4729'
-    navigator.clipboard.writeText(code).catch(() => {})
+    if (!accessLive) {
+      showToast({ title: 'Accesso non ancora disponibile', copy: `Si sblocca da ${accessDateLabel}.`, type: 'warn' })
+      return
+    }
+    navigator.clipboard.writeText(lockboxCode).catch(() => {})
+    void apiLogAccess(bookingId, 'lockbox_copied', 'lockbox')
     showToast({ title: 'Codice copiato' })
-  }, [config.lockboxCode, showToast])
+  }, [accessDateLabel, accessLive, bookingId, lockboxCode, showToast])
 
   const handleKeyDone = () => {
+    if (!accessLive) {
+      showToast({ title: 'Accesso bloccato', copy: `Codici e chip si attivano da ${accessDateLabel}.`, type: 'warn' })
+      return
+    }
     setKeyDone(true)
     setAccessStep(1)
+    void apiLogAccess(bookingId, 'lockbox_viewed', 'lockbox')
   }
 
   const handleShutterDone = () => {
+    if (!accessLive) return
     setShutterDone(true)
     setAccessStep(2)
+    void apiLogAccess(bookingId, 'shutter_done', 'key')
+    void apiLogAccess(bookingId, 'key_replaced', 'lockbox')
   }
 
-  const handleDoorUnlock = () => {
+  const handleDoorUnlock = (method: 'nfc' | 'code') => {
+    if (!accessLive) return
     setAccessStep(3)
+    void apiLogAccess(bookingId, method === 'nfc' ? 'door_nfc' : 'door_code', method)
+    void apiLogAccess(bookingId, 'door_opened', method)
+    void apiLogAccess(bookingId, 'session_started', method)
     if (activeSession) {
       setActiveSession({ ...activeSession, doorDone: true, shutterDone: true, keyDone: true })
     }
   }
 
   return (
-    <div className="page active" id="page-confirm">
+    <div className={`page active${accessLive ? '' : ' access-waiting'}`} id="page-confirm">
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '24px 16px' }}>
 
         {/* Confirmed hero */}
@@ -61,18 +95,46 @@ export default function ConfirmPage() {
           <div className="arrival-card-top">
             <div>
               <div className="arrival-kicker"><i className="fas fa-location-arrow"></i> ARRIVAL MODE</div>
-              <div className="arrival-title">Quando sei davanti, parti da qui.</div>
-              <div className="arrival-copy">Codici e ROOMIE Chip sono validi nella fascia della tua prenotazione.</div>
+              <div className="arrival-title">{accessLive ? 'Quando sei davanti, parti da qui.' : 'Accesso non ancora disponibile.'}</div>
+              <div className="arrival-copy">
+                {accessLive
+                  ? 'Codici e ROOMIE Chip sono validi nella fascia della tua prenotazione.'
+                  : `La procedura si sblocca da ${accessDateLabel}. Prima di quell'orario chip, codici e step restano disattivati.`}
+              </div>
             </div>
-            <div className="arrival-now">READY</div>
+            <div className="arrival-now">{accessLive ? 'LIVE' : 'LOCKED'}</div>
           </div>
           <button
+            id="arrival-start-btn"
             className="btn-neon w-full"
             style={{ justifyContent: 'center', padding: '13px', marginTop: '14px' }}
-            onClick={() => setAccessStep(0)}
+            disabled={!accessLive}
+            onClick={() => {
+              if (!accessLive) {
+                showToast({ title: 'Accesso non ancora disponibile', copy: `Torna da ${accessDateLabel}.`, type: 'warn' })
+                return
+              }
+              setAccessStep(0)
+            }}
           >
             <i className="fas fa-route"></i> INIZIA ACCESSO
           </button>
+        </div>
+
+        <div className="access-wait-card">
+          <div className="access-wait-kicker"><i className="fas fa-clock"></i> ACCESSO PROGRAMMATO</div>
+          <div className="access-wait-title">Torna quando la sessione è live.</div>
+          <div className="access-wait-copy">
+            Serranda, cassaforte e porta si attivano solo nella fascia pagata. Prossimo sblocco: <strong>{accessDateLabel}</strong>.
+          </div>
+          <div className="access-wait-actions">
+            <button className="btn-neon" type="button" onClick={() => showPage('dashboard')}>
+              <i className="fas fa-user"></i> PROFILO
+            </button>
+            <button className="quiet-action" type="button" onClick={() => showPage('room')}>
+              <i className="fas fa-calendar-check"></i> CAMBIA SLOT
+            </button>
+          </div>
         </div>
 
         {/* Access flow */}
@@ -89,10 +151,10 @@ export default function ConfirmPage() {
                 </div>
               </div>
               <div className="access-display">
-                <div className={`access-code-text${codeVisible ? '' : ' masked'}`} id="key-code" data-code={config.lockboxCode}>
+                <div className={`access-code-text${codeVisible ? '' : ' masked'}`} id="key-code">
                   {codeVisible ? (
                     <span style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontSize: '2.5rem', fontWeight: 900, letterSpacing: '8px', color: 'var(--neon)' }}>
-                      {config.lockboxCode || '4729'}
+                      {lockboxCode}
                     </span>
                   ) : (
                     <>
@@ -111,6 +173,7 @@ export default function ConfirmPage() {
                 </button>
                 <button
                   className="access-hold-btn"
+                  disabled={!accessLive}
                   onPointerDown={() => setCodeVisible(true)}
                   onPointerUp={() => setCodeVisible(false)}
                   onPointerLeave={() => setCodeVisible(false)}
@@ -173,11 +236,11 @@ export default function ConfirmPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={handleDoorUnlock}
+                  onClick={() => handleDoorUnlock('nfc')}
                   style={{ flex: 1, background: 'rgba(0,255,209,.12)', border: '1px solid var(--neon2)', color: 'var(--neon2)', borderRadius: '8px', padding: '12px', fontWeight: 800, fontSize: '.84rem' }}
                 >CHIP NFC</button>
                 <button
-                  onClick={handleDoorUnlock}
+                  onClick={() => handleDoorUnlock('code')}
                   style={{ flex: 1, background: 'var(--dark3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', fontWeight: 800, fontSize: '.84rem' }}
                 >CODICE PORTA</button>
               </div>
@@ -214,7 +277,10 @@ export default function ConfirmPage() {
           <div className="access-nav-label">
             Step accesso <strong>{['Cassaforte', 'Serranda', 'Porta', 'Dentro'][accessStep]}</strong>
           </div>
-          <button className="access-arrow" type="button" onClick={() => setAccessStep(s => Math.min(3, s + 1))} aria-label="Step successivo">
+          <button className="access-arrow" type="button" onClick={() => {
+            if (!accessLive) return
+            setAccessStep(s => Math.min(3, s + 1))
+          }} aria-label="Step successivo">
             <i className="fas fa-chevron-right"></i>
           </button>
         </div>

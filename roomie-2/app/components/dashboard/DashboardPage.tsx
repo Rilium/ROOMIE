@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/app/context/AppContext'
 import { apiDashboard, apiExtendBooking } from '@/lib/client-api'
 import type { Booking } from '@/lib/types'
+import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 
 function fmtDate(dateStr: string) {
   const d = new Date(dateStr + 'T12:00:00')
@@ -59,6 +60,10 @@ export default function DashboardPage() {
   }, [setActiveSession, showPage])
 
   const nextBooking = bookings.find(b => ['confirmed', 'pending'].includes(b.status))
+  const nextBookingLive = nextBooking ? isBookingLiveNow(nextBooking) : false
+  const nextBookingStartLabel = nextBooking
+    ? bookingStartDate(nextBooking).toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : ''
   const history = bookings.filter(b => ['completed', 'cancelled'].includes(b.status))
 
   const buyingPower = user ? Math.floor(user.chips / 12) : 0
@@ -111,21 +116,28 @@ export default function DashboardPage() {
 
         {/* Next session launchpad */}
         {nextBooking ? (
-          <div className="next-session-chip" style={{ borderColor: 'rgba(200,255,0,.3)', marginBottom: '24px' }}>
-            <div className="session-kicker"><i className="fas fa-calendar-check"></i> PROSSIMA SESSIONE</div>
-            <div className="session-main-title">{fmtDate(nextBooking.date)} · {nextBooking.start}→{nextBooking.end}</div>
-            <div style={{ fontSize: '.92rem', color: 'rgba(255,255,255,.72)', lineHeight: '1.5', marginTop: '10px' }}>
-              Room Via Terni · {nextBooking.people} persona{nextBooking.people !== 1 ? 'e' : ''} · {nextBooking.totalChips} chips
+          <>
+            <div className="next-session-chip" style={{ borderColor: 'rgba(200,255,0,.3)', marginBottom: '24px' }}>
+              <div className="session-kicker"><i className="fas fa-calendar-check"></i> PROSSIMA SESSIONE</div>
+              <div className="session-main-title">{fmtDate(nextBooking.date)} · {nextBooking.start}→{nextBooking.end}</div>
+              <div style={{ fontSize: '.92rem', color: 'rgba(255,255,255,.72)', lineHeight: '1.5', marginTop: '10px' }}>
+                Room Via Terni · {nextBooking.people} persona{nextBooking.people !== 1 ? 'e' : ''} · {nextBooking.totalChips} chips
+              </div>
+              <div className="session-action-grid">
+                <button className={nextBookingLive ? 'btn-neon' : 'quiet-action'} onClick={() => handleEnter(nextBooking)}>
+                  <i className={`fas ${nextBookingLive ? 'fa-route' : 'fa-lock'}`}></i> {nextBookingLive ? 'ACCEDI ALLA ROOM' : 'ACCESSO BLOCCATO'}
+                </button>
+                <button className="quiet-action" onClick={() => handleExtend(nextBooking.id)}>
+                  <i className="fas fa-clock"></i> +1H
+                </button>
+              </div>
             </div>
-            <div className="session-action-grid">
-              <button className="btn-neon" onClick={() => handleEnter(nextBooking)}>
-                <i className="fas fa-route"></i> ACCEDI ALLA ROOM
-              </button>
-              <button className="quiet-action" onClick={() => handleExtend(nextBooking.id)}>
-                <i className="fas fa-clock"></i> +1H
-              </button>
-            </div>
-          </div>
+            {!nextBookingLive && (
+              <div style={{ fontSize: '.78rem', color: 'rgba(255,255,255,.58)', margin: '-14px 0 24px', lineHeight: '1.45' }}>
+                Procedura cassaforte, serranda e porta attiva da {nextBookingStartLabel}.
+              </div>
+            )}
+          </>
         ) : (
           <div className="next-session-chip session-launchpad">
             <div className="session-kicker"><i className="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div>
@@ -183,9 +195,15 @@ export default function DashboardPage() {
               <div className="camera-lock-panel">
                 <div className="camera-lock-kicker">Accesso richiesto</div>
                 <div className="camera-lock-title">Cam disponibile quando sei dentro.</div>
-                <div className="camera-lock-copy">Completa l&apos;accesso fisico: poi la live cam si sblocca qui.</div>
-                <button className="camera-lock-btn" type="button" onClick={() => showPage('confirm')}>
-                  <i className="fas fa-route"></i> APRI PROCEDURA ACCESSO
+                <div className="camera-lock-copy">
+                  {nextBookingLive
+                    ? 'Completa l’accesso fisico: poi la live cam si sblocca qui.'
+                    : nextBooking
+                      ? `Live cam e accesso si attivano da ${nextBookingStartLabel}.`
+                      : 'Prenota uno slot: la live cam si sblocca solo durante la sessione.'}
+                </div>
+                <button className="camera-lock-btn" type="button" onClick={() => nextBooking ? handleEnter(nextBooking) : showPage('room')}>
+                  <i className={`fas ${nextBookingLive ? 'fa-route' : 'fa-lock'}`}></i> {nextBookingLive ? 'APRI PROCEDURA ACCESSO' : nextBooking ? 'VEDI SLOT' : 'PRENOTA'}
                 </button>
               </div>
             </div>

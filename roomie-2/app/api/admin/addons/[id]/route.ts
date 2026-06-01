@@ -1,8 +1,11 @@
 import { patchAddon, logEvent } from '@/lib/neon-db'
-import { requireAdmin, storageGuard } from '@/lib/api-helpers'
+import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { serializeAddon } from '@/lib/utils'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -29,11 +32,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const addon = await patchAddon(id, patch as any)
   if (!addon) return Response.json({ error: 'ADDON_NOT_FOUND' }, { status: 404 })
 
-  void logEvent('admin_addon_update', user.id, { addonId: id })
+  await logEvent('admin_addon_update', user.id, { addonId: id })
   return Response.json({ addon: serializeAddon(addon) })
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -45,6 +51,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const addon = await patchAddon(id, { status: 'deleted' })
   if (!addon) return Response.json({ error: 'ADDON_NOT_FOUND' }, { status: 404 })
 
-  void logEvent('admin_addon_delete', user.id, { addonId: id })
+  await logEvent('admin_addon_delete', user.id, { addonId: id })
   return Response.json({ ok: true })
 }

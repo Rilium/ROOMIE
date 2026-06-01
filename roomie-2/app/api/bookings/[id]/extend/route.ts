@@ -8,10 +8,13 @@ import {
   publicUser,
   getUserById,
 } from '@/lib/neon-db'
-import { requireAuth, storageGuard } from '@/lib/api-helpers'
-import { addHoursToTime, serializeBooking } from '@/lib/utils'
+import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import { addHoursToTime, bookingAccessUntilIso, serializeBooking } from '@/lib/utils'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -41,7 +44,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // ── Admin extends free — no atomic needed ──────────────────────────────────
   if (user.role === 'admin') {
     const updated = await extendBooking(booking.id, newEnd, 0)
-    void logEvent('booking_extended_admin', user.id, { bookingId: booking.id, hours })
+    await logEvent('booking_extended_admin', user.id, { bookingId: booking.id, hours })
     return Response.json({
       booking: serializeBooking(updated ?? { ...booking, end: newEnd }),
       user: publicUser(user),
@@ -51,16 +54,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // ── Atomic: debit chips + record tx + extend booking ──────────────────────
   try {
+    const accessValidUntil = bookingAccessUntilIso(booking.date, booking.start, newEnd)
     const { booking: updated, newChips } = await extendBookingAtomic(
       user.id,
       booking.id,
-      booking.date,
       booking.end,
       newEnd,
       price,
+      accessValidUntil,
     )
 
-    void logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price })
+    await logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price })
 
     const freshUser = await getUserById(user.id)
     const updatedUser = freshUser ?? { ...user, chips: newChips }

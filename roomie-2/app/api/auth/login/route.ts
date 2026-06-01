@@ -1,11 +1,25 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { getUserByUsername, getUserByEmail, logEvent, publicUser } from '@/lib/neon-db'
+import { getUserByUsername, getUserByEmail, isRateLimited, clearRateLimit, logEvent, publicUser } from '@/lib/neon-db'
 import { buildSessionCookie } from '@/lib/session'
-import { storageGuard, IS_PRODUCTION_RUNTIME } from '@/lib/api-helpers'
+import { storageGuard, IS_PRODUCTION_RUNTIME, csrfGuard } from '@/lib/api-helpers'
 import { normalizeUsername, normalizeEmail } from '@/lib/utils'
 
+const WINDOW_MS = 60_000
+const MAX_ATTEMPTS = 8
+
+function rateLimitKey(req: NextRequest, login: string) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  return `${ip}:${login || 'empty'}`
+}
+
 export async function POST(req: NextRequest) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   try {
     const guard = storageGuard()
     if (guard) return guard
@@ -14,6 +28,11 @@ export async function POST(req: NextRequest) {
     const { username, password, remember } = body as Record<string, unknown>
 
     const login = normalizeUsername(username)
+    const limitKey = rateLimitKey(req, login)
+    if (await isRateLimited(limitKey, MAX_ATTEMPTS, WINDOW_MS)) {
+      return Response.json({ error: 'TOO_MANY_ATTEMPTS' }, { status: 429 })
+    }
+
     // Try username match first, then email match
     let user = await getUserByUsername(login)
     if (!user) user = await getUserByEmail(normalizeEmail(login))
@@ -27,11 +46,12 @@ export async function POST(req: NextRequest) {
     if (user.suspended) {
       return Response.json({ error: 'USER_SUSPENDED' }, { status: 403 })
     }
+    await clearRateLimit(limitKey)
 
     const maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 12
     const cookie = buildSessionCookie({ userId: user.id }, maxAge)
 
-    void logEvent('login', user.id, { username: user.username })
+    await logEvent('login', user.id, { username: user.username })
 
     return Response.json(
       { user: publicUser(user) },
@@ -39,6 +59,6 @@ export async function POST(req: NextRequest) {
     )
   } catch (err) {
     console.error('[login] unhandled error:', err)
-    return Response.json({ error: 'INTERNAL_ERROR', detail: String(err) }, { status: 500 })
+    return Response.json({ error: 'INTERNAL_ERROR' }, { status: 500 })
   }
 }

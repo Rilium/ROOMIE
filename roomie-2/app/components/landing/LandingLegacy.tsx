@@ -1,12 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/app/context/AppContext'
 
 const HERO_SLIDES = [
-  { bg: "url('/assets/images/roomie-hero-slide-1.webp')" },
-  { bg: "url('/assets/images/roomie-hero-slide-2.webp')" },
-  { bg: "url('/assets/images/roomie-hero-slide-3.webp')" },
+  {
+    bg: "url('/assets/images/roomie-hero-slide-1.webp')",
+    title: 'LA SERATA',
+    neon: 'INIZIA QUI.',
+    addr: 'Via Terni, Torino — Prenoti a ore, entri con la tua ROOMIE Chip.',
+    sub: 'Il tuo clubhouse privato: divani, console, streaming, carte, amici. Zero locale pieno, zero sbatti.',
+    meta: ['12 chips/ora', 'fino a 8 persone'],
+  },
+  {
+    bg: "url('/assets/images/roomie-hero-slide-2.webp')",
+    title: 'IL TUO HQ.',
+    neon: 'SOLO VOSTRO.',
+    addr: 'Gaming, film, partita o cena improvvisata — scegli la sessione.',
+    sub: 'Non affitti una stanza: blocchi il quartier generale del gruppo, già pronto quando arrivi.',
+    meta: ['preset da 1h a giornata', 'split con amici'],
+  },
+  {
+    bg: "url('/assets/images/roomie-hero-slide-3.webp')",
+    title: 'CHIP.',
+    neon: 'CODICE. DENTRO.',
+    addr: 'Accesso fisico semplice: cassaforte, serranda, porta smart.',
+    sub: 'Paghi, ricevi i codici, apri e sei dentro. La ROOMIE Chip rende il rituale più veloce e più premium.',
+    meta: ['accesso guidato', 'fallback codice'],
+  },
 ]
 
 const INSIDE_TABS = ['gaming', 'streaming', 'games', 'vibe'] as const
@@ -16,6 +37,8 @@ export default function LandingLegacy() {
   const { showPage, openAuth, user } = useApp()
   const [heroSlide, setHeroSlide] = useState(0)
   const [insideTab, setInsideTab] = useState<InsideTab>('gaming')
+  const heroSwipe = useRef<{ x: number; y: number } | null>(null)
+  const currentHero = HERO_SLIDES[heroSlide]
 
   // Hero auto-advance
   useEffect(() => {
@@ -40,11 +63,39 @@ export default function LandingLegacy() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const goHeroSlide = (direction: number) => {
+    setHeroSlide(i => (i + direction + HERO_SLIDES.length) % HERO_SLIDES.length)
+  }
+
+  const handleHeroSwipeEnd = (x: number, y: number) => {
+    const start = heroSwipe.current
+    heroSwipe.current = null
+    if (!start) return
+    const dx = x - start.x
+    const dy = y - start.y
+    if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy) * 1.2) return
+    goHeroSlide(dx < 0 ? 1 : -1)
+  }
+
   return (
     <div className="page active" id="page-home">
 
       {/* HERO */}
-      <section className="hero fp-home-section" data-horizontal="hero">
+      <section
+        className="hero fp-home-section"
+        data-horizontal="hero"
+        onPointerDown={event => { heroSwipe.current = { x: event.clientX, y: event.clientY } }}
+        onPointerUp={event => handleHeroSwipeEnd(event.clientX, event.clientY)}
+        onPointerCancel={() => { heroSwipe.current = null }}
+        onTouchStart={event => {
+          const touch = event.touches[0]
+          if (touch) heroSwipe.current = { x: touch.clientX, y: touch.clientY }
+        }}
+        onTouchEnd={event => {
+          const touch = event.changedTouches[0]
+          if (touch) handleHeroSwipeEnd(touch.clientX, touch.clientY)
+        }}
+      >
         {HERO_SLIDES.map((slide, i) => (
           <div
             key={i}
@@ -60,14 +111,11 @@ export default function LandingLegacy() {
               LIVE · VIA TERNI
             </div>
             <h1 className="hero-title">
-              <span id="hero-headline">LA SERATA</span><br />
-              <span className="neon-line">INIZIA QUI.</span>
+              <span id="hero-headline">{currentHero.title}</span><br />
+              <span className="neon-line">{currentHero.neon}</span>
             </h1>
-            <p className="hero-addr">Via Terni, Torino — Prenoti a ore, entri con la tua ROOMIE Chip.</p>
-            <p className="hero-sub">
-              Setup completo, spazio tutto tuo, nessuno che rompe i coglioni.
-              Console, streaming, giochi, divano XL e accesso con ROOMIE Chip.
-            </p>
+            <p className="hero-addr">{currentHero.addr}</p>
+            <p className="hero-sub">{currentHero.sub}</p>
           </div>
           <div className="hero-ctas">
             <button className="btn-neon" onClick={() => requireAuthPage('room')}>
@@ -79,8 +127,7 @@ export default function LandingLegacy() {
             </button>
           </div>
           <div className="hero-meta">
-            <span>12 chips/ora</span>
-            <span>fino a 8 persone</span>
+            {currentHero.meta.map(item => <span key={item}>{item}</span>)}
           </div>
           <div className="trust-row">
             <div className="trust-pill"><em><i className="fas fa-gamepad"></i></em> Gaming</div>

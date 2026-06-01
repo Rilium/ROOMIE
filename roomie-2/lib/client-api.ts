@@ -1,7 +1,7 @@
 // ── CLIENT API ────────────────────────────────────────────────────────────────
 // Typed fetch wrapper per chiamate lato client.
 
-import type { PublicUser, Booking, Addon, AppConfig } from './types'
+import type { PublicUser, Booking, Addon, AppConfig, BlockedSlot } from './types'
 
 export interface ApiResult<T = unknown> {
   data: T | null
@@ -14,16 +14,38 @@ async function call<T = unknown>(
   options?: RequestInit,
 ): Promise<ApiResult<T>> {
   try {
+    const method = String(options?.method || 'GET').toUpperCase()
+    const headers = new Headers(options?.headers)
+    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
+      headers.set('X-ROOMIE-CSRF', getCsrfToken())
+    }
     const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json' },
       ...options,
+      headers,
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) return { data: null, error: data.error || `HTTP ${res.status}`, status: res.status }
     return { data, error: null, status: res.status }
-  } catch (err) {
-    return { data: null, error: String(err), status: 0 }
+  } catch {
+    return { data: null, error: 'NETWORK_ERROR', status: 0 }
   }
+}
+
+function getCsrfToken(): string {
+  if (typeof document === 'undefined') return ''
+  const existing = document.cookie
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith('roomie.csrf='))
+    ?.split('=')[1]
+  if (existing) return decodeURIComponent(existing)
+
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  document.cookie = `roomie.csrf=${encodeURIComponent(token)}; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`
+  return token
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
@@ -55,7 +77,11 @@ export async function apiMe() {
 // ── APP ───────────────────────────────────────────────────────────────────────
 
 export async function apiAppConfig() {
-  return call<{ config: AppConfig; stripePublishableKey: string }>('/api/app/config')
+  return call<{
+    config: AppConfig
+    blockedSlots: BlockedSlot[]
+    bookedSlots: Array<{ id: string; date: string; start: string; end: string; status: string }>
+  }>('/api/app/config')
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
@@ -124,6 +150,16 @@ export async function apiOrderAddons(payload: AddonOrderPayload) {
   })
 }
 
+// ── ACCESS ───────────────────────────────────────────────────────────────────
+
+export async function apiLogAccess(bookingId: string | undefined, event: string, method?: string) {
+  if (!bookingId) return { data: null, error: 'NO_BOOKING', status: 0 }
+  return call('/api/access/log', {
+    method: 'POST',
+    body: JSON.stringify({ bookingId, event, method }),
+  })
+}
+
 // ── WALLET ────────────────────────────────────────────────────────────────────
 
 export async function apiStripeTopup(amount: number, returnPage = 'token') {
@@ -153,10 +189,10 @@ export async function apiAdminPatchBookingStatus(id: string, status: string) {
   })
 }
 
-export async function apiAdminPatchUserChips(id: string, delta: number) {
+export async function apiAdminPatchUserChips(id: string, delta: number, reason = 'Admin wallet adjustment') {
   return call(`/api/admin/users/${id}/chips`, {
     method: 'PATCH',
-    body: JSON.stringify({ delta }),
+    body: JSON.stringify({ amount: delta, reason }),
   })
 }
 

@@ -16,7 +16,7 @@ export interface AppConfig {
   dayPrice: number      // default 60
   guestPassPrice: number // default 2
   maxPeople: number     // default 8
-  lockboxCode: string   // default '4729'
+  lockboxCode: string
 }
 
 export interface Booking {
@@ -102,17 +102,6 @@ export interface DbUser {
   providerId?: string
   avatar?: string
   createdAt: string
-}
-
-export interface RoomieDb {
-  users: DbUser[]
-  bookings: Booking[]
-  auditLog: AuditEntry[]
-  config: AppConfig
-  addons: Addon[]
-  addonOrders: AddonOrder[]
-  blockedSlots: BlockedSlot[]
-  stripeSessions?: StripeSession[]
 }
 
 export interface SessionPayload {

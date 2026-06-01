@@ -1,7 +1,11 @@
 import Stripe from 'stripe'
-import { requireAuth, storageGuard, appBaseUrl } from '@/lib/api-helpers'
+import { requireAuth, storageGuard, appBaseUrl, csrfGuard } from '@/lib/api-helpers'
+import { createStripeSession } from '@/lib/neon-db'
 
 export async function POST(req: Request) {
+  const csrf = csrfGuard(req)
+  if (csrf) return csrf
+
   const guard = storageGuard()
   if (guard) return guard
 
@@ -51,6 +55,12 @@ export async function POST(req: Request) {
       },
       success_url: `${base}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&return=${returnPage}`,
       cancel_url: `${base}/?page=${returnPage}&stripe=cancelled`,
+    })
+    await createStripeSession({
+      id: checkout.id,
+      userId: user.id,
+      amountChips: amount,
+      amountEur: amount,
     })
     return Response.json({ url: checkout.url })
   } catch (_err) {

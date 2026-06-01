@@ -9,8 +9,8 @@ export function GET() {
       clientSecretPresent: Boolean(googleClientSecret),
       clientSecretLooksValid: /^GOCSPX-/.test(googleClientSecret),
       clientSecretLength: googleClientSecret.length,
-      flow: 'id_token',
-      secretRequired: false,
+      flow: 'authorization_code',
+      secretRequired: true,
       redirectUri: `${process.env.APP_URL || 'https://roomie.rilio.it'}/api/auth/google/callback`,
     },
   })

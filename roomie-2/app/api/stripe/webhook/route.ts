@@ -32,8 +32,9 @@ export async function POST(req: Request) {
   if (event.type === 'checkout.session.completed') {
     try {
       await creditStripeCheckoutSession(event.data.object)
-    } catch (_err) {
-      return new Response('Storage not configured', { status: 503 })
+    } catch (err) {
+      console.error('[stripe webhook] credit failed', err)
+      return new Response('Stripe credit failed', { status: 500 })
     }
   }
 

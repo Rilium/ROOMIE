@@ -1,11 +1,10 @@
 // ── lib/neon-db.ts ────────────────────────────────────────────────────────────
 // Relational DB layer for ROOMIE — Neon PostgreSQL.
-// Replaces the JSON-blob lib/db.ts once schema is migrated.
-//
-// Usage: swap imports in API routes from '@/lib/db' to '@/lib/neon-db'.
-// Run db/001_initial_schema.sql first against your Neon database.
+// Single source of truth for users, bookings, wallet, addons, access and admin.
+// Run db/001_initial_schema.sql against Neon before first production use.
 
 import { neon } from '@neondatabase/serverless'
+import bcrypt from 'bcryptjs'
 import type {
   DbUser,
   PublicUser,
@@ -16,13 +15,111 @@ import type {
   BlockedSlot,
   AuditEntry,
 } from './types'
+import { bookingAccessUntilIso, isValidEmailString, normalizeEmail } from './utils'
 
 // ── CONNECTION ────────────────────────────────────────────────────────────────
 
 function getDb() {
-  const url = process.env.DATABASE_URL
+  const url =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL
   if (!url) throw new Error('DATABASE_URL is not set')
   return neon(url)
+}
+
+const DEFAULT_ADDONS: Addon[] = [
+  { id: 'dazn',       category: 'featured', brand: 'DAZN',    name: 'DAZN Partita',        description: 'Champions League, Serie A e big match dentro la sessione.', price: 5,  status: 'active', soldToday: 3 },
+  { id: 'cinema',     category: 'featured', brand: 'NETFLIX',  name: 'Cinema Mode',         description: 'Audio ottimizzato, streaming fullscreen e luci basse.',      price: 3,  status: 'active', soldToday: 2 },
+  { id: 'horror',     category: 'modes',    brand: 'ROOMIE',   name: 'Mood Horror',         description: 'Luci rosse, atmosfera dark e setup da film.',                price: 4,  status: 'active', soldToday: 0 },
+  { id: 'gaming-pro', category: 'modes',    brand: 'PS5',      name: 'Gaming Pro Setup',    description: 'Monitor extra, headset premium e setup competitivo.',        price: 8,  status: 'active', soldToday: 1 },
+  { id: 'neon-party', category: 'modes',    brand: 'SPOTIFY',  name: 'Neon Party',          description: 'Luci dinamiche e playlist pronta per la serata.',            price: 5,  status: 'active', soldToday: 0 },
+  { id: 'pizza',      category: 'snacks',   brand: 'PARTNER',  name: 'Pizza Margherita',    description: 'Delivery partner locale, pronta durante la sessione.',       price: 9,  status: 'active', soldToday: 2 },
+  { id: 'beer',       category: 'snacks',   brand: 'LOCAL',    name: 'Birra Artigianale x4', description: 'Quattro birre locali fredde.',                              price: 12, status: 'active', soldToday: 1 },
+  { id: 'snack',      category: 'snacks',   brand: 'MOVIE',    name: 'Snack Box',           description: 'Popcorn, patatine, nachos e mix dolce/salato.',              price: 7,  status: 'active', soldToday: 4 },
+]
+
+let bootstrapPromise: Promise<void> | null = null
+
+export async function ensureBootstrapData(): Promise<void> {
+  if (!bootstrapPromise) {
+    bootstrapPromise = (async () => {
+      const sql = getDb()
+
+      await sql`ALTER TABLE addons ADD COLUMN IF NOT EXISTS sold_today_date DATE NOT NULL DEFAULT CURRENT_DATE`
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key TEXT PRIMARY KEY,
+          count INT NOT NULL DEFAULT 0,
+          expires_at TIMESTAMPTZ NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          type TEXT NOT NULL,
+          user_id TEXT,
+          details JSONB NOT NULL DEFAULT '{}',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `
+
+      await sql`
+        INSERT INTO config (id)
+        VALUES (1)
+        ON CONFLICT (id) DO NOTHING
+      `
+
+      for (const [index, addon] of DEFAULT_ADDONS.entries()) {
+        await sql`
+          INSERT INTO addons (id, category, brand, name, description, price, status, sold_today, sort_order)
+          VALUES (
+            ${addon.id},
+            ${addon.category},
+            ${addon.brand},
+            ${addon.name},
+            ${addon.description},
+            ${addon.price},
+            ${addon.status},
+            ${addon.soldToday},
+            ${(index + 1) * 10}
+          )
+          ON CONFLICT (id) DO NOTHING
+        `
+      }
+
+      await resetAddonCountersIfNeeded()
+
+      const adminPassword = process.env.ADMIN_PASSWORD || ''
+      const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || ''
+      if (adminPassword || adminPasswordHash) {
+        const username = String(process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase()
+        const email = String(process.env.ADMIN_EMAIL || 'admin@roomie.local').trim().toLowerCase()
+        const name = String(process.env.ADMIN_NAME || 'ROOMIE Admin').trim()
+        const passwordHash = adminPasswordHash || bcrypt.hashSync(adminPassword, 10)
+
+        await sql`
+          INSERT INTO users (id, username, email, name, role, chips, password_hash, suspended)
+          VALUES ('usr_admin', ${username}, ${email}, ${name}, 'admin', 999, ${passwordHash}, FALSE)
+          ON CONFLICT (username) DO UPDATE SET
+            email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            role = 'admin',
+            chips = GREATEST(users.chips, 999),
+            password_hash = EXCLUDED.password_hash,
+            suspended = FALSE,
+            updated_at = NOW()
+        `
+      }
+    })().catch(err => {
+      bootstrapPromise = null
+      throw err
+    })
+  }
+  return bootstrapPromise
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -42,10 +139,11 @@ export function publicUser(u: DbUser): PublicUser {
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 
 export async function getConfig(): Promise<AppConfig> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`SELECT * FROM config WHERE id = 1`
   const row = rows[0]
-  if (!row) return { hourlyPrice: 12, dayPrice: 60, guestPassPrice: 2, maxPeople: 8, lockboxCode: '4729' }
+  if (!row) return { hourlyPrice: 12, dayPrice: 60, guestPassPrice: 2, maxPeople: 8, lockboxCode: '0000' }
   return {
     hourlyPrice:    Number(row.hourly_price),
     dayPrice:       Number(row.day_price),
@@ -56,6 +154,7 @@ export async function getConfig(): Promise<AppConfig> {
 }
 
 export async function patchConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
+  await ensureBootstrapData()
   const sql = getDb()
   await sql`
     UPDATE config SET
@@ -90,24 +189,28 @@ function rowToDbUser(r: Record<string, unknown>): DbUser {
 }
 
 export async function getUserById(id: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`SELECT * FROM users WHERE id = ${id} LIMIT 1`
   return rows[0] ? rowToDbUser(rows[0]) : null
 }
 
 export async function getUserByUsername(username: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`SELECT * FROM users WHERE username = ${username} LIMIT 1`
   return rows[0] ? rowToDbUser(rows[0]) : null
 }
 
 export async function getUserByEmail(email: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`SELECT * FROM users WHERE email = ${email} LIMIT 1`
   return rows[0] ? rowToDbUser(rows[0]) : null
 }
 
 export async function getUserByProvider(provider: string, providerId: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`SELECT * FROM users WHERE provider = ${provider} AND provider_id = ${providerId} LIMIT 1`
   return rows[0] ? rowToDbUser(rows[0]) : null
@@ -125,6 +228,7 @@ export async function createUser(data: {
   providerId?: string
   avatar?: string
 }): Promise<DbUser> {
+  await ensureBootstrapData()
   const sql = getDb()
   const rows = await sql`
     INSERT INTO users (id, username, email, name, role, chips, password_hash, provider, provider_id, avatar)
@@ -158,6 +262,48 @@ export async function adjustUserChips(userId: string, delta: number): Promise<nu
     RETURNING chips
   `
   return Number(rows[0]?.chips ?? 0)
+}
+
+export async function adjustUserChipsWithTransaction(
+  userId: string,
+  amount: number,
+  adminId: string,
+  reason: string,
+): Promise<number> {
+  const sql = getDb()
+  const noteStr = `admin:${adminId}:${reason}`
+  const rows = await sql`
+    WITH
+      chip_update AS (
+        UPDATE users SET chips = GREATEST(0, chips + ${amount})
+        WHERE id = ${userId}
+        RETURNING chips
+      ),
+      _tx AS (
+        INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
+        SELECT ${userId}, 'admin_adjustment', ${amount}, chips, ${adminId}, ${noteStr}
+        FROM chip_update
+      )
+    SELECT chips AS new_chips FROM chip_update
+  `
+  return Number(rows[0]?.new_chips ?? 0)
+}
+
+export async function patchUserAdmin(
+  id: string,
+  updates: Partial<Pick<DbUser, 'name' | 'email' | 'role' | 'suspended'>>,
+): Promise<DbUser | null> {
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE users SET
+      name      = COALESCE(${updates.name ?? null}, name),
+      email     = COALESCE(${updates.email ?? null}, email),
+      role      = COALESCE(${updates.role ?? null}, role),
+      suspended = COALESCE(${updates.suspended ?? null}, suspended)
+    WHERE id = ${id}
+    RETURNING *
+  `
+  return rows[0] ? rowToDbUser(rows[0]) : null
 }
 
 export async function listUsers(): Promise<DbUser[]> {
@@ -274,12 +420,38 @@ export async function updateBookingStatus(id: string, status: Booking['status'])
   await sql`UPDATE bookings SET status = ${status} WHERE id = ${id}`
 }
 
+export async function patchBookingAdmin(
+  id: string,
+  next: Booking,
+  accessValidUntil: string,
+): Promise<Booking | null> {
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE bookings SET
+      date         = ${next.date}::date,
+      start_time   = ${next.start}::time,
+      end_time     = ${next.end}::time,
+      room         = ${next.room},
+      people       = ${next.people},
+      total_chips  = ${next.totalChips},
+      status       = ${next.status},
+      access_valid_until = ${accessValidUntil}
+    WHERE id = ${id}
+    RETURNING *
+  `
+  return rows[0] ? rowToBooking(rows[0]) : null
+}
+
 export async function extendBooking(id: string, newEnd: string, chipsCost: number): Promise<Booking | null> {
   const sql = getDb()
+  const current = await getBookingById(id)
+  const accessValidUntil = current
+    ? bookingAccessUntilIso(current.date, current.start, newEnd)
+    : null
   const rows = await sql`
     UPDATE bookings
     SET end_time = ${newEnd}::time,
-        access_valid_until = (date + ${newEnd}::time)::timestamptz,
+        access_valid_until = ${accessValidUntil},
         total_chips = total_chips + ${chipsCost}
     WHERE id = ${id}
     RETURNING *
@@ -294,24 +466,53 @@ export async function hasBookingConflictNeon(
   ignoreId?: string,
 ): Promise<boolean> {
   const sql = getDb()
-  // Check bookings that overlap: (start < b.end_time) AND (end > b.start_time)
+  // Compare timestamp intervals, including slots that cross midnight.
   const rows = await sql`
-    SELECT id FROM bookings
-    WHERE date = ${date}::date
-      AND status NOT IN ('cancelled')
-      AND ${start}::time < end_time
-      AND ${end}::time > start_time
-      AND id != ${ignoreId ?? ''}
+    WITH candidate AS (
+      SELECT
+        (${date}::date + ${start}::time) AS start_ts,
+        CASE
+          WHEN ${end}::time <= ${start}::time
+            THEN (${date}::date + ${end}::time + INTERVAL '1 day')
+          ELSE (${date}::date + ${end}::time)
+        END AS end_ts
+    )
+    SELECT b.id
+    FROM bookings b
+    CROSS JOIN candidate c
+    WHERE b.date BETWEEN (${date}::date - INTERVAL '1 day') AND (${date}::date + INTERVAL '1 day')
+      AND b.status NOT IN ('cancelled')
+      AND b.id != ${ignoreId ?? ''}
+      AND c.start_ts < CASE
+        WHEN b.end_time <= b.start_time
+          THEN (b.date + b.end_time + INTERVAL '1 day')
+        ELSE (b.date + b.end_time)
+      END
+      AND c.end_ts > (b.date + b.start_time)
     LIMIT 1
   `
   if (rows.length) return true
 
-  // Also check blocked_slots
   const blocked = await sql`
-    SELECT id FROM blocked_slots
-    WHERE date = ${date}::date
-      AND ${start}::time < end_time
-      AND ${end}::time > start_time
+    WITH candidate AS (
+      SELECT
+        (${date}::date + ${start}::time) AS start_ts,
+        CASE
+          WHEN ${end}::time <= ${start}::time
+            THEN (${date}::date + ${end}::time + INTERVAL '1 day')
+          ELSE (${date}::date + ${end}::time)
+        END AS end_ts
+    )
+    SELECT s.id
+    FROM blocked_slots s
+    CROSS JOIN candidate c
+    WHERE s.date BETWEEN (${date}::date - INTERVAL '1 day') AND (${date}::date + INTERVAL '1 day')
+      AND c.start_ts < CASE
+        WHEN s.end_time <= s.start_time
+          THEN (s.date + s.end_time + INTERVAL '1 day')
+        ELSE (s.date + s.end_time)
+      END
+      AND c.end_ts > (s.date + s.start_time)
     LIMIT 1
   `
   return blocked.length > 0
@@ -320,6 +521,10 @@ export async function hasBookingConflictNeon(
 // ── ADDONS ────────────────────────────────────────────────────────────────────
 
 function rowToAddon(r: Record<string, unknown>): Addon {
+  const soldDate = r.sold_today_date
+    ? new Date(r.sold_today_date as string).toISOString().slice(0, 10)
+    : ''
+  const today = new Date().toISOString().slice(0, 10)
   return {
     id:          String(r.id),
     category:    (r.category as Addon['category']) ?? 'modes',
@@ -328,11 +533,24 @@ function rowToAddon(r: Record<string, unknown>): Addon {
     description: String(r.description ?? ''),
     price:       Number(r.price ?? 0),
     status:      (r.status as Addon['status']) ?? 'active',
-    soldToday:   Number(r.sold_today ?? 0),
+    soldToday:   soldDate && soldDate !== today ? 0 : Number(r.sold_today ?? 0),
   }
 }
 
+export async function resetAddonCountersIfNeeded(): Promise<void> {
+  const sql = getDb()
+  await sql`
+    UPDATE addons
+    SET sold_today = 0,
+        sold_today_date = CURRENT_DATE,
+        updated_at = NOW()
+    WHERE sold_today_date < CURRENT_DATE
+  `
+}
+
 export async function listAddons(includeHidden = false): Promise<Addon[]> {
+  await ensureBootstrapData()
+  await resetAddonCountersIfNeeded()
   const sql = getDb()
   const rows = includeHidden
     ? await sql`SELECT * FROM addons WHERE status != 'deleted' ORDER BY sort_order, created_at`
@@ -396,7 +614,14 @@ export async function createAddonOrder(data: {
       VALUES (${data.id}, ${item.id}, ${item.name}, ${item.brand}, ${item.price}, ${item.qty}, ${item.total})
     `
     await sql`
-      UPDATE addons SET sold_today = sold_today + ${item.qty} WHERE id = ${item.id}
+      UPDATE addons
+      SET sold_today = CASE
+            WHEN sold_today_date = CURRENT_DATE THEN sold_today + ${item.qty}
+            ELSE ${item.qty}
+          END,
+          sold_today_date = CURRENT_DATE,
+          updated_at = NOW()
+      WHERE id = ${item.id}
     `
   }
 }
@@ -539,18 +764,48 @@ export async function logEvent(
   userId: string,
   details: Record<string, unknown> = {},
 ): Promise<void> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  console.log('[audit]', type, userId, details)
   try {
-    const sql = getDb()
-    // Use access_logs table if event maps to it, otherwise just console.log
-    console.log('[audit]', type, userId, details)
-    // Try to insert into audit_log if the table exists (created by optional migration)
     await sql`
       INSERT INTO audit_log (id, type, user_id, details)
       VALUES (gen_random_uuid(), ${type}, ${userId}, ${JSON.stringify(details)}::jsonb)
-    `.catch(() => { /* table may not exist yet — silent */ })
-  } catch {
-    // Never throw from logEvent
+    `
+  } catch (err) {
+    console.error('[audit] failed to persist event:', err)
   }
+}
+
+export async function isRateLimited(
+  key: string,
+  maxAttempts: number,
+  windowMs: number,
+): Promise<boolean> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  const rows = await sql`
+    INSERT INTO rate_limits (key, count, expires_at, updated_at)
+    VALUES (
+      ${key},
+      1,
+      NOW() + (${windowMs} || ' milliseconds')::interval,
+      NOW()
+    )
+    ON CONFLICT (key) DO UPDATE
+    SET
+      count = CASE WHEN rate_limits.expires_at <= NOW() THEN 1 ELSE rate_limits.count + 1 END,
+      expires_at = CASE WHEN rate_limits.expires_at <= NOW() THEN NOW() + (${windowMs} || ' milliseconds')::interval ELSE rate_limits.expires_at END,
+      updated_at = NOW()
+    RETURNING count
+  `
+  return Number(rows[0]?.count ?? 0) > maxAttempts
+}
+
+export async function clearRateLimit(key: string): Promise<void> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  await sql`DELETE FROM rate_limits WHERE key = ${key}`
 }
 
 // ── GOOGLE UPSERT ─────────────────────────────────────────────────────────────
@@ -559,13 +814,15 @@ async function uniqueUsernameNeon(seed: string): Promise<string> {
   const sql = getDb()
   let username = seed
   let suffix = 1
-  while (true) {
+  while (suffix <= 50) {
     const rows = await sql`SELECT id FROM users WHERE username = ${username} LIMIT 1`
     if (!rows.length) return username
     const trimmed = seed.slice(0, Math.max(3, 20 - String(suffix).length - 1))
     username = `${trimmed}_${suffix}`
     suffix += 1
   }
+  const { randomUUID } = await import('crypto')
+  return `roomie_${randomUUID().replace(/-/g, '').slice(0, 12)}`
 }
 
 export async function upsertGoogleUserFromProfile(profile: {
@@ -575,14 +832,11 @@ export async function upsertGoogleUserFromProfile(profile: {
   picture?: string
 }): Promise<DbUser | null> {
   const { randomUUID } = await import('crypto')
-  const email = String(profile.email || '').trim().toLowerCase()
-  if (!email) return null
+  const email = normalizeEmail(profile.email)
+  const providerId = typeof profile.sub === 'string' ? profile.sub.trim() : ''
+  if (!isValidEmailString(email) || !providerId) return null
 
-  // Try provider match first, then email
-  let user: DbUser | null = null
-  if (profile.sub) {
-    user = await getUserByProvider('google', String(profile.sub))
-  }
+  let user: DbUser | null = await getUserByProvider('google', providerId)
   if (!user) user = await getUserByEmail(email)
 
   if (!user) {
@@ -597,7 +851,7 @@ export async function upsertGoogleUserFromProfile(profile: {
       name: String(profile.name || email.split('@')[0]).trim(),
       chips: 24,
       provider: 'google',
-      providerId: String(profile.sub || ''),
+      providerId,
       avatar: profile.picture || undefined,
     })
     await logEvent('social_register', user.id, { provider: 'google', email })
@@ -621,6 +875,13 @@ export async function creditStripeCheckoutSession(
   if (!sessionId || !userId || !Number.isInteger(amount) || amount <= 0 || amount > 500) {
     return { credited: false, reason: 'BAD_METADATA' }
   }
+
+  await createStripeSession({
+    id: sessionId,
+    userId,
+    amountChips: amount,
+    amountEur: amount,
+  })
 
   const sql = getDb()
 
@@ -736,10 +997,22 @@ export async function createAddonOrderAtomic(
 ): Promise<{ newChips: number }> {
   const sql = getDb()
   const note = `addon_order:${bookingId}`
+  const itemsJson = JSON.stringify(items)
 
-  // Atomic: chip deduct + wallet record + order header in one CTE
+  // Atomic: chip deduct + wallet record + order header + items + sold_today.
   const rows = await sql`
     WITH
+      input_items AS (
+        SELECT *
+        FROM jsonb_to_recordset(${itemsJson}::jsonb) AS item(
+          id text,
+          name text,
+          brand text,
+          price integer,
+          qty integer,
+          total integer
+        )
+      ),
       chip_deduct AS (
         UPDATE users
         SET chips = chips - ${totalChips}
@@ -755,31 +1028,77 @@ export async function createAddonOrderAtomic(
         INSERT INTO addon_orders (id, user_id, booking_id, total_chips)
         SELECT ${orderId}, ${userId}, ${bookingId}, ${totalChips}
         WHERE EXISTS (SELECT 1 FROM chip_deduct)
+      ),
+      _items AS (
+        INSERT INTO addon_order_items (order_id, addon_id, name, brand, unit_price, qty, total)
+        SELECT ${orderId}, id, name, brand, price, qty, total
+        FROM input_items
+        WHERE EXISTS (SELECT 1 FROM chip_deduct)
+      ),
+      _sold AS (
+        UPDATE addons a
+        SET sold_today = CASE
+              WHEN a.sold_today_date = CURRENT_DATE THEN a.sold_today + i.qty
+              ELSE i.qty
+            END,
+            sold_today_date = CURRENT_DATE,
+            updated_at = NOW()
+        FROM input_items i
+        WHERE a.id = i.id
+          AND EXISTS (SELECT 1 FROM chip_deduct)
       )
     SELECT chips AS new_chips FROM chip_deduct
   `
   if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
-  const newChips = Number(rows[0].new_chips)
+  return { newChips: Number(rows[0].new_chips) }
+}
 
-  // Items + sold_today: run after the atomic core — order header guarantees existence
+export async function listAddonOrders(limit = 80): Promise<AddonOrder[]> {
+  const sql = getDb()
+  const orders = await sql`
+    SELECT * FROM addon_orders
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `
+  const ids = orders.map(r => String(r.id))
+  if (!ids.length) return []
+  const items = await sql`
+    SELECT * FROM addon_order_items
+    WHERE order_id = ANY(${ids})
+    ORDER BY order_id, name
+  `
+  const itemsByOrder = new Map<string, AddonOrder['items']>()
   for (const item of items) {
-    await sql`
-      INSERT INTO addon_order_items (order_id, addon_id, name, brand, unit_price, qty, total)
-      VALUES (${orderId}, ${item.id}, ${item.name}, ${item.brand}, ${item.price}, ${item.qty}, ${item.total})
-    `
-    await sql`UPDATE addons SET sold_today = sold_today + ${item.qty} WHERE id = ${item.id}`
+    const orderId = String(item.order_id)
+    const list = itemsByOrder.get(orderId) || []
+    list.push({
+      id: String(item.addon_id),
+      name: String(item.name),
+      brand: String(item.brand || 'ROOMIE'),
+      price: Number(item.unit_price || 0),
+      qty: Number(item.qty || 1),
+      total: Number(item.total || 0),
+    })
+    itemsByOrder.set(orderId, list)
   }
-
-  return { newChips }
+  return orders.map(r => ({
+    id: String(r.id),
+    userId: String(r.user_id),
+    bookingId: String(r.booking_id),
+    items: itemsByOrder.get(String(r.id)) || [],
+    totalChips: Number(r.total_chips || 0),
+    status: String(r.status || 'paid') as AddonOrder['status'],
+    createdAt: new Date(r.created_at as string).toISOString(),
+  }))
 }
 
 export async function extendBookingAtomic(
   userId: string,
   bookingId: string,
-  bookingDate: string,
   oldEnd: string,
   newEnd: string,
   price: number,
+  accessValidUntil: string,
 ): Promise<{ booking: Booking; newChips: number }> {
   const sql = getDb()
   const extNote = `extend:${oldEnd}->${newEnd}`
@@ -799,7 +1118,7 @@ export async function extendBookingAtomic(
       bk AS (
         UPDATE bookings
         SET end_time = ${newEnd}::time,
-            access_valid_until = (${bookingDate}::date + ${newEnd}::time)::timestamptz,
+            access_valid_until = ${accessValidUntil},
             total_chips = total_chips + ${price}
         WHERE id = ${bookingId} AND EXISTS (SELECT 1 FROM chip_deduct)
         RETURNING *
@@ -817,13 +1136,16 @@ export async function extendBookingAtomic(
 // ── ADMIN SUMMARY ─────────────────────────────────────────────────────────────
 
 export async function adminSummary() {
+  await ensureBootstrapData()
   const sql = getDb()
-  const [users, bookings, addons, blockedSlots, accessLogs] = await Promise.all([
+  const [users, bookings, addons, blockedSlots, accessLogs, auditLogs, addonOrders] = await Promise.all([
     sql`SELECT * FROM users ORDER BY created_at DESC`,
     sql`SELECT * FROM bookings ORDER BY created_at DESC LIMIT 100`,
     sql`SELECT * FROM addons WHERE status != 'deleted' ORDER BY sort_order`,
     sql`SELECT * FROM blocked_slots ORDER BY date, start_time`,
     sql`SELECT * FROM access_logs ORDER BY created_at DESC LIMIT 50`,
+    sql`SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 80`,
+    listAddonOrders(80),
   ])
   const config = await getConfig()
 
@@ -840,5 +1162,13 @@ export async function adminSummary() {
       details:   { bookingId: r.booking_id, method: r.method },
       createdAt: new Date(r.created_at as string).toISOString(),
     })),
+    auditLog: auditLogs.map(r => ({
+      id:        String(r.id),
+      type:      String(r.type),
+      userId:    String(r.user_id ?? ''),
+      details:   (r.details && typeof r.details === 'object') ? r.details as Record<string, unknown> : {},
+      createdAt: new Date(r.created_at as string).toISOString(),
+    })),
+    addonOrders,
   }
 }

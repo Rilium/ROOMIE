@@ -34,6 +34,13 @@ export default function AuthScreen() {
     BAD_NAME: 'Nome troppo corto.',
     USER_SUSPENDED: 'Account sospeso. Contatta il supporto.',
     TERMS_REQUIRED: 'Devi accettare i Termini e la Privacy Policy.',
+    SOCIAL_STATE_ERROR: 'Sessione Google scaduta. Riprova.',
+    GOOGLE_REDIRECT_MISMATCH: 'Callback Google non autorizzata.',
+    GOOGLE_SECRET_INVALID: 'Configurazione Google non valida.',
+    GOOGLE_CANCELLED: 'Accesso Google annullato.',
+    GOOGLE_PROFILE_ERROR: 'Google non ha restituito un profilo valido.',
+    GOOGLE_TOKEN_ERROR: 'Google non ha completato il login. Riprova.',
+    SOCIAL_LOGIN_ERROR: 'Accesso Google non riuscito. Riprova.',
   }
 
   const handleLogin = async (e: React.FormEvent) => {

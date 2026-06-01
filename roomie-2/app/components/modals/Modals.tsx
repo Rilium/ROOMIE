@@ -129,7 +129,7 @@ function CodeUnlockModal() {
 
   const verify = () => {
     const code = refs.map(r => r.current?.value || '').join('')
-    if (code === (config.lockboxCode || '4729')) {
+    if (code === (config.lockboxCode || '0000')) {
       showToast({ title: 'Codice corretto — porta aperta', type: 'ok' })
       close()
     } else {
@@ -256,17 +256,13 @@ function InviteModal() {
   const search = (q: string) => {
     setQuery(q)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!q.trim()) { setResults([]); return }
+    if (q.trim().length < 2) { setResults([]); return }
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch('/api/friends/platform')
+        const res = await fetch(`/api/friends/platform?q=${encodeURIComponent(q.trim())}`)
         const data = await res.json()
-        const all = data.friends ?? []
-        setResults(all.filter((u: { username: string; name: string }) =>
-          u.username.toLowerCase().includes(q.toLowerCase()) ||
-          u.name.toLowerCase().includes(q.toLowerCase())
-        ).slice(0, 6))
+        setResults((data.friends ?? []).slice(0, 6))
       } finally { setLoading(false) }
     }, 300)
   }
