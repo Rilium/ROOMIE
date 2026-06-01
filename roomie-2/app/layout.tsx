@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260601-nav5" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260601-nav6" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -120,6 +120,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="auth-logged-out app-booting" suppressHydrationWarning>
+        {/* Bagliori neon ambientali di sfondo */}
+        <div className="neon-ambient" aria-hidden="true">
+          <span className="glow glow-1"></span>
+          <span className="glow glow-2"></span>
+          <span className="glow glow-3"></span>
+        </div>
         {children}
 
         {/* Bootstrap JS */}

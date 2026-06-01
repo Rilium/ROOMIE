@@ -82,6 +82,10 @@ export default function AdminPage() {
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Documentazione tecnica (.docx renderizzato via mammoth, come i legal)
+  const [docHtml, setDocHtml] = useState('')
+  const [docState, setDocState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+
   // Config form
   const [priceHour, setPriceHour] = useState('')
   const [priceDay, setPriceDay] = useState('')
@@ -120,6 +124,30 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Carica e renderizza il .docx della documentazione tecnica (mammoth, lazy)
+  useEffect(() => {
+    if (tab !== 'docs' || docState !== 'idle') return
+    let cancelled = false
+    setDocState('loading')
+    ;(async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mammoth = (window as any).mammoth
+        const res = await fetch('/docs/ROOMIE-Documentazione.docx')
+        if (!res.ok) throw new Error('fetch failed')
+        const arrayBuffer = await res.arrayBuffer()
+        if (!mammoth?.convertToHtml) throw new Error('mammoth unavailable')
+        const result = await mammoth.convertToHtml({ arrayBuffer })
+        if (cancelled) return
+        setDocHtml(result.value || '')
+        setDocState('ready')
+      } catch {
+        if (!cancelled) setDocState('error')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tab, docState])
 
   const saveConfig = async () => {
     const values = {
@@ -445,16 +473,8 @@ export default function AdminPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <a
-                  href="/docs/index.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="admin-page-btn"
-                  style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <i className="fas fa-external-link-alt"></i> Apri in nuova scheda
-                </a>
-                <a
                   href="/docs/ROOMIE-Documentazione.docx"
+                  download
                   className="admin-page-btn"
                   style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
@@ -462,17 +482,18 @@ export default function AdminPage() {
                 </a>
               </div>
             </div>
-            <iframe
-              src="/docs/index.html"
-              title="Documentazione ROOMIE"
-              style={{
-                width: '100%',
-                height: '70vh',
-                border: '1px solid var(--line, #262b36)',
-                borderRadius: '10px',
-                background: '#0f1115',
-              }}
-            />
+            {docState === 'loading' && (
+              <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>Caricamento documento…</div>
+            )}
+            {docState === 'error' && (
+              <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>
+                Impossibile renderizzare il documento.{' '}
+                <a href="/docs/ROOMIE-Documentazione.docx" download style={{ color: 'var(--neon)' }}>Scarica il .docx</a>.
+              </div>
+            )}
+            {docState === 'ready' && (
+              <div className="admin-doc-view" dangerouslySetInnerHTML={{ __html: docHtml }} />
+            )}
           </div>
         )}
 

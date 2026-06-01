@@ -2475,3 +2475,91 @@ body.auth-logged-out .app-subbar{display:none!important}
   .dur-pills{gap:6px}
   .dur-pill{padding:6px 10px;font-size:.8rem}
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TOP SAFE AREA — il contenuto delle pagine non deve finire sotto la nav fissa
+   (la nav è position:fixed; height:60px). La home gestisce il proprio spazio.
+   ───────────────────────────────────────────────────────────────────────────── */
+:root{ --nav-h:60px; --nav-safe:calc(var(--nav-h) + env(safe-area-inset-top)); }
+body:not(.page-home) .page.active{
+  padding-top:calc(var(--nav-safe) + 14px);
+}
+/* la home (fullpage / hero) ha già il proprio padding-top, non aggiungerne */
+body.page-home .page.active{ padding-top:0; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CART HEADER — gli elementi erano "appiccicati", senza ritmo tipografico
+   ───────────────────────────────────────────────────────────────────────────── */
+.cart-header{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:12px;padding-bottom:10px;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.cart-header .cart-count{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:24px;height:24px;padding:0 7px;border-radius:999px;
+  background:rgba(200,255,0,.14);color:var(--neon);
+  font-weight:900;font-size:.8rem;line-height:1;flex:0 0 auto;
+}
+.cart-header > span:nth-child(2){
+  font-size:.72rem;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+}
+.cart-header .cart-total{
+  margin-left:auto;color:var(--neon);
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:1.2rem;line-height:1;white-space:nowrap;
+}
+#cart-items{ display:flex;flex-direction:column;gap:6px;margin-top:2px; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   NEON AMBIENT — grandi bagliori/riflessi neon di sfondo in punti strategici.
+   Layer fisso dietro alle pagine (z-index:0), non interattivo.
+   ───────────────────────────────────────────────────────────────────────────── */
+.neon-ambient{ position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden; }
+.neon-ambient .glow{
+  position:absolute;border-radius:50%;
+  filter:blur(95px);opacity:.55;will-change:transform;
+  mix-blend-mode:screen;
+}
+.neon-ambient .glow-1{
+  width:min(58vw,560px);height:min(58vw,560px);top:-170px;right:-130px;
+  background:radial-gradient(circle,rgba(200,255,0,.30),transparent 70%);
+  animation:neonFloat1 18s ease-in-out infinite;
+}
+.neon-ambient .glow-2{
+  width:min(52vw,500px);height:min(52vw,500px);bottom:-150px;left:-140px;
+  background:radial-gradient(circle,rgba(124,92,255,.26),transparent 70%);
+  animation:neonFloat2 22s ease-in-out infinite;
+}
+.neon-ambient .glow-3{
+  width:min(42vw,400px);height:min(42vw,400px);top:42%;left:48%;
+  background:radial-gradient(circle,rgba(0,224,255,.18),transparent 70%);
+  animation:neonFloat3 26s ease-in-out infinite;
+}
+@keyframes neonFloat1{0%,100%{transform:translate(0,0)}50%{transform:translate(-46px,42px)}}
+@keyframes neonFloat2{0%,100%{transform:translate(0,0)}50%{transform:translate(48px,-34px)}}
+@keyframes neonFloat3{0%,100%{transform:translate(-50%,-50%)}50%{transform:translate(-44%,-56%)}}
+@media (prefers-reduced-motion:reduce){ .neon-ambient .glow{animation:none} }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ADMIN DOCS — viewer del .docx renderizzato (mammoth)
+   ───────────────────────────────────────────────────────────────────────────── */
+.admin-doc-view{
+  max-height:70vh;overflow-y:auto;
+  background:var(--dark2);border:1px solid var(--border);border-radius:10px;
+  padding:20px 22px;font-size:.86rem;line-height:1.7;color:var(--text);
+}
+.admin-doc-view h1,.admin-doc-view h2,.admin-doc-view h3{
+  color:#fff;font-weight:900;line-height:1.25;margin:1.4em 0 .5em;
+}
+.admin-doc-view h1{font-size:1.4rem;border-bottom:2px solid var(--neon);padding-bottom:.3em}
+.admin-doc-view h2{font-size:1.15rem;border-bottom:1px solid var(--border);padding-bottom:.25em}
+.admin-doc-view h3{font-size:1rem;color:var(--neon)}
+.admin-doc-view a{color:var(--neon)}
+.admin-doc-view code{background:var(--dark3);padding:.1em .4em;border-radius:4px;font-size:.9em}
+.admin-doc-view pre{background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto}
+.admin-doc-view table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.82rem}
+.admin-doc-view th,.admin-doc-view td{border:1px solid var(--border);padding:.4em .6em;text-align:left;vertical-align:top}
+.admin-doc-view th{background:var(--dark3);color:#fff}
+.admin-doc-view blockquote{border-left:3px solid var(--neon);margin:1em 0;padding:.3em 1em;background:rgba(200,255,0,.06);color:var(--muted)}
