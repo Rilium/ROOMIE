@@ -93,9 +93,7 @@ export default function AuthScreen() {
     window.location.href = '/api/auth/google'
   }
 
-  const openLegalDoc = (type: string) => {
-    if (typeof (window as any).openLegalDoc === 'function') (window as any).openLegalDoc(type)
-  }
+  const { openLegalDoc } = useApp()
 
   if (!authOpen) return null
 

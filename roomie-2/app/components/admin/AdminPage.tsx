@@ -127,13 +127,29 @@ export default function AdminPage() {
 
   // Carica e renderizza il .docx della documentazione tecnica (mammoth, lazy)
   useEffect(() => {
-    if (tab !== 'docs' || docState !== 'idle') return
+    if (tab !== 'docs' || docState === 'loading') return
     let cancelled = false
     setDocState('loading')
+
+    const waitForMammoth = async () => {
+      if ((window as any).mammoth?.convertToHtml) return (window as any).mammoth
+      return new Promise<any>(resolve => {
+        const interval = window.setInterval(() => {
+          if ((window as any).mammoth?.convertToHtml) {
+            window.clearInterval(interval)
+            resolve((window as any).mammoth)
+          }
+        }, 80)
+        window.setTimeout(() => {
+          window.clearInterval(interval)
+          resolve(null)
+        }, 3000)
+      })
+    }
+
     ;(async () => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mammoth = (window as any).mammoth
+        const mammoth = await waitForMammoth()
         const res = await fetch('/docs/ROOMIE-Documentazione.docx')
         if (!res.ok) throw new Error('fetch failed')
         const arrayBuffer = await res.arrayBuffer()
@@ -471,24 +487,35 @@ export default function AdminPage() {
                   Documentazione tecnica e operativa completa (architettura, DB, API, deploy).
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <a
-                  href="/docs/ROOMIE-Documentazione.docx"
-                  download
-                  className="admin-page-btn"
-                  style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <i className="fas fa-file-word"></i> Scarica .docx
-                </a>
-              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                className="admin-page-btn"
+                onClick={() => setDocState('idle')}
+                style={{ padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <i className="fas fa-eye"></i> Apri anteprima
+              </button>
+              <a
+                href="/docs/ROOMIE-Documentazione.docx"
+                className="admin-page-btn"
+                style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <i className="fas fa-file-word"></i> Scarica .docx
+              </a>
+            </div>
             </div>
             {docState === 'loading' && (
               <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>Caricamento documento…</div>
             )}
             {docState === 'error' && (
               <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>
-                Impossibile renderizzare il documento.{' '}
-                <a href="/docs/ROOMIE-Documentazione.docx" download style={{ color: 'var(--neon)' }}>Scarica il .docx</a>.
+                Impossibile renderizzare il documento in anteprima.{' '}
+                <button type="button" className="admin-page-btn" onClick={() => setDocState('idle')} style={{ marginRight: '10px' }}>
+                  Riprova anteprima
+                </button>
+                <a href="/docs/ROOMIE-Documentazione.docx" className="admin-page-btn" style={{ color: 'var(--neon)' }}>
+                  Scarica il .docx
+                </a>
               </div>
             )}
             {docState === 'ready' && (
