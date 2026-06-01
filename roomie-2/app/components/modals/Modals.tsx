@@ -4,6 +4,15 @@ import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/app/context/AppContext'
 import { apiStripeTopup } from '@/lib/client-api'
 
+// Type declaration for Mammoth.js global
+declare global {
+  interface Window {
+    mammoth?: {
+      convertToHtml: (options: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string; messages: any[] }>
+    }
+  }
+}
+
 // ── LEGAL DOC CONFIG ──────────────────────────────────────────────────────────
 
 const LEGAL = {
@@ -214,9 +223,66 @@ function LegalDocModal() {
   const { modalLegalDoc, closeModal } = useApp()
   const close = () => closeModal('legalDoc')
   const doc = modalLegalDoc.type ? LEGAL[modalLegalDoc.type] : null
+  
+  const [docHtml, setDocHtml] = useState<string>('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+
+  // Load and convert DOCX to HTML using Mammoth
+  useEffect(() => {
+    if (!modalLegalDoc.open || !doc) {
+      setDocHtml('')
+      setError(false)
+      return
+    }
+
+    const loadDoc = async () => {
+      setLoading(true)
+      setError(false)
+      try {
+        // Wait for Mammoth to be available (loaded via script tag in layout.tsx)
+        let attempts = 0
+        while (!window.mammoth && attempts < 20) {
+          await new Promise(r => setTimeout(r, 100))
+          attempts++
+        }
+
+        if (!window.mammoth) {
+          console.warn('Mammoth.js not loaded, using fallback')
+          setDocHtml(doc.fallback)
+          setLoading(false)
+          return
+        }
+
+        // Fetch DOCX file as ArrayBuffer
+        const response = await fetch(doc.file)
+        if (!response.ok) throw new Error('Failed to load DOCX')
+        const arrayBuffer = await response.arrayBuffer()
+
+        // Convert DOCX to HTML using Mammoth
+        const result = await window.mammoth.convertToHtml({ arrayBuffer })
+        
+        // Apply styling to the converted HTML for better readability in modal
+        const styledHtml = `
+          <div style="font-family: 'Barlow', sans-serif; line-height: 1.8; color: var(--text);">
+            ${result.value}
+          </div>
+        `
+        setDocHtml(styledHtml)
+      } catch (err) {
+        console.error('Error loading DOCX:', err)
+        setError(true)
+        setDocHtml(doc.fallback)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDoc()
+  }, [modalLegalDoc.open, doc])
 
   return (
-    <ModalOverlay open={modalLegalDoc.open} onClose={close} maxWidth={600}>
+    <ModalOverlay open={modalLegalDoc.open} onClose={close} maxWidth={700}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexShrink: 0 }}>
         <div>
           <div className="modal-title">{doc?.title ?? ''}</div>
@@ -224,9 +290,42 @@ function LegalDocModal() {
         </div>
         <ModalClose onClose={close} />
       </div>
-      <div style={{ overflowY: 'auto', maxHeight: '55vh', fontSize: '.85rem', lineHeight: '1.7', color: 'var(--text)', marginBottom: '16px' }}>
-        {doc && <div dangerouslySetInnerHTML={{ __html: doc.fallback }} />}
-      </div>
+      
+      {/* Loading state */}
+      {loading && (
+        <div style={{ overflowY: 'auto', maxHeight: '55vh', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', minHeight: '200px' }}>
+          <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
+            <i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>
+            Caricamento documento…
+          </div>
+        </div>
+      )}
+      
+      {/* Document content with scroll */}
+      {!loading && (
+        <div style={{ 
+          overflowY: 'auto', 
+          maxHeight: '55vh', 
+          fontSize: '.85rem', 
+          lineHeight: '1.7', 
+          color: 'var(--text)', 
+          marginBottom: '16px',
+          padding: '12px 8px',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          backgroundColor: 'rgba(255,255,255,.02)'
+        }}>
+          {docHtml ? (
+            <div dangerouslySetInnerHTML={{ __html: docHtml }} style={{ wordBreak: 'break-word' }} />
+          ) : (
+            <div style={{ color: 'var(--muted)' }}>
+              {error ? '❌ Errore nel caricamento del documento' : 'Nessun contenuto disponibile'}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Download button */}
       {doc && (
         <a
           href={doc.file}
