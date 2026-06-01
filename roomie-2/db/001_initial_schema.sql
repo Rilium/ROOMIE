@@ -42,6 +42,16 @@ CREATE TABLE IF NOT EXISTS config (
 INSERT INTO config DEFAULT VALUES
 ON CONFLICT (id) DO NOTHING;
 
+-- ── RATE LIMITS ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expires_at ON rate_limits (expires_at);
+
 -- ── BOOKINGS ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS bookings (
   id                 TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,

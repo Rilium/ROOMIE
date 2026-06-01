@@ -46,6 +46,8 @@ export async function ensureBootstrapData(): Promise<void> {
     bootstrapPromise = (async () => {
       const sql = getDb()
 
+      await sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`
+
       await sql`ALTER TABLE addons ADD COLUMN IF NOT EXISTS sold_today_date DATE NOT NULL DEFAULT CURRENT_DATE`
 
       await sql`
@@ -784,6 +786,7 @@ export async function isRateLimited(
 ): Promise<boolean> {
   await ensureBootstrapData()
   const sql = getDb()
+  await sql`DELETE FROM rate_limits WHERE expires_at <= NOW()`
   const rows = await sql`
     INSERT INTO rate_limits (key, count, expires_at, updated_at)
     VALUES (

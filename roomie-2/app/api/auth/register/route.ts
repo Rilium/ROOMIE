@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
-import { getUserByUsername, getUserByEmail, createUser, isRateLimited, logEvent, publicUser } from '@/lib/neon-db'
+import { getUserByUsername, getUserByEmail, createUser, isRateLimited, clearRateLimit, logEvent, publicUser } from '@/lib/neon-db'
 import { buildSessionCookie } from '@/lib/session'
 import { storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { normalizeUsername, normalizeEmail } from '@/lib/utils'
@@ -62,6 +62,8 @@ export async function POST(req: Request) {
       chips: 24,
       passwordHash: bcrypt.hashSync(password, 10),
     })
+
+    await clearRateLimit(rateLimitKey(req, email))
 
     const maxAge = remember ? 1000 * 60 * 60 * 24 * 30 : 1000 * 60 * 60 * 12
     const cookie = buildSessionCookie({ userId: user.id }, maxAge)
