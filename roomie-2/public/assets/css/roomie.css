@@ -161,6 +161,174 @@
   --mobile-fixed-bottom:calc(var(--mobile-nav-space) + 8px);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   BORDER BEAM — Premium SaaS animated border effect (Linear, Vercel, Raycast style)
+   Dynamically uses each button's color via computed border/background color.
+   ───────────────────────────────────────────────────────────────────────────── */
+@keyframes borderBeamFlow{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
+}
+@keyframes borderBeamFlowReverse{
+  0%{transform:rotate(360deg)}
+  100%{transform:rotate(0deg)}
+}
+
+/* Border Beam base styles for primary buttons */
+.btn-neon, .btn-outline-neon, .btn-primary,
+.btn-nav, .ps-btn {
+  position:relative;
+  overflow:visible;
+}
+
+/* Beam effect pseudo-element */
+.btn-neon::before, .btn-outline-neon::before, .btn-primary::before,
+.btn-nav::before, .ps-btn::before {
+  content:'';
+  position:absolute;
+  inset:-2px;
+  border-radius:inherit;
+  pointer-events:none;
+  will-change:transform;
+  opacity:0;
+  animation:borderBeamFlow 8s linear infinite;
+}
+
+/* Beam effect for .btn-neon (neon lime) */
+.btn-neon::before{
+  background:conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 8%,
+    rgba(200,255,0,0.8) 10%,
+    rgba(200,255,0,1) 13%,
+    rgba(200,255,0,1) 17%,
+    rgba(200,255,0,0.6) 20%,
+    transparent 24%,
+    transparent 100%
+  );
+  mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  opacity:0.5;
+}
+.btn-neon:hover::before{opacity:0.75}
+.btn-neon:focus::before, .btn-neon:focus-visible::before{opacity:0.7}
+.btn-neon:active::before{opacity:0.6}
+
+/* Beam effect for .btn-outline-neon (neon lime outline) */
+.btn-outline-neon::before{
+  background:conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 8%,
+    rgba(200,255,0,0.7) 10%,
+    rgba(200,255,0,0.9) 13%,
+    rgba(200,255,0,0.9) 17%,
+    rgba(200,255,0,0.5) 20%,
+    transparent 24%,
+    transparent 100%
+  );
+  mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  opacity:0.45;
+}
+.btn-outline-neon:hover::before{opacity:0.7}
+.btn-outline-neon:focus::before, .btn-outline-neon:focus-visible::before{opacity:0.65}
+.btn-outline-neon:active::before{opacity:0.5}
+
+/* Beam effect for .btn-primary (Bootstrap primary) */
+.btn-primary::before{
+  background:conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 8%,
+    rgba(200,255,0,0.8) 10%,
+    rgba(200,255,0,1) 13%,
+    rgba(200,255,0,1) 17%,
+    rgba(200,255,0,0.6) 20%,
+    transparent 24%,
+    transparent 100%
+  );
+  mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 30%, black 85%, black 100%);
+  opacity:0.5;
+}
+.btn-primary:hover::before{opacity:0.75}
+.btn-primary:focus::before, .btn-primary:focus-visible::before{opacity:0.7}
+.btn-primary:active::before{opacity:0.6}
+
+/* Beam effect for .btn-nav (compact nav button) */
+.btn-nav::before{
+  background:conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 8%,
+    rgba(200,255,0,0.7) 10%,
+    rgba(200,255,0,0.95) 13%,
+    rgba(200,255,0,0.95) 17%,
+    rgba(200,255,0,0.5) 20%,
+    transparent 24%,
+    transparent 100%
+  );
+  mask-image:radial-gradient(circle at 50% 50%, transparent 25%, black 80%, black 100%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 25%, black 80%, black 100%);
+  opacity:0.4;
+}
+.btn-nav:hover::before{opacity:0.65}
+.btn-nav:focus::before, .btn-nav:focus-visible::before{opacity:0.6}
+
+/* Beam effect for .ps-btn (page switcher button) */
+.ps-btn::before{
+  background:conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 8%,
+    rgba(200,255,0,0.6) 10%,
+    rgba(200,255,0,0.85) 13%,
+    rgba(200,255,0,0.85) 17%,
+    rgba(200,255,0,0.4) 20%,
+    transparent 24%,
+    transparent 100%
+  );
+  mask-image:radial-gradient(circle at 50% 50%, transparent 25%, black 75%, black 100%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 25%, black 75%, black 100%);
+  opacity:0.35;
+}
+.ps-btn:hover::before{opacity:0.6}
+.ps-btn.active::before{opacity:0.7}
+
+/* Beam glow effect for enhanced premium feel */
+.btn-neon::after, .btn-outline-neon::after, .btn-primary::after {
+  content:'';
+  position:absolute;
+  inset:-4px;
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .22s ease;
+}
+.btn-neon:hover::after{
+  background:radial-gradient(circle, rgba(200,255,0,0.15) 0%, transparent 70%);
+  opacity:1;
+}
+.btn-outline-neon:hover::after{
+  background:radial-gradient(circle, rgba(200,255,0,0.1) 0%, transparent 70%);
+  opacity:1;
+}
+.btn-primary:hover::after{
+  background:radial-gradient(circle, rgba(200,255,0,0.15) 0%, transparent 70%);
+  opacity:1;
+}
+
+/* Disable beam for reduced motion preference */
+@media(prefers-reduced-motion:reduce){
+  .btn-neon::before, .btn-outline-neon::before, .btn-primary::before,
+  .btn-nav::before, .ps-btn::before{
+    animation:none;
+    opacity:0!important;
+  }
+}
+
 /* ── btn-primary → ROOMIE neon ─────────────────────────────────────────────── */
 .btn-primary{
   background:#C8FF00;
