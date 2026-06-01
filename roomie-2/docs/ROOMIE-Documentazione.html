@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="it" xml:lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ROOMIE — Documentazione Tecnica e Operativa</title>
+  <style>
+
+html {
+color: #1a1a1a;
+background-color: #fdfdfd;
+}
+body {
+margin: 0 auto;
+max-width: 36em;
+padding-left: 50px;
+padding-right: 50px;
+padding-top: 50px;
+padding-bottom: 50px;
+hyphens: auto;
+overflow-wrap: break-word;
+text-rendering: optimizeLegibility;
+font-kerning: normal;
+}
+@media (max-width: 600px) {
+body {
+font-size: 0.9em;
+padding: 12px;
+}
+h1 {
+font-size: 1.8em;
+}
+}
+@media print {
+html {
+background-color: white;
+}
+body {
+background-color: transparent;
+color: black;
+font-size: 12pt;
+}
+p, h2, h3 {
+orphans: 3;
+widows: 3;
+}
+h2, h3, h4 {
+page-break-after: avoid;
+}
+}
+p {
+margin: 1em 0;
+}
+a {
+color: #1a1a1a;
+}
+a:visited {
+color: #1a1a1a;
+}
+img {
+max-width: 100%;
+}
+svg {
+height: auto;
+max-width: 100%;
+}
+h1, h2, h3, h4, h5, h6 {
+margin-top: 1.4em;
+}
+h5, h6 {
+font-size: 1em;
+font-style: italic;
+}
+h6 {
+font-weight: normal;
+}
+ol, ul {
+padding-left: 1.7em;
+margin-top: 1em;
+}
+li > ol, li > ul {
+margin-top: 0;
+}
+blockquote {
+margin: 1em 0 1em 1.7em;
+padding-left: 1em;
+border-left: 2px solid #e6e6e6;
+color: #606060;
+}
+code {
+font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+font-size: 85%;
+margin: 0;
+hyphens: manual;
+}
+pre {
+margin: 1em 0;
+overflow: auto;
+}
+pre code {
+padding: 0;
+overflow: visible;
+overflow-wrap: normal;
+}
+.sourceCode {
+background-color: transparent;
+overflow: visible;
+}
+hr {
+border: none;
+border-top: 1px solid #1a1a1a;
+height: 1px;
+margin: 1em 0;
+}
+table {
+margin: 1em 0;
+border-collapse: collapse;
+width: 100%;
+overflow-x: auto;
+display: block;
+font-variant-numeric: lining-nums tabular-nums;
+}
+table caption {
+margin-bottom: 0.75em;
+}
+tbody {
+margin-top: 0.5em;
+border-top: 1px solid #1a1a1a;
+border-bottom: 1px solid #1a1a1a;
+}
+th {
+border-top: 1px solid #1a1a1a;
+padding: 0.25em 0.5em 0.25em 0.5em;
+}
+td {
+padding: 0.125em 0.5em 0.25em 0.5em;
+}
+header {
+margin-bottom: 4em;
+text-align: center;
+}
+#TOC li {
+list-style: none;
+}
+#TOC ul {
+padding-left: 1.3em;
+}
+#TOC > ul {
+padding-left: 0;
+}
+#TOC a:not(:hover) {
+text-decoration: none;
+}
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style>
+:root { --bg:#0f1115; --card:#171a21; --fg:#e7e9ee; --muted:#9aa3b2; --accent:#7c5cff; --line:#262b36; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.6; max-width:980px; margin:0 auto; padding:2.5rem 1.5rem 5rem; }
+h1,h2,h3 { line-height:1.25; font-weight:700; }
+h1 { font-size:2rem; border-bottom:2px solid var(--accent); padding-bottom:.4rem; margin-top:2.5rem; }
+h2 { font-size:1.4rem; margin-top:2.2rem; border-bottom:1px solid var(--line); padding-bottom:.3rem; }
+h3 { font-size:1.12rem; margin-top:1.6rem; color:#cdd3df; }
+a { color:var(--accent); }
+table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.92rem; background:var(--card); border-radius:8px; overflow:hidden; }
+th,td { border:1px solid var(--line); padding:.5rem .7rem; text-align:left; vertical-align:top; }
+th { background:#1f2430; color:#fff; font-weight:600; }
+code { background:#1f2430; padding:.12rem .4rem; border-radius:4px; font-size:.88em; }
+pre { background:#11141b; border:1px solid var(--line); border-radius:8px; padding:1rem; overflow:auto; }
+pre code { background:none; padding:0; }
+blockquote { border-left:3px solid var(--accent); margin:1rem 0; padding:.4rem 1rem; background:rgba(124,92,255,.08); color:var(--muted); border-radius:0 6px 6px 0; }
+hr { border:none; border-top:1px solid var(--line); margin:2.5rem 0; }
+#TOC { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1rem 1.4rem; margin:2rem 0; }
+#TOC ul { margin:.2rem 0; }
+.title { font-size:2.4rem; }
+.subtitle { color:var(--muted); font-weight:400; }
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ROOMIE — Documentazione Tecnica e Operativa</h1>
+<p class="subtitle">Applicazione di prenotazione sala Via Terni —
+Next.js + Neon PostgreSQL</p>
+<p class="date">Giugno 2026</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#parte-1-documentazione-tecnica-per-sviluppatori" id="toc-parte-1-documentazione-tecnica-per-sviluppatori">Parte 1 —
+Documentazione Tecnica (per sviluppatori)</a>
+<ul>
+<li><a href="#panoramica-dellarchitettura" id="toc-panoramica-dellarchitettura">1. Panoramica
+dell’architettura</a></li>
+<li><a href="#stack-e-dipendenze" id="toc-stack-e-dipendenze">2. Stack e
+dipendenze</a></li>
+<li><a href="#struttura-delle-cartelle" id="toc-struttura-delle-cartelle">3. Struttura delle cartelle</a></li>
+<li><a href="#database-neon-postgresql" id="toc-database-neon-postgresql">4. Database (Neon PostgreSQL)</a>
+<ul>
+<li><a href="#connessione" id="toc-connessione">4.1 Connessione</a></li>
+<li><a href="#estensioni" id="toc-estensioni">4.2 Estensioni</a></li>
+<li><a href="#tabelle" id="toc-tabelle">4.3 Tabelle</a></li>
+<li><a href="#trigger" id="toc-trigger">4.4 Trigger</a></li>
+<li><a href="#migrazioni-bootstrap" id="toc-migrazioni-bootstrap">4.5
+Migrazioni &amp; bootstrap</a></li>
+</ul></li>
+<li><a href="#layer-dati-libneon-db.ts" id="toc-layer-dati-libneon-db.ts">5. Layer dati
+(<code>lib/neon-db.ts</code>)</a></li>
+<li><a href="#autenticazione-e-sessione" id="toc-autenticazione-e-sessione">6. Autenticazione e sessione</a></li>
+<li><a href="#sicurezza" id="toc-sicurezza">7. Sicurezza</a></li>
+<li><a href="#riferimento-api" id="toc-riferimento-api">8. Riferimento
+API</a>
+<ul>
+<li><a href="#autenticazione" id="toc-autenticazione">Autenticazione</a></li>
+<li><a href="#utente-app" id="toc-utente-app">Utente / App</a></li>
+<li><a href="#prenotazioni" id="toc-prenotazioni">Prenotazioni</a></li>
+<li><a href="#addon" id="toc-addon">Addon</a></li>
+<li><a href="#wallet-stripe" id="toc-wallet-stripe">Wallet /
+Stripe</a></li>
+<li><a href="#admin" id="toc-admin">Admin</a></li>
+<li><a href="#health-diagnostica" id="toc-health-diagnostica">Health /
+diagnostica</a></li>
+</ul></li>
+<li><a href="#integrazione-stripe-ricariche-chips" id="toc-integrazione-stripe-ricariche-chips">9. Integrazione Stripe
+(ricariche chips)</a></li>
+<li><a href="#integrazione-google-oauth" id="toc-integrazione-google-oauth">10. Integrazione Google
+OAuth</a></li>
+<li><a href="#frontend" id="toc-frontend">11. Frontend</a></li>
+<li><a href="#deploy-vercel" id="toc-deploy-vercel">12. Deploy
+(Vercel)</a></li>
+<li><a href="#variabili-dambiente" id="toc-variabili-dambiente">13.
+Variabili d’ambiente</a></li>
+<li><a href="#problemi-noti-dallo-stato-attuale-del-codice" id="toc-problemi-noti-dallo-stato-attuale-del-codice">14. Problemi noti
+(dallo stato attuale del codice)</a>
+<ul>
+<li><a href="#le-ricariche-stripe-non-accreditano-i-chips" id="toc-le-ricariche-stripe-non-accreditano-i-chips">14.1 🔴 Le
+ricariche Stripe non accreditano i chips</a></li>
+<li><a href="#log-di-accesso-fisico-mai-scritti" id="toc-log-di-accesso-fisico-mai-scritti">14.2 🟡 Log di accesso fisico
+mai scritti</a></li>
+<li><a href="#ricavo-addon-non-calcolato" id="toc-ricavo-addon-non-calcolato">14.3 🟡 Ricavo addon non
+calcolato</a></li>
+<li><a href="#altri" id="toc-altri">14.4 🟡 Altri</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#parte-2-documentazione-operativa-per-amministratori" id="toc-parte-2-documentazione-operativa-per-amministratori">Parte 2 —
+Documentazione Operativa (per amministratori)</a>
+<ul>
+<li><a href="#cosè-roomie" id="toc-cosè-roomie">1. Cos’è ROOMIE</a></li>
+<li><a href="#accesso-al-pannello-admin" id="toc-accesso-al-pannello-admin">2. Accesso al pannello admin</a></li>
+<li><a href="#panoramica-dashboard-admin" id="toc-panoramica-dashboard-admin">3. Panoramica dashboard
+admin</a></li>
+<li><a href="#gestione-prenotazioni" id="toc-gestione-prenotazioni">4.
+Gestione prenotazioni</a></li>
+<li><a href="#gestione-utenti-e-chips" id="toc-gestione-utenti-e-chips">5. Gestione utenti e chips</a></li>
+<li><a href="#gestione-addon" id="toc-gestione-addon">6. Gestione
+addon</a></li>
+<li><a href="#slot-bloccati-disponibilità" id="toc-slot-bloccati-disponibilità">7. Slot bloccati
+(disponibilità)</a></li>
+<li><a href="#configurazione-prezzi-e-codici" id="toc-configurazione-prezzi-e-codici">8. Configurazione prezzi e
+codici</a></li>
+<li><a href="#significato-degli-stati-prenotazione" id="toc-significato-degli-stati-prenotazione">9. Significato degli stati
+prenotazione</a></li>
+<li><a href="#audit-log" id="toc-audit-log">10. Audit log</a></li>
+</ul></li>
+</ul>
+</nav>
+<blockquote>
+<p><strong>Nota.</strong> Questo documento descrive lo stato reale del
+codice del repository <code>roomie-2</code> al momento della stesura.
+Tutte le tabelle, gli endpoint e i flussi sono ricavati direttamente dal
+codice sorgente. La sezione finale <em>“Problemi noti”</em> elenca i
+difetti realmente presenti, da non confondere con funzionalità.</p>
+</blockquote>
+<hr />
+<h1 id="parte-1-documentazione-tecnica-per-sviluppatori">Parte 1 —
+Documentazione Tecnica (per sviluppatori)</h1>
+<h2 id="panoramica-dellarchitettura">1. Panoramica
+dell’architettura</h2>
+<p>ROOMIE è una web app per la prenotazione di una sala
+gaming/intrattenimento (“Via Terni”) con un portafoglio interno a
+<strong>chips</strong> (gettoni prepagati). L’applicazione è costruita
+come <strong>Single Page Application</strong> servita da Next.js.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Aspetto</th>
+<th>Tecnologia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Framework</td>
+<td>Next.js 15 (App Router)</td>
+</tr>
+<tr>
+<td>UI</td>
+<td>React 19 + TypeScript</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Neon PostgreSQL (driver serverless HTTP
+<code>@neondatabase/serverless</code>)</td>
+</tr>
+<tr>
+<td>Pagamenti</td>
+<td>Stripe Checkout + Webhook</td>
+</tr>
+<tr>
+<td>Login social</td>
+<td>Google OAuth 2.0 (Authorization Code flow)</td>
+</tr>
+<tr>
+<td>Hashing password</td>
+<td>bcryptjs</td>
+</tr>
+<tr>
+<td>Hosting</td>
+<td>Vercel (region <code>cdg1</code> — Parigi)</td>
+</tr>
+<tr>
+<td>Dominio produzione</td>
+<td><code>roomie.rilio.it</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Caratteristiche architetturali rilevanti:</strong></p>
+<ul>
+<li><strong>SPA dentro Next.js:</strong> un’unica route client
+(<code>app/page.tsx</code>) mostra la pagina attiva in base allo stato
+<code>activePage</code> del context React, non al routing di Next. La
+navigazione tra “pagine” (home, room, token, confirm, session, shop,
+dashboard, admin) avviene in memoria.</li>
+<li><strong>Bridge legacy:</strong> è presente un livello di
+compatibilità con il vecchio file
+<code>public/assets/js/roomie.js</code> tramite oggetti globali
+<code>window.__roomie_*</code>.</li>
+<li><strong>Operazioni atomiche via CTE:</strong> il driver HTTP di Neon
+<strong>non</strong> supporta le callback asincrone in
+<code>.transaction()</code>. Tutte le operazioni che muovono chips
+(prenotazioni, addon, estensioni, ricariche) usano <strong>una sola
+query con CTE data-modifying</strong>, che in PostgreSQL è atomica.</li>
+</ul>
+<h2 id="stack-e-dipendenze">2. Stack e dipendenze</h2>
+<p>Da <code>package.json</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Dipendenza</th>
+<th>Versione</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>next</code></td>
+<td>^15.3.6</td>
+<td>Framework</td>
+</tr>
+<tr>
+<td><code>react</code> / <code>react-dom</code></td>
+<td>^19.0.0</td>
+<td>UI</td>
+</tr>
+<tr>
+<td><code>@neondatabase/serverless</code></td>
+<td>^1.1.0</td>
+<td>Client PostgreSQL</td>
+</tr>
+<tr>
+<td><code>bcryptjs</code></td>
+<td>^3.0.3</td>
+<td>Hash password</td>
+</tr>
+<tr>
+<td><code>stripe</code></td>
+<td>^22.1.1</td>
+<td>Pagamenti</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Script disponibili:</strong></p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Comando</th>
+<th>Azione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm run dev</code></td>
+<td>Avvio sviluppo</td>
+</tr>
+<tr>
+<td><code>npm run build</code></td>
+<td>Build produzione</td>
+</tr>
+<tr>
+<td><code>npm run start</code></td>
+<td>Avvio produzione</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>ESLint</td>
+</tr>
+<tr>
+<td><code>npm run check</code></td>
+<td><code>tsc --noEmit</code> (type check)</td>
+</tr>
+<tr>
+<td><code>npm run db:migrate</code></td>
+<td>Applica le migrazioni SQL al database
+(<code>db/migrate.ts</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="struttura-delle-cartelle">3. Struttura delle cartelle</h2>
+<pre><code>roomie-2/
+├── app/
+│   ├── api/                  # Route handler (backend)
+│   │   ├── auth/             # login, register, logout, google, apple
+│   │   ├── bookings/         # prenotazioni + price + extend
+│   │   ├── addon-orders/     # ordini addon
+│   │   ├── addons/           # listino addon pubblico
+│   │   ├── stripe/           # topup-checkout, success, webhook
+│   │   ├── wallet/           # topup (disattivato)
+│   │   ├── admin/            # endpoint pannello admin
+│   │   ├── app/config        # config pubblica
+│   │   ├── dashboard, me     # dati utente
+│   │   ├── friends/platform  # elenco utenti
+│   │   └── health/           # diagnostica storage/payments/oauth
+│   ├── components/           # componenti React (FE)
+│   ├── context/AppContext.tsx# stato globale SPA
+│   ├── page.tsx              # router SPA
+│   └── layout.tsx            # layout root
+├── lib/
+│   ├── neon-db.ts            # layer dati (unica fonte di verità DB)
+│   ├── api-helpers.ts        # guardie auth/CSRF/storage
+│   ├── session.ts            # cookie di sessione firmati HMAC
+│   ├── client-api.ts         # wrapper fetch lato client
+│   ├── utils.ts              # funzioni pure (prezzi, date, validazioni)
+│   └── types.ts              # contratti TypeScript
+├── db/
+│   ├── 001_initial_schema.sql
+│   ├── 002_audit_log.sql
+│   └── migrate.ts            # esegue tutte le migrazioni numerate
+├── public/assets/            # CSS/JS legacy (roomie.js, roomie.css)
+├── next.config.ts            # redirect + security headers
+└── vercel.json               # config deploy</code></pre>
+<h2 id="database-neon-postgresql">4. Database (Neon PostgreSQL)</h2>
+<h3 id="connessione">4.1 Connessione</h3>
+<p>La funzione <code>getDb()</code> in <code>lib/neon-db.ts</code> apre
+la connessione leggendo la prima variabile disponibile tra
+<code>DATABASE_URL</code>, <code>POSTGRES_URL</code>,
+<code>POSTGRES_PRISMA_URL</code>. Se nessuna è configurata lancia
+<code>DATABASE_URL is not set</code>.</p>
+<h3 id="estensioni">4.2 Estensioni</h3>
+<ul>
+<li><code>pgcrypto</code> → <code>gen_random_uuid()</code></li>
+<li><code>citext</code> → testo case-insensitive per email/username</li>
+</ul>
+<h3 id="tabelle">4.3 Tabelle</h3>
+<h4 id="users"><code>users</code></h4>
+<table>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>TEXT PK</td>
+<td>default <code>gen_random_uuid()::text</code></td>
+</tr>
+<tr>
+<td>username</td>
+<td>CITEXT</td>
+<td>UNIQUE, NOT NULL</td>
+</tr>
+<tr>
+<td>email</td>
+<td>CITEXT</td>
+<td>UNIQUE, NOT NULL</td>
+</tr>
+<tr>
+<td>name</td>
+<td>TEXT</td>
+<td>NOT NULL</td>
+</tr>
+<tr>
+<td>role</td>
+<td>TEXT</td>
+<td><code>user</code> | <code>admin</code> (default
+<code>user</code>)</td>
+</tr>
+<tr>
+<td>chips</td>
+<td>INTEGER</td>
+<td>≥ 0 (default 0)</td>
+</tr>
+<tr>
+<td>password_hash</td>
+<td>TEXT</td>
+<td>NULL per account solo-OAuth</td>
+</tr>
+<tr>
+<td>suspended</td>
+<td>BOOLEAN</td>
+<td>default FALSE</td>
+</tr>
+<tr>
+<td>provider</td>
+<td>TEXT</td>
+<td><code>google</code> | <code>apple</code> | NULL</td>
+</tr>
+<tr>
+<td>provider_id</td>
+<td>TEXT</td>
+<td>subject OAuth</td>
+</tr>
+<tr>
+<td>avatar</td>
+<td>TEXT</td>
+<td>URL avatar</td>
+</tr>
+<tr>
+<td>created_at / updated_at</td>
+<td>TIMESTAMPTZ</td>
+<td>trigger su update</td>
+</tr>
+</tbody>
+</table>
+<h4 id="config-riga-singola-id-1"><code>config</code> (riga singola, id
+= 1)</h4>
+<table>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hourly_price</td>
+<td>INTEGER</td>
+<td>12</td>
+</tr>
+<tr>
+<td>day_price</td>
+<td>INTEGER</td>
+<td>60</td>
+</tr>
+<tr>
+<td>guest_pass_price</td>
+<td>INTEGER</td>
+<td>2</td>
+</tr>
+<tr>
+<td>max_people</td>
+<td>INTEGER</td>
+<td>8</td>
+</tr>
+<tr>
+<td>lockbox_code</td>
+<td>TEXT</td>
+<td>‘0000’</td>
+</tr>
+<tr>
+<td>door_code</td>
+<td>TEXT</td>
+<td>‘0000’</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bookings"><code>bookings</code></h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>TEXT PK</td>
+<td></td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>TEXT FK→users</td>
+<td>ON DELETE CASCADE</td>
+</tr>
+<tr>
+<td>room</td>
+<td>TEXT</td>
+<td>default ‘Via Terni’</td>
+</tr>
+<tr>
+<td>date</td>
+<td>DATE</td>
+<td></td>
+</tr>
+<tr>
+<td>start_time / end_time</td>
+<td>TIME</td>
+<td></td>
+</tr>
+<tr>
+<td>people</td>
+<td>INTEGER</td>
+<td>1–20</td>
+</tr>
+<tr>
+<td>preset</td>
+<td>TEXT</td>
+<td>default ‘ranked’</td>
+</tr>
+<tr>
+<td>duration_hours</td>
+<td>NUMERIC(4,1)</td>
+<td></td>
+</tr>
+<tr>
+<td>guests</td>
+<td>INTEGER</td>
+<td>≥ 0</td>
+</tr>
+<tr>
+<td>total_chips</td>
+<td>INTEGER</td>
+<td>≥ 0</td>
+</tr>
+<tr>
+<td>status</td>
+<td>TEXT</td>
+<td><code>confirmed</code>|<code>pending</code>|<code>completed</code>|<code>cancelled</code></td>
+</tr>
+<tr>
+<td>live_mode</td>
+<td>BOOLEAN</td>
+<td></td>
+</tr>
+<tr>
+<td>lockbox_code / door_code</td>
+<td>TEXT</td>
+<td>codici accesso</td>
+</tr>
+<tr>
+<td>access_valid_from / access_valid_until</td>
+<td>TIMESTAMPTZ</td>
+<td>finestra accesso</td>
+</tr>
+<tr>
+<td>created_at / updated_at</td>
+<td>TIMESTAMPTZ</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Indici: <code>user_id</code>, <code>date</code>, <code>status</code>,
+<code>(date, start_time)</code>.</p>
+<h4 id="wallet_transactions"><code>wallet_transactions</code></h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>TEXT PK</td>
+<td></td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>TEXT FK→users</td>
+<td></td>
+</tr>
+<tr>
+<td>type</td>
+<td>TEXT</td>
+<td><code>topup</code>|<code>booking_debit</code>|<code>addon_debit</code>|<code>refund</code>|<code>admin_adjustment</code>|<code>cashback</code></td>
+</tr>
+<tr>
+<td>chips_delta</td>
+<td>INTEGER</td>
+<td>+ credito / − addebito</td>
+</tr>
+<tr>
+<td>chips_after</td>
+<td>INTEGER</td>
+<td>saldo dopo la transazione</td>
+</tr>
+<tr>
+<td>ref_id</td>
+<td>TEXT</td>
+<td>id prenotazione/ordine/sessione Stripe</td>
+</tr>
+<tr>
+<td>note</td>
+<td>TEXT</td>
+<td></td>
+</tr>
+<tr>
+<td>created_at</td>
+<td>TIMESTAMPTZ</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="addons"><code>addons</code></h4>
+<table>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>TEXT PK</td>
+<td>es. <code>dazn</code>, <code>pizza</code></td>
+</tr>
+<tr>
+<td>category</td>
+<td>TEXT</td>
+<td><code>featured</code>|<code>modes</code>|<code>snacks</code></td>
+</tr>
+<tr>
+<td>brand / name / description</td>
+<td>TEXT</td>
+<td></td>
+</tr>
+<tr>
+<td>price</td>
+<td>INTEGER</td>
+<td>≥ 0</td>
+</tr>
+<tr>
+<td>status</td>
+<td>TEXT</td>
+<td><code>active</code>|<code>soldout</code>|<code>hidden</code>|<code>deleted</code></td>
+</tr>
+<tr>
+<td>sold_today</td>
+<td>INTEGER</td>
+<td>contatore giornaliero</td>
+</tr>
+<tr>
+<td>sold_today_date</td>
+<td>DATE</td>
+<td>data del contatore (reset automatico)</td>
+</tr>
+<tr>
+<td>sort_order</td>
+<td>INTEGER</td>
+<td>ordinamento</td>
+</tr>
+</tbody>
+</table>
+<p>Il database viene pre-popolato con 8 addon di default (DAZN, Cinema,
+Mood Horror, Gaming Pro, Neon Party, Pizza, Birra, Snack Box).</p>
+<h4 id="addon_orders-addon_order_items"><code>addon_orders</code> /
+<code>addon_order_items</code></h4>
+<p>Ordini di addon legati a una prenotazione, con righe dettaglio
+(<code>addon_id</code>, <code>qty</code>, <code>unit_price</code>,
+<code>total</code>).</p>
+<h4 id="blocked_slots"><code>blocked_slots</code></h4>
+<p>Fasce orarie bloccate dall’admin (data, start, end, motivo,
+creato_da).</p>
+<h4 id="access_logs"><code>access_logs</code></h4>
+<p>Eventi di accesso fisico (lockbox, porta, sessione). <em>Vedi
+“Problemi noti”.</em></p>
+<h4 id="stripe_sessions"><code>stripe_sessions</code></h4>
+<table>
+<thead>
+<tr>
+<th>Colonna</th>
+<th>Tipo</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>TEXT PK</td>
+<td>id sessione Stripe Checkout</td>
+</tr>
+<tr>
+<td>user_id</td>
+<td>TEXT FK→users</td>
+<td></td>
+</tr>
+<tr>
+<td>amount_chips</td>
+<td>INTEGER</td>
+<td>chips da accreditare</td>
+</tr>
+<tr>
+<td>amount_eur</td>
+<td>NUMERIC(10,2)</td>
+<td>importo pagato</td>
+</tr>
+<tr>
+<td>status</td>
+<td>TEXT</td>
+<td><code>pending</code>|<code>paid</code>|<code>already</code>|<code>cancelled</code>|<code>error</code></td>
+</tr>
+<tr>
+<td>payment_intent</td>
+<td>TEXT</td>
+<td></td>
+</tr>
+<tr>
+<td>paid_at</td>
+<td>TIMESTAMPTZ</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="audit_log"><code>audit_log</code></h4>
+<p>Log applicativo (chi ha fatto cosa): <code>type</code>,
+<code>user_id</code>, <code>details</code> (JSONB),
+<code>created_at</code>.</p>
+<h4 id="rate_limits"><code>rate_limits</code></h4>
+<p>Contatore tentativi per il rate limiting condiviso: <code>key</code>
+PK, <code>count</code>, <code>expires_at</code>.</p>
+<h3 id="trigger">4.4 Trigger</h3>
+<p>Funzione <code>set_updated_at()</code> collegata in
+<code>BEFORE UPDATE</code> a <code>users</code>, <code>bookings</code>,
+<code>addons</code> per aggiornare automaticamente
+<code>updated_at</code>.</p>
+<h3 id="migrazioni-bootstrap">4.5 Migrazioni &amp; bootstrap</h3>
+<ul>
+<li><code>db/migrate.ts</code> (<code>npm run db:migrate</code>) applica
+<strong>in ordine</strong> tutti i file <code>NNN_*.sql</code> della
+cartella <code>db/</code> (attualmente
+<code>001_initial_schema.sql</code> e
+<code>002_audit_log.sql</code>).</li>
+<li><code>ensureBootstrapData()</code> in <code>lib/neon-db.ts</code>
+viene chiamata a ogni primo accesso e, in modo idempotente: esegue
+<code>ALTER TABLE addons ADD COLUMN IF NOT EXISTS sold_today_date</code>,
+crea <code>rate_limits</code> e <code>audit_log</code> se mancano,
+inserisce la riga <code>config</code>, gli addon di default e (se sono
+presenti <code>ADMIN_PASSWORD</code>/<code>ADMIN_PASSWORD_HASH</code>)
+l’utente admin.</li>
+</ul>
+<h2 id="layer-dati-libneon-db.ts">5. Layer dati
+(<code>lib/neon-db.ts</code>)</h2>
+<p>Unica fonte di verità per l’accesso al DB. Funzioni principali:</p>
+<ul>
+<li><strong>Atomiche (CTE singola):</strong>
+<ul>
+<li><code>createBookingAtomic</code> — addebita chips (con controllo
+saldo) + registra transazione + crea prenotazione.</li>
+<li><code>createAddonOrderAtomic</code> — addebita chips + transazione +
+ordine + righe + aggiorna <code>sold_today</code> (usa
+<code>jsonb_to_recordset</code>).</li>
+<li><code>extendBookingAtomic</code> — addebita chips + transazione +
+estende <code>end_time</code>.</li>
+<li><code>creditStripeCheckoutSession</code> — segna sessione
+<code>paid</code> + accredita chips + transazione (idempotente su
+<code>status=&#39;pending&#39;</code>).</li>
+<li><code>adjustUserChipsWithTransaction</code> — aggiustamento admin
+con transazione registrata.</li>
+</ul></li>
+<li><strong>Conflitti:</strong> <code>hasBookingConflictNeon</code>
+confronta intervalli come timestamp e gestisce le fasce che attraversano
+la mezzanotte (controlla sia <code>bookings</code> sia
+<code>blocked_slots</code>).</li>
+<li><strong>Rate limiting:</strong>
+<code>isRateLimited(key, max, windowMs)</code> /
+<code>clearRateLimit(key)</code> su tabella
+<code>rate_limits</code>.</li>
+<li><strong>Audit:</strong> <code>logEvent(type, userId, details)</code>
+— scrive su <code>audit_log</code>, logga l’errore su console se
+l’insert fallisce.</li>
+</ul>
+<h2 id="autenticazione-e-sessione">6. Autenticazione e sessione</h2>
+<ul>
+<li><strong>Cookie di sessione</strong> <code>roomie.auth</code>:
+payload firmato con <strong>HMAC SHA-256</strong>
+(<code>lib/session.ts</code>), verificato con
+<code>timingSafeEqual</code>. Flag <code>HttpOnly</code>,
+<code>SameSite=Lax</code>, <code>Secure</code> in produzione. Scadenza
+12h (o 30 giorni con “ricordami”).</li>
+<li><strong><code>SESSION_SECRET</code></strong> è obbligatorio in
+produzione (in mancanza l’app lancia un errore).</li>
+<li><strong>Guardie</strong> (<code>lib/api-helpers.ts</code>):
+<code>requireAuth</code> (utente valido e non sospeso),
+<code>requireAdmin</code> (in più <code>role=&#39;admin&#39;</code>).</li>
+<li><strong>Rate limiting</strong> su login (max 8/min) e registrazione
+(max 5/min), per chiave <code>IP:identità</code>, ora persistito su DB
+(valido tra più istanze serverless).</li>
+<li><strong>Blocco password admin di default:</strong> in produzione il
+login admin con password <code>admin</code> è rifiutato.</li>
+</ul>
+<h2 id="sicurezza">7. Sicurezza</h2>
+<ul>
+<li><strong>CSRF:</strong> schema double-submit. Il cookie
+<code>roomie.csrf</code> deve combaciare con l’header
+<code>X-ROOMIE-CSRF</code> su tutti i metodi non sicuri
+(POST/PATCH/PUT/DELETE), più verifica dell’header <code>Origin</code>
+contro l’host atteso / <code>APP_URL</code>
+(<code>csrfGuard</code>).</li>
+<li><strong>Security headers</strong> (<code>next.config.ts</code>):
+<code>Strict-Transport-Security</code>,
+<code>X-Frame-Options: DENY</code>,
+<code>Content-Security-Policy</code>.</li>
+<li><strong>Password</strong> salvate solo come hash bcrypt; mai
+restituite al client (<code>publicUser</code> filtra i campi).</li>
+<li><strong>Prezzi server-side:</strong> il valore di prezzo inviato dal
+client è ignorato; il backend ricalcola sempre con
+<code>calcBookingPrice</code>.</li>
+</ul>
+<h2 id="riferimento-api">8. Riferimento API</h2>
+<p>Legenda autenticazione: <strong>Pubblico</strong> = nessuna ·
+<strong>Auth</strong> = utente loggato · <strong>Admin</strong> = ruolo
+admin. Tutti gli endpoint mutanti richiedono token CSRF.</p>
+<h3 id="autenticazione">Autenticazione</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/api/auth/register</code></td>
+<td>Pubblico</td>
+<td>Registrazione (name, username, email, password ≥ 8). Crea utente con
+24 chips di benvenuto.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/auth/login</code></td>
+<td>Pubblico</td>
+<td>Login per username o email.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/auth/logout</code></td>
+<td>Auth</td>
+<td>Logout (cancella cookie).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/auth/google</code></td>
+<td>Pubblico</td>
+<td>Avvio OAuth Google (redirect).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/auth/google/callback</code></td>
+<td>Pubblico</td>
+<td>Callback OAuth (scambio code→token, upsert utente).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/auth/apple</code></td>
+<td>Pubblico</td>
+<td>Placeholder: ritorna <code>APPLE_NOT_CONFIGURED</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="utente-app">Utente / App</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/me</code></td>
+<td>Auth (soft)</td>
+<td>Utente corrente o <code>{user:null}</code>.</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/dashboard</code></td>
+<td>Auth</td>
+<td>Riepilogo dashboard (prenotazioni, statistiche, consigli).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/app/config</code></td>
+<td>Pubblico</td>
+<td>Config pubblica + slot bloccati + slot prenotati (lockbox
+<strong>oscurato</strong>).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/friends/platform</code></td>
+<td>Auth</td>
+<td>Elenco altri utenti (username/nome/iniziali).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="prenotazioni">Prenotazioni</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/bookings</code></td>
+<td>Auth</td>
+<td>Le proprie prenotazioni (tutte se admin).</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/bookings</code></td>
+<td>Auth</td>
+<td>Crea prenotazione (prezzo ricalcolato server-side, addebito
+atomico).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/bookings/price</code></td>
+<td>Pubblico</td>
+<td>Prezzo canonico per preset/durata/ospiti.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/bookings/[id]/extend</code></td>
+<td>Auth</td>
+<td>Estende la prenotazione (1–4h; admin gratis).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="addon">Addon</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/addons</code></td>
+<td>Pubblico</td>
+<td>Listino addon attivi.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/addon-orders</code></td>
+<td>Auth</td>
+<td>Ordine addon su prenotazione <strong>live</strong> (addebito
+atomico).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="wallet-stripe">Wallet / Stripe</h3>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Auth</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/api/stripe/topup-checkout</code></td>
+<td>Auth</td>
+<td>Crea sessione Stripe Checkout (1–500 chips).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/stripe/success</code></td>
+<td>Auth</td>
+<td>Ritorno post-pagamento; tenta l’accredito.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/stripe/webhook</code></td>
+<td>Stripe (firma)</td>
+<td>Evento <code>checkout.session.completed</code> → accredito.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/wallet/topup</code></td>
+<td>—</td>
+<td><strong>Disattivato</strong>: ritorna 410 (ricariche solo via
+Stripe).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="admin">Admin</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/admin/summary</code></td>
+<td>Riepilogo completo (utenti, prenotazioni, ricavi, addon,
+audit).</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/config</code></td>
+<td>Aggiorna prezzi / max persone / lockbox.</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/users/[id]</code></td>
+<td>Aggiorna nome/email/ruolo/sospensione (con guardie anti
+auto-blocco).</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/users/[id]/chips</code></td>
+<td>Aggiustamento chips (con motivo obbligatorio, transazione
+registrata).</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/bookings/[id]</code></td>
+<td>Modifica prenotazione (data/orari/persone/stato/totale).</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/bookings/[id]/status</code></td>
+<td>Cambio stato prenotazione.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/admin/blocked-slots</code></td>
+<td>Crea slot bloccato.</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/admin/blocked-slots/[id]</code></td>
+<td>Elimina slot bloccato.</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/admin/addons</code></td>
+<td>Crea addon.</td>
+</tr>
+<tr>
+<td>PATCH</td>
+<td><code>/api/admin/addons/[id]</code></td>
+<td>Modifica addon.</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/admin/addons/[id]</code></td>
+<td>Elimina addon.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="health-diagnostica">Health / diagnostica</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metodo</th>
+<th>Path</th>
+<th>Descrizione</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/health/storage</code></td>
+<td>Stato DB + conteggio utenti/prenotazioni.</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/health/payments</code></td>
+<td>Stato configurazione Stripe (chiavi presenti, modalità
+live/test).</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/health/oauth</code></td>
+<td>Stato configurazione Google OAuth.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="integrazione-stripe-ricariche-chips">9. Integrazione Stripe
+(ricariche chips)</h2>
+<p>Flusso previsto:</p>
+<ol type="1">
+<li>Il client chiama <code>POST /api/stripe/topup-checkout</code> con
+l’importo (1–500 chips).</li>
+<li>Il backend crea una <strong>Stripe Checkout Session</strong> e
+restituisce l’URL di pagamento.</li>
+<li>Dopo il pagamento Stripe richiama
+<code>POST /api/stripe/webhook</code>
+(<code>checkout.session.completed</code>) e/o l’utente torna su
+<code>GET /api/stripe/success</code>.</li>
+<li><code>creditStripeCheckoutSession()</code> segna la sessione come
+<code>paid</code> e accredita i chips in modo atomico. La condizione
+<code>status=&#39;pending&#39;</code> garantisce l’<strong>idempotenza</strong>
+(un secondo accredito è no-op).</li>
+</ol>
+<blockquote>
+<p>⚠️ <strong>Vedi “Problemi noti” §14.1</strong> — nello stato attuale
+del codice la riga <code>stripe_sessions</code> con stato
+<code>pending</code> non viene inserita, quindi l’accredito non
+avviene.</p>
+</blockquote>
+<h2 id="integrazione-google-oauth">10. Integrazione Google OAuth</h2>
+<ul>
+<li><code>GET /api/auth/google</code> genera uno <code>state</code>
+casuale, lo salva in un cookie di sessione di breve durata e reindirizza
+ad Google (<code>response_type=code</code>, scope
+<code>openid email profile</code>).</li>
+<li><code>GET /api/auth/google/callback</code> verifica lo
+<code>state</code>, scambia il <code>code</code> con i token
+(Authorization Code flow), recupera il profilo, crea/aggiorna l’utente
+(<code>upsertGoogleUserFromProfile</code>, 24 chips di benvenuto al
+primo accesso) e imposta la sessione.</li>
+<li>Apple login è solo un placeholder (non configurato).</li>
+</ul>
+<h2 id="frontend">11. Frontend</h2>
+<ul>
+<li><strong><code>app/page.tsx</code></strong> è il “router” SPA: in
+base ad <code>activePage</code> (dal context) renderizza il componente
+corretto (<code>LandingLegacy</code>, <code>BookingPage</code>,
+<code>TokenPage</code>, <code>ConfirmPage</code>,
+<code>SessionPage</code>, <code>ShopPage</code>,
+<code>DashboardPage</code>, <code>AdminPage</code>) più
+<code>Nav</code>, <code>Toast</code>, <code>Modals</code>.</li>
+<li><strong><code>app/context/AppContext.tsx</code></strong> gestisce
+stato globale: utente, config, pagina attiva, auth, toast, bozza
+prenotazione, carrello, sessione attiva, modali. Contiene il bridge
+legacy <code>window.__roomie_*</code> verso
+<code>public/assets/js/roomie.js</code>.</li>
+<li><strong><code>lib/client-api.ts</code></strong> è il wrapper
+<code>fetch</code> tipizzato: gestisce header CSRF automatici sui metodi
+mutanti e parsing degli errori.</li>
+<li>Compatibilità con CSS/JS legacy tramite classi sul <code>body</code>
+(<code>page-*</code>, <code>auth-logged-in/out</code>).</li>
+</ul>
+<h2 id="deploy-vercel">12. Deploy (Vercel)</h2>
+<ul>
+<li><strong><code>vercel.json</code></strong>: <code>version 2</code>,
+region <code>cdg1</code> (Parigi), commit GitHub silenziosi.</li>
+<li><strong><code>next.config.ts</code></strong>: redirect
+<code>/ui-preview-v2.html → /</code>, security headers,
+<code>outputFileTracingRoot</code>.</li>
+<li>Dominio di produzione: <code>roomie.rilio.it</code>.</li>
+</ul>
+<h2 id="variabili-dambiente">13. Variabili d’ambiente</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variabile</th>
+<th>Obbligatoria</th>
+<th>Uso</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATABASE_URL</code> (o <code>POSTGRES_URL</code> /
+<code>POSTGRES_PRISMA_URL</code>)</td>
+<td>Sì</td>
+<td>Connessione Neon</td>
+</tr>
+<tr>
+<td><code>SESSION_SECRET</code></td>
+<td>Sì (prod)</td>
+<td>Firma cookie di sessione</td>
+</tr>
+<tr>
+<td><code>APP_URL</code></td>
+<td>Consigliata</td>
+<td>Base URL per redirect/CSRF</td>
+</tr>
+<tr>
+<td><code>STRIPE_SECRET_KEY</code></td>
+<td>Per pagamenti</td>
+<td>Chiave segreta Stripe</td>
+</tr>
+<tr>
+<td><code>STRIPE_PUBLISHABLE_KEY</code></td>
+<td>Per pagamenti</td>
+<td>Chiave pubblica Stripe</td>
+</tr>
+<tr>
+<td><code>STRIPE_WEBHOOK_SECRET</code></td>
+<td>Per webhook</td>
+<td>Verifica firma webhook</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_ID</code></td>
+<td>Per login Google</td>
+<td>OAuth</td>
+</tr>
+<tr>
+<td><code>GOOGLE_CLIENT_SECRET</code></td>
+<td>Per login Google</td>
+<td>OAuth</td>
+</tr>
+<tr>
+<td><code>ADMIN_USERNAME</code> / <code>ADMIN_EMAIL</code> /
+<code>ADMIN_NAME</code></td>
+<td>Opzionali</td>
+<td>Bootstrap admin</td>
+</tr>
+<tr>
+<td><code>ADMIN_PASSWORD</code> o <code>ADMIN_PASSWORD_HASH</code></td>
+<td>Per creare admin</td>
+<td>Password admin iniziale</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Le variabili contengono segreti: non vanno mai committate né incluse
+in questo documento con i loro valori.</p>
+</blockquote>
+<h2 id="problemi-noti-dallo-stato-attuale-del-codice">14. Problemi noti
+(dallo stato attuale del codice)</h2>
+<blockquote>
+<p>Questa sezione elenca difetti <strong>realmente presenti</strong>,
+utili a chi manutiene il progetto.</p>
+</blockquote>
+<h3 id="le-ricariche-stripe-non-accreditano-i-chips">14.1 🔴 Le
+ricariche Stripe non accreditano i chips</h3>
+<p><code>topup-checkout</code> crea la sessione Stripe ma non inserisce
+la riga <code>stripe_sessions</code> con stato <code>pending</code>.
+Poiché <code>creditStripeCheckoutSession</code> accredita solo
+aggiornando una riga <code>pending</code> esistente, l’accredito risulta
+sempre un no-op: l’utente paga ma non riceve chips.</p>
+<h3 id="log-di-accesso-fisico-mai-scritti">14.2 🟡 Log di accesso fisico
+mai scritti</h3>
+<p><code>logAccess()</code>/<code>listAccessLogs()</code> non hanno
+chiamanti: la tabella <code>access_logs</code> resta vuota, pur essendo
+mostrata nel riepilogo admin.</p>
+<h3 id="ricavo-addon-non-calcolato">14.3 🟡 Ricavo addon non
+calcolato</h3>
+<p>In <code>/api/admin/summary</code> il <code>addonRevenue</code> è
+fisso a 0 e <code>addonOrders</code> è sempre vuoto, pur esistendo la
+tabella <code>addon_orders</code>.</p>
+<h3 id="altri">14.4 🟡 Altri</h3>
+<ul>
+<li><code>/api/friends/platform</code> espone a ogni utente loggato
+l’elenco di tutti gli utenti.</li>
+<li><code>/api/addons</code> non ha <code>storageGuard</code> (errore
+500 invece di 503 se il DB non è configurato).</li>
+<li>La config admin accetta prezzi non interi (validato solo il range,
+non l’intero).</li>
+<li>Il <code>lockboxCode</code> finisce in chiaro in
+<code>audit_log</code> quando l’admin aggiorna la configurazione.</li>
+<li><code>ensureBootstrapData</code> esegue DDL
+(<code>ALTER</code>/<code>CREATE IF NOT EXISTS</code>) a ogni cold
+start.</li>
+<li>Codice non utilizzato (footgun): helper non atomici
+<code>createBooking</code>, <code>createAddonOrder</code>,
+<code>adjustUserChips</code>, <code>recordTransaction</code>,
+<code>updateUserChips</code>, <code>createStripeSession</code>,
+<code>completeStripeSession</code>,
+<code>markStripeSessionAlready</code>.</li>
+<li>Residui di refactor: bridge <code>window.__roomie_*</code> ancora
+dentro <code>AppContext</code>; tipo <code>StripeSession</code> non più
+usato in <code>types.ts</code>.</li>
+</ul>
+<hr />
+<h1 id="parte-2-documentazione-operativa-per-amministratori">Parte 2 —
+Documentazione Operativa (per amministratori)</h1>
+<h2 id="cosè-roomie">1. Cos’è ROOMIE</h2>
+<p>ROOMIE permette ai clienti di prenotare la sala “Via Terni”, pagare
+con un portafoglio a <strong>chips</strong> (gettoni prepagati),
+aggiungere extra (“addon”: modalità, snack, servizi) e ricevere i codici
+di accesso. L’amministratore gestisce prezzi, prenotazioni, utenti,
+chips, addon e disponibilità.</p>
+<h2 id="accesso-al-pannello-admin">2. Accesso al pannello admin</h2>
+<ul>
+<li>Accedi con un account che ha <strong>ruolo admin</strong>.</li>
+<li>L’account admin viene creato automaticamente al primo avvio se sono
+impostate le credenziali amministrative (variabili
+<code>ADMIN_*</code>).</li>
+<li>In produzione <strong>non è possibile</strong> accedere come admin
+con la password <code>admin</code>: va impostata una password
+reale.</li>
+<li>Dopo il login, la sezione <strong>Admin</strong> è raggiungibile
+dalla navigazione.</li>
+</ul>
+<h2 id="panoramica-dashboard-admin">3. Panoramica dashboard admin</h2>
+<p>La schermata admin mostra, in sintesi:</p>
+<ul>
+<li><strong>Ricavi</strong> (in chips) generati dalle prenotazioni.</li>
+<li><strong>Numero di prenotazioni</strong> totali e in attesa.</li>
+<li><strong>Utenti</strong> registrati e <strong>chips totali</strong>
+nei portafogli.</li>
+<li><strong>Sessioni live</strong> in corso.</li>
+<li>Elenco prenotazioni recenti con nome/username/email del
+cliente.</li>
+<li>Stato impianti (saracinesca, porta, codice lockbox,
+alimentazione).</li>
+</ul>
+<h2 id="gestione-prenotazioni">4. Gestione prenotazioni</h2>
+<ul>
+<li>Visualizzi tutte le prenotazioni con cliente, data, orario, persone,
+stato e totale chips.</li>
+<li>Puoi <strong>modificare</strong> una prenotazione (data, orari,
+sala, numero persone, stato) e, indicando un <strong>motivo</strong>,
+anche il totale chips.</li>
+<li>Puoi cambiare lo <strong>stato</strong>: <code>confirmed</code>
+(confermata), <code>pending</code> (in attesa), <code>completed</code>
+(completata), <code>cancelled</code> (annullata).</li>
+<li>Il sistema impedisce sovrapposizioni: se una fascia è già occupata o
+bloccata, la modifica che la rende “attiva” viene rifiutata.</li>
+</ul>
+<h2 id="gestione-utenti-e-chips">5. Gestione utenti e chips</h2>
+<ul>
+<li>Elenco utenti con possibilità di modificare <strong>nome, email,
+ruolo</strong> e <strong>sospendere</strong> un account.</li>
+<li><strong>Aggiustamento chips:</strong> puoi aggiungere o togliere
+chips a un utente. È <strong>obbligatorio</strong> indicare un
+<strong>motivo</strong> (minimo 3 caratteri): viene registrato nello
+storico del portafoglio e nell’audit log. L’aggiustamento è limitato a
+±500 per operazione.</li>
+<li><strong>Tutele:</strong> non puoi sospendere te stesso né rimuovere
+a te stesso il ruolo admin.</li>
+</ul>
+<h2 id="gestione-addon">6. Gestione addon</h2>
+<ul>
+<li>Crea, modifica o elimina gli “addon” (extra) con categoria
+(<code>featured</code>, <code>modes</code>, <code>snacks</code>), marca,
+nome, descrizione, prezzo e stato (<code>active</code>,
+<code>soldout</code>, <code>hidden</code>, <code>deleted</code>).</li>
+<li>Il contatore “venduti oggi” si azzera automaticamente ogni
+giorno.</li>
+</ul>
+<h2 id="slot-bloccati-disponibilità">7. Slot bloccati
+(disponibilità)</h2>
+<ul>
+<li>Puoi <strong>bloccare</strong> fasce orarie (data, ora inizio, ora
+fine, motivo) per impedire prenotazioni (manutenzione, eventi privati,
+ecc.).</li>
+<li>Gli slot bloccati sono considerati nel controllo conflitti insieme
+alle prenotazioni attive.</li>
+</ul>
+<h2 id="configurazione-prezzi-e-codici">8. Configurazione prezzi e
+codici</h2>
+<p>Dalla sezione configurazione puoi impostare:</p>
+<ul>
+<li><strong>Prezzo orario</strong> (chips/ora) — intervallo 1–250.</li>
+<li><strong>Prezzo giornata</strong> (preset “full”) — intervallo
+1–2000.</li>
+<li><strong>Prezzo guest pass</strong> (per ospite) — intervallo
+0–100.</li>
+<li><strong>Massimo persone</strong> — intervallo 1–30.</li>
+<li><strong>Codice lockbox</strong> (4–6 cifre) per l’accesso
+fisico.</li>
+</ul>
+<p>Il prezzo di una prenotazione è calcolato <strong>dal server</strong>
+secondo questi valori (il prezzo mostrato dal client non viene mai
+considerato come fonte di verità).</p>
+<h2 id="significato-degli-stati-prenotazione">9. Significato degli stati
+prenotazione</h2>
+<table>
+<thead>
+<tr>
+<th>Stato</th>
+<th>Significato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>confirmed</code></td>
+<td>Prenotazione attiva e confermata.</td>
+</tr>
+<tr>
+<td><code>pending</code></td>
+<td>In attesa (es. da confermare).</td>
+</tr>
+<tr>
+<td><code>completed</code></td>
+<td>Sessione conclusa.</td>
+</tr>
+<tr>
+<td><code>cancelled</code></td>
+<td>Annullata (non occupa la fascia, non genera ricavo).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="audit-log">10. Audit log</h2>
+<p>Ogni azione rilevante (login, registrazione, creazione/modifica
+prenotazione, aggiustamento chips, modifica config, ecc.) viene
+registrata nell’<strong>audit log</strong> con tipo evento, utente,
+dettagli e data. È consultabile dal riepilogo admin e serve per
+tracciabilità e controllo.</p>
+<hr />
+<p><em>Documento generato dall’analisi diretta del codice sorgente del
+repository <code>roomie-2</code>.</em></p>
+</body>
+</html>
