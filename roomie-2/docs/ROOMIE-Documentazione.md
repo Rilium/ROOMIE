@@ -199,7 +199,9 @@ Ordini di addon legati a una prenotazione, con righe dettaglio (`addon_id`, `qty
 Fasce orarie bloccate dall'admin (data, start, end, motivo, creato_da).
 
 #### `access_logs`
-Eventi di accesso fisico (lockbox, porta, sessione). *Vedi "Problemi noti".*
+Eventi di accesso fisico (lockbox, porta, sessione). Vengono scritti da
+`POST /api/access/log` (validati contro un set di eventi ammessi e legati a una prenotazione
+di proprietà dell'utente) e letti nel riepilogo admin.
 
 #### `stripe_sessions`
 | Colonna | Tipo | Note |
@@ -307,6 +309,11 @@ Tutti gli endpoint mutanti richiedono token CSRF.
 | GET | `/api/addons` | Pubblico | Listino addon attivi. |
 | POST | `/api/addon-orders` | Auth | Ordine addon su prenotazione **live** (addebito atomico). |
 
+### Accessi
+| Metodo | Path | Auth | Descrizione |
+|---|---|---|---|
+| POST | `/api/access/log` | Auth | Registra un evento di accesso fisico (lockbox/porta/sessione) su una propria prenotazione. |
+
 ### Wallet / Stripe
 | Metodo | Path | Auth | Descrizione |
 |---|---|---|---|
@@ -349,8 +356,9 @@ Flusso previsto:
    modo atomico. La condizione `status='pending'` garantisce l'**idempotenza**
    (un secondo accredito è no-op).
 
-> ⚠️ **Vedi "Problemi noti" §14.1** — nello stato attuale del codice la riga `stripe_sessions`
-> con stato `pending` non viene inserita, quindi l'accredito non avviene.
+`topup-checkout` inserisce la riga `stripe_sessions` con stato `pending`
+(`createStripeSession`) subito dopo aver creato la Checkout Session, così l'accredito
+successivo trova la riga su cui operare.
 
 ## 10. Integrazione Google OAuth
 
@@ -396,34 +404,36 @@ Flusso previsto:
 
 > Le variabili contengono segreti: non vanno mai committate né incluse in questo documento con i loro valori.
 
-## 14. Problemi noti (dallo stato attuale del codice)
+## 14. Stato manutentivo (correzioni recenti e residui)
 
-> Questa sezione elenca difetti **realmente presenti**, utili a chi manutiene il progetto.
+> Questa sezione riflette lo **stato attuale del codice**, utile a chi manutiene il progetto.
 
-### 14.1 🔴 Le ricariche Stripe non accreditano i chips
-`topup-checkout` crea la sessione Stripe ma non inserisce la riga `stripe_sessions` con stato
-`pending`. Poiché `creditStripeCheckoutSession` accredita solo aggiornando una riga `pending`
-esistente, l'accredito risulta sempre un no-op: l'utente paga ma non riceve chips.
+### 14.1 ✅ Correzioni applicate
+- **Ricariche Stripe** — `topup-checkout` ora inserisce la riga `stripe_sessions` con stato
+  `pending` (`createStripeSession`) subito dopo aver creato la Checkout Session: l'accredito
+  idempotente di `creditStripeCheckoutSession` trova la riga su cui operare e i chips vengono
+  accreditati correttamente.
+- **Log di accesso fisico** — esiste `POST /api/access/log` che valida l'evento contro un set
+  di eventi ammessi, verifica la proprietà della prenotazione e scrive su `access_logs`
+  tramite `logAccess()`.
+- **Ricavo addon** — `/api/admin/summary` calcola `addonRevenue` sommando i `addon_orders` con
+  stato `paid` e popola `addonOrders` nel riepilogo.
+- **`/api/addons`** ora applica `storageGuard` (risponde 503 se il DB non è configurato).
+- **Config admin** — i prezzi sono validati come interi (`Number.isInteger`) oltre che nel range.
+- **`lockboxCode`** viene registrato come `[redacted]` in `audit_log` al posto del valore in chiaro.
+- **`/api/friends/platform`** richiede una query di almeno 2 caratteri, esclude admin e utenti
+  sospesi e restituisce solo `username`/`name`/iniziali (nessuna email).
 
-### 14.2 🟡 Log di accesso fisico mai scritti
-`logAccess()`/`listAccessLogs()` non hanno chiamanti: la tabella `access_logs` resta vuota,
-pur essendo mostrata nel riepilogo admin.
-
-### 14.3 🟡 Ricavo addon non calcolato
-In `/api/admin/summary` il `addonRevenue` è fisso a 0 e `addonOrders` è sempre vuoto, pur
-esistendo la tabella `addon_orders`.
-
-### 14.4 🟡 Altri
-- `/api/friends/platform` espone a ogni utente loggato l'elenco di tutti gli utenti.
-- `/api/addons` non ha `storageGuard` (errore 500 invece di 503 se il DB non è configurato).
-- La config admin accetta prezzi non interi (validato solo il range, non l'intero).
-- Il `lockboxCode` finisce in chiaro in `audit_log` quando l'admin aggiorna la configurazione.
-- `ensureBootstrapData` esegue DDL (`ALTER`/`CREATE IF NOT EXISTS`) a ogni cold start.
+### 14.2 🟡 Residui minori
+- `ensureBootstrapData` esegue DDL (`ALTER`/`CREATE IF NOT EXISTS`) a ogni cold start
+  (idempotente, ma non ideale: andrebbe spostato nelle migration).
+- `/api/friends/platform` consente comunque a un utente loggato di cercare altri utenti non-admin
+  per username/nome (ricerca, non elenco completo).
 - Codice non utilizzato (footgun): helper non atomici `createBooking`, `createAddonOrder`,
-  `adjustUserChips`, `recordTransaction`, `updateUserChips`, `createStripeSession`,
-  `completeStripeSession`, `markStripeSessionAlready`.
-- Residui di refactor: bridge `window.__roomie_*` ancora dentro `AppContext`; tipo
-  `StripeSession` non più usato in `types.ts`.
+  `adjustUserChips`, `recordTransaction`, `updateUserChips`, `completeStripeSession`,
+  `markStripeSessionAlready` (privi di chiamanti).
+- Residui di refactor: bridge `window.__roomie_*` ancora dentro `AppContext` (compatibilità
+  legacy); tipo `StripeSession` dichiarato ma non referenziato in `types.ts`.
 
 ---
 
