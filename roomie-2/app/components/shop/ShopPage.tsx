@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
 import { apiGetAddons, apiOrderAddons } from '@/lib/client-api'
 import type { Addon } from '@/lib/types'
@@ -9,6 +10,9 @@ export default function ShopPage() {
   const { user, cart, addToCart, updateCartItem, removeCartItem, clearCart, showToast, showPage, activeSession } = useApp()
   const [addons, setAddons] = useState<Addon[]>([])
   const [busy, setBusy] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     apiGetAddons().then(({ data }) => {
@@ -38,9 +42,62 @@ export default function ShopPage() {
   const modes = addons.filter(a => a.category === 'modes' && a.status === 'active')
   const snacks = addons.filter(a => a.category === 'snacks' && a.status === 'active')
 
+  // Cart panel rendered as a portal on document.body so it stays truly fixed
+  const cartPanel = mounted && cartCount > 0 ? createPortal(
+    <div className="cart-panel" role="region" aria-label="Carrello" aria-live="polite">
+      {/* Head */}
+      <div className="cart-head">
+        <span className="cart-title">CARRELLO</span>
+        <span className="cart-count">{cartCount} item{cartCount !== 1 ? 's' : ''}</span>
+        <button
+          type="button"
+          onClick={clearCart}
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--muted)', fontSize: '.76rem', fontWeight: 900, cursor: 'pointer', padding: '2px 6px' }}
+          aria-label="Svuota carrello"
+        >
+          SVUOTA
+        </button>
+      </div>
+
+      {/* Item rows with qty controls */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '10px' }}>
+        {cart.map((item, i) => (
+          <div key={`${item.name}-${i}`} className="cart-item-row">
+            <span className="cart-item-name">{item.name}</span>
+            <span className="cart-item-price">{item.price * item.qty} chips</span>
+            <span className="cart-item-actions">
+              <button type="button" onClick={() => updateCartItem(item.name, -1)} aria-label={`Diminuisci ${item.name}`}>−</button>
+              <button type="button" onClick={() => updateCartItem(item.name, 1)} aria-label={`Aumenta ${item.name}`}>+</button>
+              <button type="button" onClick={() => removeCartItem(item.name)} aria-label={`Rimuovi ${item.name}`}>
+                <i className="fas fa-times"></i>
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="cart-footer">
+        <div>
+          <div className="cart-total-label">TOTALE</div>
+          <div className="cart-total-val">{cartTotal} <span style={{ fontSize: '.8em', opacity: .7 }}>chips</span></div>
+        </div>
+        <button
+          className="cart-pay"
+          onClick={handleCheckout}
+          disabled={busy}
+          aria-busy={busy}
+        >
+          {busy ? '...' : isLive ? `PAGA ${cartTotal}` : 'IN SESSIONE'}
+        </button>
+      </div>
+    </div>,
+    document.body
+  ) : null
+
   return (
     <div className="page active" id="page-shop">
-      <div className="shop-inner">
+      <div className={`shop-inner${cartCount > 0 ? ' has-cart' : ''}`}>
         <div className="shop-hero">
           <span className="addon-badge">SHOP SESSIONE</span>
           <div className="shop-hero-title">POTENZIA<br />LA SESSIONE.</div>
@@ -136,41 +193,9 @@ export default function ShopPage() {
             </div>
           </section>
         )}
-
-        {/* Cart panel */}
-        {cartCount > 0 && (
-          <div className="cart-panel show" id="cart-panel">
-            <div className="cart-header">
-              <span className="cart-count" id="cart-count">{cartCount}</span>
-              <span>nel carrello</span>
-              <span className="cart-total" id="cart-total">{cartTotal} chips</span>
-            </div>
-            <div id="cart-items">
-              {cart.map((item, i) => (
-                <div key={`${item.name}-${i}`} className="cart-item-row">
-                  <span className="cart-item-name">{item.qty > 1 ? `${item.qty}x ` : ''}{item.name}</span>
-                  <span className="cart-item-price">{item.price * item.qty} chips</span>
-                  <span className="cart-item-actions">
-                    <button type="button" onClick={() => updateCartItem(item.name, -1)} aria-label={`Diminuisci ${item.name}`}>−</button>
-                    <button type="button" onClick={() => updateCartItem(item.name, 1)} aria-label={`Aumenta ${item.name}`}>+</button>
-                    <button type="button" onClick={() => removeCartItem(item.name)} aria-label={`Rimuovi ${item.name}`}>
-                      <i className="fas fa-times"></i>
-                    </button>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-              <button className="btn-neon" style={{ flex: 1, justifyContent: 'center', padding: '12px' }} onClick={handleCheckout} disabled={busy}>
-                {busy ? '...' : isLive ? `PAGA ${cartTotal} CHIPS` : 'ATTIVO IN SESSIONE'}
-              </button>
-              <button onClick={clearCart} style={{ background: 'var(--dark3)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '12px', fontSize: '.8rem' }}>
-                Svuota
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {cartPanel}
     </div>
   )
 }

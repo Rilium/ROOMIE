@@ -46,7 +46,7 @@ function nowDateTime(): { date: string; time: string } {
 }
 
 export default function BookingPage() {
-  const { user, config, setUser, setBookingDraft, showPage, showToast, activePage } = useApp()
+  const { user, config, setUser, setBookingDraft, setActiveSession, openModalInvite, showPage, showToast, activePage } = useApp()
   const [mounted, setMounted] = useState(false)
 
   const [step, setStep] = useState(0)
@@ -171,9 +171,17 @@ export default function BookingPage() {
     // Update context with server-confirmed booking + updated user chips
     if (data.user) setUser(data.user)
     setBookingDraft({ ...data.booking as any })
+    // Inizializza la sessione attiva con la prenotazione appena creata
+    setActiveSession({
+      booking: data.booking,
+      accessStep: 0,
+      shutterDone: false,
+      keyDone: false,
+      doorDone: false,
+    })
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [priceLoading, serverPrice, balance, totalChips, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, showPage, showToast])
+  }, [priceLoading, serverPrice, balance, totalChips, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
 
   const stepLabels = ['Sessione', 'Quando', 'Gruppo', 'Riepilogo']
   const handleNowMode = useCallback(() => {
@@ -323,7 +331,7 @@ export default function BookingPage() {
             {step === 2 && (
               <div className="booking-step active">
                 <div className="booking-step-title">Chi viene?</div>
-                <div className="booking-step-sub">Tu sei l&apos;host. Aggiungi guest pass per chi entra senza app.</div>
+                <div className="booking-step-sub">Tu sei l&apos;host. Aggiungi amici Roomie o guest pass temporanei.</div>
                 <div className="event-chip">
                   <label className="form-label">PARTECIPANTI</label>
                   <div className="friend-row">
@@ -334,6 +342,13 @@ export default function BookingPage() {
                         <span className="friend-meta">Host · paghi ora</span>
                       </span>
                       <span className="friend-state">Sempre</span>
+                    </button>
+                    <button className="friend-chip add" type="button" onClick={openModalInvite}>
+                      <span className="friend-avatar" style={{ fontSize: '1.1rem', fontWeight: 900 }}>+</span>
+                      <span className="friend-main">
+                        <span className="friend-name">Aggiungi amico</span>
+                        <span className="friend-meta">Cerca su Roomie o invia link</span>
+                      </span>
                     </button>
                   </div>
                   <div className="guest-stepper">

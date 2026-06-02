@@ -83,8 +83,18 @@ export default function SessionPage() {
         <div className="session-grid">
           <div className="session-tile"><strong className="session-timer">{booking?.end || '—'}</strong><span>{isLive ? 'fine sessione' : 'si attiva allo start'}</span></div>
           <div className="session-tile"><strong>{booking?.people || 1} persona{(booking?.people || 1) !== 1 ? 'e' : ''}</strong><span>split attivo · {booking?.totalChips || 0} chips</span></div>
-          <div className="session-tile"><strong>Sicurezza OK</strong><span>serranda alzata · chiave riposta · porta OK</span></div>
-          <div className="session-tile"><strong>Wi-Fi Roomie</strong><span>tocca per copiare la password</span></div>
+          <div className="session-tile">
+            <strong>
+              {activeSession?.doorDone ? 'Accesso OK' : activeSession?.shutterDone ? 'Serranda aperta' : activeSession?.keyDone ? 'Chiave presa' : 'Accesso non avviato'}
+            </strong>
+            <span>
+              {activeSession?.doorDone ? 'serranda alzata · chiave riposta · porta OK' : activeSession?.shutterDone ? 'chiave riposta · vai alla porta' : activeSession?.keyDone ? 'serranda in attesa' : 'completa la procedura di accesso'}
+            </span>
+          </div>
+          <button className="session-tile" type="button" onClick={copyWifi} style={{ cursor: 'pointer', textAlign: 'left' }}>
+            <strong>Wi-Fi Roomie</strong>
+            <span>{isLive ? 'tocca per copiare' : 'disponibile in sessione'}</span>
+          </button>
         </div>
 
         <div className={`camera-card session-camera${isLive ? '' : ' is-locked'}`} aria-label="Telecamera live ROOMIE">
@@ -186,9 +196,7 @@ export default function SessionPage() {
               <span>Problema accesso o room</span>
               <span>URGENTE</span>
             </button>
-            <button className="drawer-link" onClick={() => {
-              copyWifi()
-            }}>
+            <button className="drawer-link" onClick={copyWifi}>
               <span>Wi-Fi Roomie</span>
               <span>{isLive ? 'COPIA' : 'LOCKED'}</span>
             </button>

@@ -43,12 +43,6 @@ export default function Nav() {
     else showPage('room')
   }
 
-  const goProfile = () => {
-    setDrawerOpen(false)
-    if (!user) openAuth('login')
-    else showPage('dashboard')
-  }
-
   const visibleItems = NAV_ITEMS.filter(item => {
     // Nascondi "Accesso" se non c'è sessione attiva e non si è sulla pagina confirm/session
     if (item.id === 'session') {

@@ -5,10 +5,10 @@ import type { CSSProperties } from 'react'
 
 type BorderBeamProps = {
   className?: string
+  /** @deprecated – no longer used; kept for call-site compatibility */
   size?: number
   duration?: number
   delay?: number
-  anchor?: number
   colorFrom?: string
   colorTo?: string
   reverse?: boolean
@@ -17,20 +17,33 @@ type BorderBeamProps = {
   style?: CSSProperties
 }
 
+/**
+ * Border Beam — a neon comet that races along the perimeter.
+ *
+ * Implementation notes:
+ *  • pathLength="100" on the <rect> normalises the total perimeter to 100 units.
+ *  • stroke-dasharray="4 96" → 4% visible comet, 96% gap → tight comet head.
+ *  • The linearGradient fades from transparent → neon-white-hot → colorTo → transparent
+ *    to simulate a head + trailing glow.
+ *  • Multiple drop-shadow filters produce the corona bloom effect.
+ *  • animation-delay is negative so the comet starts mid-run (no cold-start lag).
+ */
 export default function BorderBeam({
   className = '',
-  size = 140,
-  duration = 7,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  size: _size,
+  duration = 6,
   delay = 0,
   colorFrom = '#c8ff00',
   colorTo = '#00ffd1',
   reverse = false,
   initialOffset = 0,
-  borderWidth = 1.25,
+  borderWidth = 1.5,
   style,
 }: BorderBeamProps) {
-  const gradientId = useId().replace(/:/g, '')
+  const id = useId().replace(/:/g, '')
   const beamDelay = -(duration * initialOffset) / 100 - delay
+
   return (
     <svg
       aria-hidden="true"
@@ -38,34 +51,38 @@ export default function BorderBeam({
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
       style={{
-        '--beam-size': `${size}px`,
         '--beam-duration': `${duration}s`,
         '--beam-delay': `${beamDelay}s`,
-        '--beam-color-from': colorFrom,
-        '--beam-color-to': colorTo,
         '--beam-border-width': `${borderWidth}px`,
         ...style,
       } as CSSProperties}
     >
       <defs>
-        <linearGradient id={`roomie-border-beam-${gradientId}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={colorFrom} stopOpacity="0" />
-          <stop offset="35%" stopColor={colorFrom} stopOpacity=".95" />
-          <stop offset="72%" stopColor={colorTo} stopOpacity=".72" />
-          <stop offset="100%" stopColor={colorTo} stopOpacity="0" />
+        {/* Comet gradient: transparent tail → bright hot-white → neon → transparent */}
+        <linearGradient id={`bb-g-${id}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stopColor={colorFrom}  stopOpacity="0"    />
+          <stop offset="28%"  stopColor={colorFrom}  stopOpacity=".55"  />
+          <stop offset="58%"  stopColor="#ffffff"    stopOpacity=".9"   />
+          <stop offset="72%"  stopColor={colorTo}    stopOpacity="1"    />
+          <stop offset="88%"  stopColor={colorTo}    stopOpacity=".35"  />
+          <stop offset="100%" stopColor={colorTo}    stopOpacity="0"    />
         </linearGradient>
       </defs>
+
       <rect
         className="border-beam-line"
-        x="1.2"
-        y="1.2"
-        width="97.6"
-        height="97.6"
-        rx="4.2"
-        ry="4.2"
+        x="1"
+        y="1"
+        width="98"
+        height="98"
+        rx="4"
+        ry="4"
         pathLength="100"
-        stroke={`url(#roomie-border-beam-${gradientId})`}
-        style={{ stroke: `url(#roomie-border-beam-${gradientId})` }}
+        stroke={`url(#bb-g-${id})`}
+        strokeWidth={borderWidth}
+        fill="none"
+        vectorEffect="non-scaling-stroke"
+        strokeLinecap="round"
       />
     </svg>
   )

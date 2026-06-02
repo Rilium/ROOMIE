@@ -243,7 +243,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     else if (name === 'invite') setModalInvite(false)
   }, [])
 
-  // Expose to legacy roomie.js via window (bridge period)
+  // ── Bridge legacy roomie.js → React ────────────────────────────────────────
+  // ATTENZIONE: questi bridge sono ancora necessari perché public/assets/js/roomie.js
+  // chiama window.__roomie_showPage, window.__roomie_showToast, openInviteModal ecc.
+  // Non rimuovere finché roomie.js non è completamente migrato a React.
+  // TODO: dopo migrazione roomie.js → eliminare questo blocco intero.
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>
     w.__roomie_showPage = (page: string) => {
@@ -255,7 +259,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setToast(payload)
     }
     w.__roomie_getUser = () => userRef.current
-    // Modal bridges (called from roomie.js stubs and auth screen)
+    // Modal bridges (chiamati da roomie.js: openLegalDoc, openInviteModal)
     w.openLegalDoc = (type: string) => setModalLegalDoc({ open: true, type: type as LegalDocType })
     w.openNfcModal = () => setModalNfc(true)
     w.openCodeUnlockModal = () => setModalCodeUnlock(true)
