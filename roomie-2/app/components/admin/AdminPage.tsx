@@ -299,7 +299,21 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {loading && <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>Caricamento...</div>}
+        {loading && (
+          <div className="page-skeleton" aria-hidden="true" style={{ padding: '8px 0 20px' }}>
+            <div className="page-skeleton-header">
+              <div className="roomie-skeleton roomie-skeleton-bar lg shimmer" style={{ width: '38%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-bar shimmer" style={{ width: '54%' }}></div>
+            </div>
+            <div className="page-skeleton-grid">
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+            </div>
+            <div className="roomie-skeleton page-skeleton-card shimmer" style={{ minHeight: '220px' }}></div>
+          </div>
+        )}
 
         {/* Bookings panel */}
         {tab === 'bookings' && !loading && (

@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
 import { apiCreateBooking, apiBookingPrice } from '@/lib/client-api'
+import BorderBeam from '@/app/components/ui/BorderBeam'
 
 interface Preset {
   id: string
@@ -35,8 +37,17 @@ function todayDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function nowDateTime(): { date: string; time: string } {
+  const d = new Date()
+  d.setSeconds(0, 0)
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return { date, time }
+}
+
 export default function BookingPage() {
   const { user, config, setUser, setBookingDraft, showPage, showToast, activePage } = useApp()
+  const [mounted, setMounted] = useState(false)
 
   const [step, setStep] = useState(0)
   const [preset, setPresetState] = useState<Preset>(PRESETS[1])
@@ -49,6 +60,11 @@ export default function BookingPage() {
   const [mode, setMode] = useState<'now' | 'plan'>('plan')
   // serverPrice: fetched from /api/bookings/price; falls back to local estimate
   const [serverPrice, setServerPrice] = useState<number | null>(null)
+  const [priceLoading, setPriceLoading] = useState(true)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const end = addHours(start, duration)
   // Local estimate (shown while server confirms)
@@ -61,8 +77,12 @@ export default function BookingPage() {
   // Fetch server-side price whenever booking params change
   useEffect(() => {
     let cancelled = false
+    setPriceLoading(true)
+    setServerPrice(null)
     apiBookingPrice(preset.id, duration, guests).then(({ data }) => {
       if (!cancelled && data?.totalChips != null) setServerPrice(data.totalChips)
+    }).finally(() => {
+      if (!cancelled) setPriceLoading(false)
     })
     return () => { cancelled = true }
   }, [preset.id, duration, guests])
@@ -115,6 +135,10 @@ export default function BookingPage() {
   }, [step, showPage])
 
   const handleConfirm = useCallback(async () => {
+    if (priceLoading || serverPrice == null) {
+      showToast({ title: 'Prezzo in verifica', copy: 'Aspetta un secondo: stiamo confermando il totale server.', type: 'warn' })
+      return
+    }
     if (balance < totalChips) {
       showToast({ title: 'Saldo insufficiente', copy: 'Ricarica chips prima di procedere.', type: 'warn' })
       showPage('token')
@@ -149,12 +173,42 @@ export default function BookingPage() {
     setBookingDraft({ ...data.booking as any })
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [balance, totalChips, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, showPage, showToast])
+  }, [priceLoading, serverPrice, balance, totalChips, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, showPage, showToast])
 
   const stepLabels = ['Sessione', 'Quando', 'Gruppo', 'Riepilogo']
+  const handleNowMode = useCallback(() => {
+    const current = nowDateTime()
+    setMode('now')
+    setDate(current.date)
+    setStart(current.time)
+  }, [])
+
+  const stickyNav = (
+    <div className="booking-sticky" aria-label="Navigazione prenotazione">
+      <BorderBeam size={88} duration={6.5} initialOffset={18} colorFrom="#C8FF00" colorTo="#00FFD1" borderWidth={1.1} />
+      <button className="sticky-back" type="button" onClick={goPrev} aria-label="Indietro">
+        <i className="fas fa-chevron-left"></i>
+      </button>
+      <div>
+        <div className="sticky-total-label">Step {step + 1} di 4 · {stepLabels[step]}</div>
+        <div className="sticky-total-val">{priceLoading ? '...' : totalChips} chips</div>
+        <div style={{ fontSize: '.72rem', color: 'var(--muted)', lineHeight: '1.1' }}>
+          {preset.label} · {preset.isDay ? 'Giornata' : `${duration}h`}
+        </div>
+      </div>
+      {step < 3 ? (
+        <button className="sticky-next" type="button" onClick={goNext}>CONTINUA</button>
+      ) : (
+        <button className="sticky-next" type="button" onClick={handleConfirm} disabled={busy || priceLoading || serverPrice == null}>
+          {busy ? '...' : 'PAGA'}
+        </button>
+      )}
+    </div>
+  )
 
   return (
     <div className="page active" id="page-room">
+      {mounted ? createPortal(stickyNav, document.body) : stickyNav}
       <div className="booking-shell" style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
 
         {/* Room header */}
@@ -240,18 +294,18 @@ export default function BookingPage() {
                 <div className="booking-step-title">Quando venite?</div>
                 <div className="booking-step-sub">Adesso per entrare subito, oppure pianifica la serata.</div>
                 <div className="booking-mode">
-                  <button className={mode === 'now' ? 'active' : ''} onClick={() => { setMode('now'); setDate(todayDate()) }}>Adesso</button>
+                  <button className={mode === 'now' ? 'active' : ''} onClick={handleNowMode}>Adesso</button>
                   <button className={mode === 'plan' ? 'active' : ''} onClick={() => setMode('plan')}>Pianifica</button>
                 </div>
                 <div className="event-chip">
                   <div className="event-row">
                     <div>
                       <label className="form-label">DATA</label>
-                      <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} />
+                      <input type="date" className="form-input" value={date} disabled={mode === 'now'} onChange={e => setDate(e.target.value)} />
                     </div>
                     <div>
                       <label className="form-label">INIZIO</label>
-                      <input type="time" className="form-input" value={start} step="900" onChange={e => setStart(e.target.value)} />
+                      <input type="time" className="form-input" value={start} step="900" disabled={mode === 'now'} onChange={e => setStart(e.target.value)} />
                     </div>
                   </div>
                   <div className="slot-availability">
@@ -366,26 +420,6 @@ export default function BookingPage() {
           </div>
         </div>
 
-        {/* Sticky nav */}
-        <div className="booking-sticky">
-          <button className="sticky-back" type="button" onClick={goPrev} aria-label="Indietro">
-            <i className="fas fa-chevron-left"></i>
-          </button>
-          <div>
-            <div className="sticky-total-label">Step {step + 1} di 4 · {stepLabels[step]}</div>
-            <div className="sticky-total-val">{totalChips} chips</div>
-            <div style={{ fontSize: '.72rem', color: 'var(--muted)', lineHeight: '1.1' }}>
-              {preset.label} · {preset.isDay ? 'Giornata' : `${duration}h`}
-            </div>
-          </div>
-          {step < 3 ? (
-            <button className="sticky-next" type="button" onClick={goNext}>CONTINUA</button>
-          ) : (
-            <button className="sticky-next" type="button" onClick={handleConfirm} disabled={busy}>
-              {busy ? '...' : 'PAGA'}
-            </button>
-          )}
-        </div>
       </div>
     </div>
   )

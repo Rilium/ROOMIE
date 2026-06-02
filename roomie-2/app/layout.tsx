@@ -88,16 +88,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
 
-        {/* Bootstrap CSS 5.3.3 */}
-        <link
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet"
-          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-          crossOrigin="anonymous"
-        />
-
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260601-nav6" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260602-routing-beam1" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -128,16 +120,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         {children}
 
-        {/* Bootstrap JS */}
-        <Script
-          src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-          integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-
         {/* ROOMIE app logic — must run after DOM */}
-        <Script src="/assets/js/roomie.js?v=prod-20260601-nav5" strategy="afterInteractive" />
+        <Script src="/assets/js/roomie.js?v=prod-20260602-routing-beam1" strategy="afterInteractive" />
       </body>
     </html>
   )

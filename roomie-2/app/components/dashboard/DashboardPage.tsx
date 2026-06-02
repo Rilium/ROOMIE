@@ -212,7 +212,24 @@ export default function DashboardPage() {
 
         {/* Storico */}
         {loading ? (
-          <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>Caricamento...</div>
+          <div className="page-skeleton" aria-hidden="true">
+            <div className="page-skeleton-header">
+              <div className="roomie-skeleton roomie-skeleton-bar lg shimmer" style={{ width: '42%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-bar shimmer" style={{ width: '68%' }}></div>
+            </div>
+            <div className="page-skeleton-grid">
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+            </div>
+            <div className="roomie-skeleton page-skeleton-card shimmer" style={{ minHeight: '180px' }}></div>
+            <div className="page-skeleton-stack">
+              <div className="roomie-skeleton roomie-skeleton-bar shimmer" style={{ width: '96%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-bar shimmer" style={{ width: '88%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-bar sm shimmer" style={{ width: '74%' }}></div>
+            </div>
+          </div>
         ) : history.length > 0 && (
           <>
             <div className="dash-section-label">Storico</div>
