@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/app/context/AppContext'
-import { apiDashboard, apiExtendBooking } from '@/lib/client-api'
+import { apiDashboard, apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import type { Booking } from '@/lib/types'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [chipsSpent, setChipsSpent] = useState(0)
+  const [wifi, setWifi] = useState<{ ssid: string; password: string; configured: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -46,6 +47,11 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    apiRoomWifi().then(({ data }) => {
+      if (data?.wifi) setWifi(data.wifi)
+    })
+  }, [])
 
   const handleExtend = useCallback(async (id: string) => {
     const { data, error } = await apiExtendBooking(id)
@@ -75,7 +81,11 @@ export default function DashboardPage() {
   }
 
   const copyWifi = () => {
-    navigator.clipboard.writeText('Wi-Fi: $wag_Barca\nPassword: !nexus2018.').catch(() => {})
+    if (!wifi?.configured) {
+      showToast({ title: 'Wi-Fi non configurato', copy: 'Le credenziali saranno disponibili in sessione.', type: 'warn' })
+      return
+    }
+    navigator.clipboard.writeText(`Wi-Fi: ${wifi.ssid}\nPassword: ${wifi.password}`).catch(() => {})
     showToast({ title: 'Credenziali Wi-Fi copiate' })
   }
 
@@ -174,9 +184,9 @@ export default function DashboardPage() {
             <div className="wifi-icon"><i className="fas fa-wifi"></i></div>
             <div className="dash-section-label">Wi-Fi del posto</div>
             <div className="wifi-title">ROOMIE NETWORK</div>
-            <div className="wifi-row"><span>Username</span><span>$wag_Barca</span></div>
-            <div className="wifi-row"><span>Password</span><span>!nexus2018.</span></div>
-            <div className="wifi-copy-hint"><i className="fas fa-copy"></i> Tocca per copiare</div>
+            <div className="wifi-row"><span>Nome rete</span><span>{wifi?.configured ? wifi.ssid : 'Disponibile in room'}</span></div>
+            <div className="wifi-row"><span>Password</span><span>{wifi?.configured ? 'Tocca per copiare' : 'Protetta'}</span></div>
+            <div className="wifi-copy-hint"><i className="fas fa-copy"></i> {wifi?.configured ? 'Tocca per copiare' : 'Solo da account attivo'}</div>
           </button>
           <div className="camera-card is-locked" aria-label="Telecamera live">
             <div className="camera-feed"></div>

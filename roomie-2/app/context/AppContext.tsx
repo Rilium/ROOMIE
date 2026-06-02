@@ -90,6 +90,8 @@ interface AppContextValue {
 
   // Cart
   addToCart: (item: CartItem) => void
+  updateCartItem: (name: string, delta: number) => void
+  removeCartItem: (name: string) => void
   clearCart: () => void
 
   // Session
@@ -127,6 +129,8 @@ const defaultBooking: BookingDraft = {
 // ── CONTEXT ───────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextValue | null>(null)
+const CART_STORAGE_KEY = 'roomie.cart.v1'
+const CART_TTL_MS = 1000 * 60 * 60 * 4
 const PAGE_TO_PATH: Record<string, string> = {
   home: '/',
   room: '/room',
@@ -347,7 +351,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  const updateCartItem = useCallback((name: string, delta: number) => {
+    setCart(prev => prev.flatMap(item => {
+      if (item.name !== name) return [item]
+      const qty = Math.max(0, item.qty + delta)
+      return qty > 0 ? [{ ...item, qty }] : []
+    }))
+  }, [])
+
+  const removeCartItem = useCallback((name: string) => {
+    setCart(prev => prev.filter(item => item.name !== name))
+  }, [])
+
   const clearCart = useCallback(() => setCart([]), [])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CART_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as { expiresAt?: number; items?: CartItem[] }
+      if (!parsed.expiresAt || parsed.expiresAt < Date.now()) {
+        localStorage.removeItem(CART_STORAGE_KEY)
+        return
+      }
+      if (Array.isArray(parsed.items)) setCart(parsed.items)
+    } catch {
+      localStorage.removeItem(CART_STORAGE_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (!cart.length) {
+        localStorage.removeItem(CART_STORAGE_KEY)
+        return
+      }
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({
+        expiresAt: Date.now() + CART_TTL_MS,
+        items: cart,
+      }))
+    } catch {
+      // localStorage is best-effort only.
+    }
+  }, [cart])
 
   // ── Session ───────────────────────────────────────────────────────────────
 
@@ -372,7 +418,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     showPage,
     showToast,
     setBookingDraft, clearBookingDraft,
-    addToCart, clearCart,
+    addToCart, updateCartItem, removeCartItem, clearCart,
     setActiveSession,
     setConfig,
   }

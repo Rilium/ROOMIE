@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import DOMPurify from 'dompurify'
 import { useApp } from '@/app/context/AppContext'
 import { apiStripeTopup } from '@/lib/client-api'
 
@@ -138,7 +139,7 @@ function CodeUnlockModal() {
 
   const verify = () => {
     const code = refs.map(r => r.current?.value || '').join('')
-    if (code === (config.lockboxCode || '0000')) {
+    if (config.lockboxCode && code === config.lockboxCode) {
       showToast({ title: 'Codice corretto — porta aperta', type: 'ok' })
       close()
     } else {
@@ -249,7 +250,7 @@ function LegalDocModal() {
 
         if (!window.mammoth) {
           console.warn('Mammoth.js not loaded, using fallback')
-          setDocHtml(doc.fallback)
+          setDocHtml(DOMPurify.sanitize(doc.fallback))
           setLoading(false)
           return
         }
@@ -268,11 +269,11 @@ function LegalDocModal() {
             ${result.value}
           </div>
         `
-        setDocHtml(styledHtml)
+        setDocHtml(DOMPurify.sanitize(styledHtml))
       } catch (err) {
         console.error('Error loading DOCX:', err)
         setError(true)
-        setDocHtml(doc.fallback)
+        setDocHtml(DOMPurify.sanitize(doc.fallback))
       } finally {
         setLoading(false)
       }

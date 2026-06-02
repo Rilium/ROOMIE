@@ -6,7 +6,7 @@ import { apiGetAddons, apiOrderAddons } from '@/lib/client-api'
 import type { Addon } from '@/lib/types'
 
 export default function ShopPage() {
-  const { user, cart, addToCart, clearCart, showToast, showPage, activeSession } = useApp()
+  const { user, cart, addToCart, updateCartItem, removeCartItem, clearCart, showToast, showPage, activeSession } = useApp()
   const [addons, setAddons] = useState<Addon[]>([])
   const [busy, setBusy] = useState(false)
 
@@ -147,9 +147,16 @@ export default function ShopPage() {
             </div>
             <div id="cart-items">
               {cart.map((item, i) => (
-                <div key={i} style={{ fontSize: '.82rem', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{item.qty > 1 ? `${item.qty}x ` : ''}{item.name}</span>
-                  <span>{item.price * item.qty} chips</span>
+                <div key={`${item.name}-${i}`} className="cart-item-row">
+                  <span className="cart-item-name">{item.qty > 1 ? `${item.qty}x ` : ''}{item.name}</span>
+                  <span className="cart-item-price">{item.price * item.qty} chips</span>
+                  <span className="cart-item-actions">
+                    <button type="button" onClick={() => updateCartItem(item.name, -1)} aria-label={`Diminuisci ${item.name}`}>−</button>
+                    <button type="button" onClick={() => updateCartItem(item.name, 1)} aria-label={`Aumenta ${item.name}`}>+</button>
+                    <button type="button" onClick={() => removeCartItem(item.name)} aria-label={`Rimuovi ${item.name}`}>
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </span>
                 </div>
               ))}
             </div>

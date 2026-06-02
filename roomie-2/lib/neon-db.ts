@@ -145,7 +145,7 @@ export async function getConfig(): Promise<AppConfig> {
   const sql = getDb()
   const rows = await sql`SELECT * FROM config WHERE id = 1`
   const row = rows[0]
-  if (!row) return { hourlyPrice: 12, dayPrice: 60, guestPassPrice: 2, maxPeople: 8, lockboxCode: '0000' }
+  if (!row) return { hourlyPrice: 12, dayPrice: 60, guestPassPrice: 2, maxPeople: 8, lockboxCode: '' }
   return {
     hourlyPrice:    Number(row.hourly_price),
     dayPrice:       Number(row.day_price),

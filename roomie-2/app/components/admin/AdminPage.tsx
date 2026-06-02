@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import DOMPurify from 'dompurify'
 import { useApp } from '@/app/context/AppContext'
 import {
   apiAdminSummary, apiAdminPatchConfig, apiAdminPatchBookingStatus,
@@ -156,7 +157,7 @@ export default function AdminPage() {
         if (!mammoth?.convertToHtml) throw new Error('mammoth unavailable')
         const result = await mammoth.convertToHtml({ arrayBuffer })
         if (cancelled) return
-        setDocHtml(result.value || '')
+        setDocHtml(DOMPurify.sanitize(result.value || ''))
         setDocState('ready')
       } catch {
         if (!cancelled) setDocState('error')

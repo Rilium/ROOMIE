@@ -9,6 +9,8 @@ export default function AuthScreen() {
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
 
   // Login refs
   const loginUsernameRef = useRef<HTMLInputElement>(null)
@@ -178,13 +180,18 @@ export default function AuthScreen() {
               </div>
               <div className="form-group mb-3">
                 <label className="form-label">PASSWORD</label>
-                <input
-                  ref={loginPasswordRef}
-                  className="form-input"
-                  autoComplete="current-password"
-                  type="password"
-                  placeholder="La tua password"
-                />
+                <div className="password-field">
+                  <input
+                    ref={loginPasswordRef}
+                    className="form-input"
+                    autoComplete="current-password"
+                    type={showLoginPassword ? 'text' : 'password'}
+                    placeholder="La tua password"
+                  />
+                  <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)} aria-label={showLoginPassword ? 'Nascondi password' : 'Mostra password'}>
+                    <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
               </div>
               <label className="auth-check">
                 <input ref={loginRememberRef} type="checkbox" defaultChecked /> Resta collegato su questo dispositivo
@@ -239,13 +246,18 @@ export default function AuthScreen() {
               </div>
               <div className="form-group mb-3">
                 <label className="form-label">PASSWORD</label>
-                <input
-                  ref={regPasswordRef}
-                  className="form-input"
-                  autoComplete="new-password"
-                  type="password"
-                  placeholder="Minimo 8 caratteri"
-                />
+                <div className="password-field">
+                  <input
+                    ref={regPasswordRef}
+                    className="form-input"
+                    autoComplete="new-password"
+                    type={showRegisterPassword ? 'text' : 'password'}
+                    placeholder="Minimo 8 caratteri"
+                  />
+                  <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)} aria-label={showRegisterPassword ? 'Nascondi password' : 'Mostra password'}>
+                    <i className={`fas ${showRegisterPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
               </div>
               <div className="legal-consents">
                 <label className="legal-consent">

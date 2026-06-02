@@ -1,11 +1,13 @@
 'use client'
 
 import { useApp } from '@/app/context/AppContext'
-import { apiExtendBooking } from '@/lib/client-api'
+import { apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
+import { useEffect, useState } from 'react'
 
 export default function SessionPage() {
   const { activeSession, showPage, showToast, setActiveSession } = useApp()
+  const [wifi, setWifi] = useState<{ ssid: string; password: string; configured: boolean } | null>(null)
   const booking = activeSession?.booking
   const isLive = booking ? isBookingLiveNow(booking) : false
   const liveMode = Boolean((booking as any)?.liveMode)
@@ -26,6 +28,25 @@ export default function SessionPage() {
       setActiveSession({ ...activeSession, booking: data.booking })
     }
     showToast({ title: '+1h aggiunta!' })
+  }
+
+  useEffect(() => {
+    apiRoomWifi().then(({ data }) => {
+      if (data?.wifi) setWifi(data.wifi)
+    })
+  }, [])
+
+  const copyWifi = () => {
+    if (!isLive) {
+      showToast({ title: 'Wi-Fi disponibile in sessione', copy: `Torna da ${startLabel}.`, type: 'warn' })
+      return
+    }
+    if (!wifi?.configured) {
+      showToast({ title: 'Wi-Fi non configurato', type: 'warn' })
+      return
+    }
+    navigator.clipboard.writeText(`Wi-Fi: ${wifi.ssid}\nPassword: ${wifi.password}`).catch(() => {})
+    showToast({ title: 'Password Wi-Fi copiata' })
   }
 
   return (
@@ -66,7 +87,7 @@ export default function SessionPage() {
           <div className="session-tile"><strong>Wi-Fi Roomie</strong><span>tocca per copiare la password</span></div>
         </div>
 
-        <div className={`camera-card session-camera${isLive ? '' : ' is-locked'}`} aria-label="Roomie live camera mock">
+        <div className={`camera-card session-camera${isLive ? '' : ' is-locked'}`} aria-label="Telecamera live ROOMIE">
           <div className="camera-feed"></div>
           <div className="camera-overlay">
             <div>
@@ -166,11 +187,10 @@ export default function SessionPage() {
               <span>URGENTE</span>
             </button>
             <button className="drawer-link" onClick={() => {
-              navigator.clipboard.writeText('Wi-Fi: $wag_Barca\nPassword: !nexus2018.').catch(() => {})
-              showToast({ title: 'Password Wi-Fi copiata' })
+              copyWifi()
             }}>
               <span>Wi-Fi Roomie</span>
-              <span>COPIA</span>
+              <span>{isLive ? 'COPIA' : 'LOCKED'}</span>
             </button>
             <button className="drawer-link" onClick={() => showPage('dashboard')}>
               <span><i className="fas fa-receipt"></i> Dettagli prenotazione</span>

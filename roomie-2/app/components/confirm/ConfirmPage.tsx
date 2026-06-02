@@ -22,7 +22,7 @@ export default function ConfirmPage() {
     status: (b as any).status || 'confirmed',
     createdAt: (b as any).createdAt || new Date().toISOString(),
   } as Booking) : null
-  const lockboxCode = (b as any)?.lockboxCode || '0000'
+  const lockboxCode = String((b as any)?.lockboxCode || '')
   const bookingId = (b as any)?.id as string | undefined
   const accessLive = bookingForAccess ? isBookingLiveNow(bookingForAccess) : false
   const startsAt = bookingForAccess ? bookingStartDate(bookingForAccess) : null
@@ -33,6 +33,10 @@ export default function ConfirmPage() {
   const copyCode = useCallback(() => {
     if (!accessLive) {
       showToast({ title: 'Accesso non ancora disponibile', copy: `Si sblocca da ${accessDateLabel}.`, type: 'warn' })
+      return
+    }
+    if (!lockboxCode) {
+      showToast({ title: 'Codice non disponibile', copy: 'Contatta il supporto Roomie.', type: 'warn' })
       return
     }
     navigator.clipboard.writeText(lockboxCode).catch(() => {})
@@ -59,7 +63,10 @@ export default function ConfirmPage() {
   }
 
   const handleDoorUnlock = (method: 'nfc' | 'code') => {
-    if (!accessLive) return
+    if (!accessLive || !keyDone || !shutterDone) {
+      showToast({ title: 'Completa prima gli step precedenti', type: 'warn' })
+      return
+    }
     setAccessStep(3)
     void apiLogAccess(bookingId, method === 'nfc' ? 'door_nfc' : 'door_code', method)
     void apiLogAccess(bookingId, 'door_opened', method)
@@ -67,6 +74,24 @@ export default function ConfirmPage() {
     if (activeSession) {
       setActiveSession({ ...activeSession, doorDone: true, shutterDone: true, keyDone: true })
     }
+  }
+
+  const goAccessPrev = () => setAccessStep(s => Math.max(0, s - 1))
+  const goAccessNext = () => {
+    if (!accessLive) return
+    if (accessStep === 0 && !keyDone) {
+      showToast({ title: 'Prima prendi la chiave dalla cassaforte', type: 'warn' })
+      return
+    }
+    if (accessStep === 1 && !shutterDone) {
+      showToast({ title: 'Prima alza la serranda e riponi la chiave', type: 'warn' })
+      return
+    }
+    if (accessStep === 2) {
+      showToast({ title: 'Apri la porta con chip o codice', type: 'warn' })
+      return
+    }
+    setAccessStep(s => Math.min(3, s + 1))
   }
 
   return (
@@ -121,6 +146,7 @@ export default function ConfirmPage() {
           </button>
         </div>
 
+        {!accessLive && (
         <div className="access-wait-card">
           <div className="access-wait-kicker"><i className="fas fa-clock"></i> ACCESSO PROGRAMMATO</div>
           <div className="access-wait-title">Torna quando la sessione è live.</div>
@@ -136,9 +162,10 @@ export default function ConfirmPage() {
             </button>
           </div>
         </div>
+        )}
 
         {/* Access flow */}
-        <div className="access-flow" id="access-flow" style={{ marginTop: '20px' }}>
+        {accessLive && <div className="access-flow" id="access-flow" style={{ marginTop: '20px' }}>
 
           {/* Step 1: Cassaforte */}
           {accessStep === 0 && (
@@ -173,12 +200,10 @@ export default function ConfirmPage() {
                 </button>
                 <button
                   className="access-hold-btn"
-                  disabled={!accessLive}
+                  disabled={!accessLive || !lockboxCode}
                   onPointerDown={() => setCodeVisible(true)}
                   onPointerUp={() => setCodeVisible(false)}
                   onPointerLeave={() => setCodeVisible(false)}
-                  onTouchStart={() => setCodeVisible(true)}
-                  onTouchEnd={() => setCodeVisible(false)}
                 >
                   <i className="fas fa-eye"></i> Mostra codice
                 </button>
@@ -267,23 +292,20 @@ export default function ConfirmPage() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Nav arrows */}
-        <div className="access-nav">
-          <button className="access-arrow" type="button" onClick={() => setAccessStep(s => Math.max(0, s - 1))} aria-label="Step precedente">
+        {accessLive && <div className="access-nav">
+          <button className="access-arrow" type="button" onClick={goAccessPrev} aria-label="Step precedente">
             <i className="fas fa-chevron-left"></i>
           </button>
           <div className="access-nav-label">
             Step accesso <strong>{['Cassaforte', 'Serranda', 'Porta', 'Dentro'][accessStep]}</strong>
           </div>
-          <button className="access-arrow" type="button" onClick={() => {
-            if (!accessLive) return
-            setAccessStep(s => Math.min(3, s + 1))
-          }} aria-label="Step successivo">
+          <button className="access-arrow" type="button" onClick={goAccessNext} aria-label="Step successivo">
             <i className="fas fa-chevron-right"></i>
           </button>
-        </div>
+        </div>}
 
         <button onClick={() => showPage('shop')} style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '10px', padding: '12px', fontWeight: 700, fontSize: '.85rem', marginTop: '20px', marginBottom: '8px' }}>
           SHOP ADDON & SNACK

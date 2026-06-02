@@ -160,6 +160,10 @@ export async function apiLogAccess(bookingId: string | undefined, event: string,
   })
 }
 
+export async function apiRoomWifi() {
+  return call<{ wifi: { ssid: string; password: string; configured: boolean } }>('/api/room/wifi')
+}
+
 // ── WALLET ────────────────────────────────────────────────────────────────────
 
 export async function apiStripeTopup(amount: number, returnPage = 'token') {

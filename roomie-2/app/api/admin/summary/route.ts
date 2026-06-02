@@ -47,7 +47,7 @@ export async function GET(req: Request) {
     access: {
       shutter: 'online',
       door: 'online',
-      lockboxCode: data.config.lockboxCode || '0000',
+      lockboxCode: data.config.lockboxCode || '',
       power: 'ready',
       lastTap: new Date().toISOString(),
     },

@@ -261,6 +261,8 @@ export default function BookingPage() {
                   className={`booking-dot${step === i ? ' active' : ''}`}
                   type="button"
                   onClick={() => setStep(i)}
+                  aria-label={`Vai allo step ${i + 1}: ${stepLabels[i]}`}
+                  aria-current={step === i ? 'step' : undefined}
                 />
               ))}
             </div>
@@ -275,6 +277,7 @@ export default function BookingPage() {
                     <button
                       key={p.id}
                       className={`preset-chip${preset.id === p.id ? ' active' : ''}`}
+                      type="button"
                       onClick={() => selectPreset(p)}
                     >
                       <span className="preset-copy">
@@ -354,10 +357,11 @@ export default function BookingPage() {
                 <div className="booking-step-title">Extra e riepilogo</div>
                 <div className="booking-step-sub">Live Mode, durata custom e totale prima del pagamento.</div>
 
-                <div
+                <button
+                  type="button"
                   className={`live-mode-card${liveMode ? ' active' : ''}`}
                   onClick={() => setLiveMode(m => !m)}
-                  style={{ cursor: 'pointer' }}
+                  aria-pressed={liveMode}
                 >
                   <div className="live-mode-top">
                     <div>
@@ -371,7 +375,7 @@ export default function BookingPage() {
                     </div>
                   </div>
                   <div className="live-mode-sub">Non è gratis: paghi la sessione ora, poi ricevi cashback in chips se la live è valida.</div>
-                </div>
+                </button>
 
                 <div className="booking-option-card">
                   <div className="booking-option-head">
@@ -383,11 +387,13 @@ export default function BookingPage() {
                   </div>
                   <div className="dur-pills">
                     {[1, 2, 3, 4, 5, 6].map(h => (
-                      <div
+                      <button
                         key={h}
                         className={`dur-pill${duration === h && !preset.isDay ? ' active' : ''}`}
+                        type="button"
                         onClick={() => setDur(h)}
-                      >{h}h</div>
+                        aria-pressed={duration === h && !preset.isDay}
+                      >{h}h</button>
                     ))}
                   </div>
                 </div>
