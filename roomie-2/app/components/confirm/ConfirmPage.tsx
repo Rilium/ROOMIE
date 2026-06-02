@@ -310,7 +310,7 @@ export default function ConfirmPage() {
 
   return (
     <div className={`page active${accessLive ? '' : ' access-waiting'}`} id="page-confirm">
-      <div style={{ maxWidth: '480px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="booking-shell" style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
 
         {/* Confirmed hero */}
         <div className="confirm-hero">
