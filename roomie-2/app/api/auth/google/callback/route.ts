@@ -71,7 +71,7 @@ export async function GET(req: Request) {
 
     await logEvent('social_login', user.id, { provider: 'google', email })
 
-    const redirectUrl = `${base}/?page=${user.role === 'admin' ? 'admin' : 'dashboard'}&auth=social`
+    const redirectUrl = `${base}/${user.role === 'admin' ? 'admin' : 'dashboard'}?auth=social`
     const res = NextResponse.redirect(redirectUrl, 302)
     res.headers.set('Set-Cookie', cookie)
     return res

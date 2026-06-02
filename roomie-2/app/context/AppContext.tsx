@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import type { PublicUser, AppConfig, Booking } from '@/lib/types'
 import { apiMe, apiAppConfig, apiLogout } from '@/lib/client-api'
 
@@ -105,7 +106,7 @@ const defaultConfig: AppConfig = {
   dayPrice: 60,
   guestPassPrice: 2,
   maxPeople: 8,
-  lockboxCode: '0000',
+  lockboxCode: '',
 }
 
 const defaultBooking: BookingDraft = {
@@ -126,6 +127,20 @@ const defaultBooking: BookingDraft = {
 // ── CONTEXT ───────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextValue | null>(null)
+const PAGE_TO_PATH: Record<string, string> = {
+  home: '/',
+  room: '/room',
+  token: '/token',
+  confirm: '/confirm',
+  session: '/session',
+  shop: '/shop',
+  dashboard: '/dashboard',
+  admin: '/admin',
+}
+const PATH_TO_PAGE: Record<string, string> = Object.fromEntries(
+  Object.entries(PAGE_TO_PATH).map(([page, path]) => [path, page])
+)
+const PROTECTED_PAGES = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop', 'admin']
 
 export function useApp() {
   const ctx = useContext(AppContext)
@@ -136,10 +151,12 @@ export function useApp() {
 // ── PROVIDER ──────────────────────────────────────────────────────────────────
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [user, setUserState] = useState<PublicUser | null>(null)
   const userRef = useRef<PublicUser | null>(null)
   const [config, setConfigState] = useState<AppConfig>(defaultConfig)
-  const [activePage, setActivePage] = useState('home')
+  const [activePage, setActivePage] = useState(() => PATH_TO_PAGE[pathname || '/'] || 'home')
   const [authMode, setAuthModeState] = useState<'login' | 'register'>('login')
   const [authOpen, setAuthOpen] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -175,15 +192,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         console.error('[app:init] failed', err)
       } finally {
         if (!mounted) return
-        const urlPage = new URLSearchParams(window.location.search).get('page')
-        const protectedPages = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop']
-        if (urlPage) {
-          if (protectedPages.includes(urlPage) && !currentUser) {
+        const params = new URLSearchParams(window.location.search)
+        const legacyPage = params.get('page')
+        const routePage = PATH_TO_PAGE[window.location.pathname] || legacyPage || 'home'
+        if (legacyPage && PAGE_TO_PATH[legacyPage]) {
+          router.replace(PAGE_TO_PATH[legacyPage] + (params.toString().replace(/^page=[^&]*&?/, '') ? `?${params.toString().replace(/^page=[^&]*&?/, '')}` : ''))
+        }
+        if (routePage) {
+          if (PROTECTED_PAGES.includes(routePage) && !currentUser) {
             setAuthModeState('login')
             setAuthOpen(true)
             setActivePage('home')
           } else {
-            setActivePage(urlPage)
+            setActivePage(routePage)
           }
         }
         setLoading(false)
@@ -191,7 +212,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     init()
     return () => { mounted = false }
-  }, [])
+  }, [router])
+
+  useEffect(() => {
+    const page = PATH_TO_PAGE[pathname || '/'] || 'home'
+    if (PROTECTED_PAGES.includes(page) && !userRef.current && !loading) {
+      setAuthModeState('login')
+      setAuthOpen(true)
+      setActivePage('home')
+      return
+    }
+    setActivePage(page)
+  }, [pathname, loading])
 
   // Modal handlers
   const openModalNfc = useCallback(() => setModalNfc(true), [])
@@ -210,7 +242,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Expose to legacy roomie.js via window (bridge period)
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>
-    w.__roomie_showPage = (page: string) => setActivePage(page)
+    w.__roomie_showPage = (page: string) => {
+      if (PAGE_TO_PATH[page]) router.push(PAGE_TO_PATH[page])
+      else setActivePage(page)
+    }
     w.__roomie_showToast = (msg: string | ToastPayload) => {
       const payload = typeof msg === 'string' ? { title: msg } : msg
       setToast(payload)
@@ -234,7 +269,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         'openTokenBuyModal',
       ].forEach(key => { w[key] = undefined })
     }
-  }, [])
+  }, [router])
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -250,7 +285,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActivePage('home')
     setActiveSessionState(null)
     setCart([])
-  }, [])
+    router.push('/')
+  }, [router])
 
   const openAuth = useCallback((mode: 'login' | 'register' = 'login') => {
     setAuthModeState(mode)
@@ -268,15 +304,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const showPage = useCallback((page: string) => {
-    // Pages that require auth
-    const protectedPages = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop']
-    if (protectedPages.includes(page) && !userRef.current) {
+    if (PROTECTED_PAGES.includes(page) && !userRef.current) {
       openAuth('login')
       return
     }
+    const path = PAGE_TO_PATH[page] || '/'
     setActivePage(page)
-    window.scrollTo(0, 0)
-  }, [openAuth])
+    router.push(path)
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }))
+  }, [openAuth, router])
 
   // ── Toast ─────────────────────────────────────────────────────────────────
 

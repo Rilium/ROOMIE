@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         chips: String(amount),
       },
       success_url: `${base}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&return=${returnPage}`,
-      cancel_url: `${base}/?page=${returnPage}&stripe=cancelled`,
+      cancel_url: `${base}/${returnPage === 'home' ? '' : returnPage}?stripe=cancelled`,
     })
     await createStripeSession({
       id: checkout.id,

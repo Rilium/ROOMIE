@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next'
 
+const isDev = process.env.NODE_ENV !== 'production'
+
 const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   async headers() {
@@ -18,8 +20,8 @@ const nextConfig: NextConfig = {
           "object-src 'none'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' https://fonts.gstatic.com https://pro.fontawesome.com data:",
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://pro.fontawesome.com",
-          "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://pro.fontawesome.com https://cdn.jsdelivr.net",
+          `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://js.stripe.com https://cdn.jsdelivr.net https://unpkg.com`,
           "connect-src 'self' https://api.stripe.com",
           "frame-src https://js.stripe.com https://hooks.stripe.com",
           "form-action 'self' https://checkout.stripe.com",

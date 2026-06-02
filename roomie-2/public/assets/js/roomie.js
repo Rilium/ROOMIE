@@ -74,7 +74,7 @@ function setupMotionClasses() {
   document.querySelectorAll('.chip,.inside-item,.addon-chip,.partner-chip,.bk-chip,.preset-chip,.event-chip,.booking-option-card,.friend-chip,.credit-pay-chip,.session-tile,.access-step,.safety-panel,.token-chip,.stat-card,.admin-card').forEach(el => {
     el.classList.add('motion-card','motion-performance');
   });
-  document.querySelectorAll('.hero-content,.hero-dots,.booking-sticky,.cart-panel,.access-nav').forEach(el => {
+  document.querySelectorAll('.cart-panel,.access-nav').forEach(el => {
     el.classList.add('motion-soft-blur');
   });
 }
@@ -365,8 +365,8 @@ function initCinematicHero(activePage) {
   if(content) {
     gsap.killTweensOf(content);
     gsap.fromTo(content,
-      {autoAlpha:0, y:44, filter:'blur(10px)'},
-      {autoAlpha:1, y:0, filter:'blur(0px)', duration:1.28, ease:'expo.out', delay:.04}
+      {autoAlpha:0, y:22},
+      {autoAlpha:1, y:0, duration:.72, ease:'expo.out', delay:.02}
     );
     if(!isTouchLikeDevice()) {
       trackMotion(gsap.to(content, {

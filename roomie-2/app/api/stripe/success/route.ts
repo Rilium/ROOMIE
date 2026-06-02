@@ -5,7 +5,7 @@ import { requireAuth, appBaseUrl } from '@/lib/api-helpers'
 export async function GET(req: Request) {
   if (!process.env.STRIPE_SECRET_KEY) {
     const base = appBaseUrl(req)
-    return Response.redirect(`${base}/?page=token&stripe=not_configured`, 302)
+    return Response.redirect(`${base}/token?stripe=not_configured`, 302)
   }
 
   const auth = await requireAuth(req)
@@ -29,8 +29,8 @@ export async function GET(req: Request) {
       : result.reason === 'ALREADY_CREDITED'
         ? 'already'
         : 'pending'
-    return Response.redirect(`${base}/?page=${returnPage}&stripe=${status}`, 302)
+    return Response.redirect(`${base}/${returnPage === 'home' ? '' : returnPage}?stripe=${status}`, 302)
   } catch (_err) {
-    return Response.redirect(`${base}/?page=${returnPage}&stripe=error`, 302)
+    return Response.redirect(`${base}/${returnPage === 'home' ? '' : returnPage}?stripe=error`, 302)
   }
 }

@@ -105,17 +105,33 @@ export default function Nav() {
             </div>
 
             <button className="drawer-primary" type="button" onClick={goBook}>
-              <span>PRENOTA LA ROOM</span>
-              <i className="fas fa-arrow-right"></i>
+              <span className="drawer-primary-copy">
+                <span className="drawer-primary-title">Prenota la room</span>
+                <span className="drawer-primary-sub">{user ? 'Blocca uno slot e usa le chips' : 'Accedi per sbloccare la prenotazione'}</span>
+              </span>
+              <span className="drawer-primary-meta">
+                <span>{user ? `${user.chips} chips` : 'Login'}</span>
+                <i className="fas fa-arrow-right"></i>
+              </span>
             </button>
 
-            <div className="drawer-section">Navigazione</div>
+            <div className="drawer-section">Principale</div>
             {visibleItems.map(item => (
-              <button key={item.id} className="drawer-link" type="button" onClick={() => handleNav(item)}>
+              <button key={item.id} className={`drawer-link${activePage === item.id ? ' active' : ''}`} type="button" onClick={() => handleNav(item)} aria-current={activePage === item.id ? 'page' : undefined}>
                 <span className="drawer-icon"><i className={`fas ${item.icon}`}></i></span>
                 <span>
                   <span className="drawer-main">{item.label}</span>
-                  <span className="drawer-sub">{item.requireAuth && !user ? 'Accesso richiesto' : item.id === activePage ? 'Sezione attiva' : 'Apri sezione'}</span>
+                  <span className="drawer-sub">
+                    {item.requireAuth && !user
+                      ? 'Serve accesso'
+                      : item.id === activePage
+                        ? 'Sezione attiva'
+                        : item.id === 'shop'
+                          ? 'Solo in sessione'
+                          : item.id === 'session'
+                            ? 'Entrata fisica'
+                            : 'Apri'}
+                  </span>
                 </span>
                 <i className="fas fa-chevron-right drawer-chevron"></i>
               </button>
@@ -124,11 +140,11 @@ export default function Nav() {
             {user?.role === 'admin' && (
               <>
                 <div className="drawer-section">Back office</div>
-                <button className="drawer-link drawer-admin" type="button" onClick={() => { setDrawerOpen(false); showPage('admin') }}>
+                <button className={`drawer-link drawer-admin${activePage === 'admin' ? ' active' : ''}`} type="button" onClick={() => { setDrawerOpen(false); showPage('admin') }} aria-current={activePage === 'admin' ? 'page' : undefined}>
                   <span className="drawer-icon"><i className="fas fa-shield-alt"></i></span>
                   <span>
                     <span className="drawer-main">Admin</span>
-                    <span className="drawer-sub">Operazioni e configurazione</span>
+                    <span className="drawer-sub">Operazioni, config e log</span>
                   </span>
                   <i className="fas fa-chevron-right drawer-chevron"></i>
                 </button>
