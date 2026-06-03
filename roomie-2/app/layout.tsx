@@ -91,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260602-routing-beam1" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260603-auth-restored" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         {/* ROOMIE app logic — must run after DOM */}
-        <Script src="/assets/js/roomie.js?v=prod-20260602-routing-beam1" strategy="afterInteractive" />
+        <Script src="/assets/js/roomie.js?v=prod-20260603-auth-restored" strategy="afterInteractive" />
       </body>
     </html>
     </ClerkProvider>

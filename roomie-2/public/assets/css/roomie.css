@@ -375,14 +375,25 @@ body.app-booting .live-session-fab{
   opacity:0!important;
   pointer-events:none!important;
 }
+/* Fade-in when app-booting is removed — transition fires as opacity:0!important lifts */
+.page,.roomie-nav,.mobile-bottom-nav,.app-subbar{
+  transition:opacity .32s ease;
+}
 .boot-loader{
   position:fixed;inset:0;z-index:7000;
   display:none;align-items:center;justify-content:center;
   background:
     radial-gradient(circle at 50% 34%,rgba(200,255,0,.14),transparent 24%),
     linear-gradient(180deg,#050505,#0d0d0d);
+  opacity:1;
 }
 body.app-booting .boot-loader{display:flex}
+.boot-loader.boot-out{
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .38s ease;
+  display:flex;
+}
 .boot-card{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
 .boot-card .roomie-chip{--chip-size:86px;animation:chipFastSpin .68s cubic-bezier(.22,1,.36,1) infinite}
 .boot-shell{
@@ -2324,9 +2335,8 @@ body.auth-logged-out .app-subbar{display:none!important}
   opacity:.95;transform:scale(1.02);transition:background-image .8s ease;
 }
 .login-page::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.024) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.65) 44%,transparent 100%);pointer-events:none}
-.login-shell{width:min(430px,calc(100% - 32px));max-width:100%;display:block;position:relative;z-index:1}
+.login-shell{width:min(1060px,calc(100% - 48px));max-width:100%;display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center;position:relative;z-index:1}
 .auth-landing{
-  display:none!important;
   min-height:620px;border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:28px;
   display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;position:relative;
   background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018));

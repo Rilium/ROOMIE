@@ -50,6 +50,9 @@ export async function ensureBootstrapData(): Promise<void> {
 
       await sql`ALTER TABLE addons ADD COLUMN IF NOT EXISTS sold_today_date DATE NOT NULL DEFAULT CURRENT_DATE`
 
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_id TEXT UNIQUE`
+      await sql`CREATE INDEX IF NOT EXISTS idx_users_clerk_id ON users (clerk_id)`
+
       await sql`
         CREATE TABLE IF NOT EXISTS rate_limits (
           key TEXT PRIMARY KEY,
@@ -826,6 +829,81 @@ async function uniqueUsernameNeon(seed: string): Promise<string> {
   }
   const { randomUUID } = await import('crypto')
   return `roomie_${randomUUID().replace(/-/g, '').slice(0, 12)}`
+}
+
+// ── CLERK INTEGRATION ─────────────────────────────────────────────────────────
+
+interface ClerkUserProfile {
+  id: string
+  emailAddresses: Array<{ emailAddress: string }>
+  firstName?: string | null
+  lastName?: string | null
+  username?: string | null
+  imageUrl?: string
+}
+
+export async function getUserByClerkId(clerkId: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  const rows = await sql`SELECT * FROM users WHERE clerk_id = ${clerkId} LIMIT 1`
+  return rows[0] ? rowToDbUser(rows[0]) : null
+}
+
+async function linkClerkId(userId: string, clerkId: string): Promise<void> {
+  const sql = getDb()
+  await sql`UPDATE users SET clerk_id = ${clerkId}, updated_at = NOW() WHERE id = ${userId}`
+}
+
+export async function getOrCreateRoomieUserFromClerk(profile: ClerkUserProfile): Promise<DbUser | null> {
+  const { randomUUID } = await import('crypto')
+  const clerkId = profile.id
+  if (!clerkId) return null
+
+  const primaryEmail = profile.emailAddresses[0]?.emailAddress ?? ''
+  const email = normalizeEmail(primaryEmail)
+
+  // 1. Fast path: already linked
+  let user = await getUserByClerkId(clerkId)
+  if (user) {
+    if (email && isValidEmailString(email) && email !== user.email) {
+      const sql = getDb()
+      await sql`UPDATE users SET email = ${email}, updated_at = NOW() WHERE id = ${user.id}`
+      user = { ...user, email }
+    }
+    return user
+  }
+
+  // 2. Link to existing ROOMIE account by email
+  if (isValidEmailString(email)) {
+    user = await getUserByEmail(email)
+    if (user) {
+      await linkClerkId(user.id, clerkId)
+      return user
+    }
+  }
+
+  // 3. Create new user
+  if (!isValidEmailString(email)) return null
+
+  const nameParts = [profile.firstName, profile.lastName].filter(Boolean)
+  const name = nameParts.length > 0 ? nameParts.join(' ').trim() : email.split('@')[0]
+  const rawBase = (profile.username ?? email.split('@')[0]).replace(/[^a-z0-9_]/g, '_').toLowerCase()
+  const base = rawBase.slice(0, 16) || 'user'
+  const seed = base.length >= 3 ? base : `${base}_user`
+  const username = await uniqueUsernameNeon(seed)
+
+  user = await createUser({
+    id: randomUUID(),
+    username,
+    email,
+    name: String(name).trim() || 'ROOMIE User',
+    chips: 24,
+    avatar: profile.imageUrl,
+  })
+
+  await linkClerkId(user.id, clerkId)
+  await logEvent('clerk_register', user.id, { clerkId, email })
+  return user
 }
 
 export async function upsertGoogleUserFromProfile(profile: {

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useClerk } from '@clerk/nextjs'
 import type { PublicUser, AppConfig, Booking } from '@/lib/types'
 import { apiMe, apiAppConfig, apiLogout } from '@/lib/client-api'
 
@@ -157,6 +158,7 @@ export function useApp() {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { signOut: clerkSignOut } = useClerk()
   const [user, setUserState] = useState<PublicUser | null>(null)
   const userRef = useRef<PublicUser | null>(null)
   const [config, setConfigState] = useState<AppConfig>(defaultConfig)
@@ -182,14 +184,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     const init = async () => {
-      let currentUser: PublicUser | null = null
+      let roomieUser: PublicUser | null = null
       try {
         const [meRes, cfgRes] = await Promise.all([apiMe(), apiAppConfig()])
         if (!mounted) return
-        currentUser = meRes.data?.user || null
-        if (currentUser) {
-          userRef.current = currentUser
-          setUserState(currentUser)
+        roomieUser = meRes.data?.user || null
+        if (roomieUser) {
+          userRef.current = roomieUser
+          setUserState(roomieUser)
         }
         if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
       } catch (err) {
@@ -203,7 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           router.replace(PAGE_TO_PATH[legacyPage] + (params.toString().replace(/^page=[^&]*&?/, '') ? `?${params.toString().replace(/^page=[^&]*&?/, '')}` : ''))
         }
         if (routePage) {
-          if (PROTECTED_PAGES.includes(routePage) && !currentUser) {
+          if (PROTECTED_PAGES.includes(routePage) && !roomieUser) {
             setAuthModeState('login')
             setAuthOpen(true)
             setActivePage('home')
@@ -287,14 +289,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    await apiLogout()
+    try { await apiLogout() } catch {}
     userRef.current = null
     setUserState(null)
     setActivePage('home')
     setActiveSessionState(null)
     setCart([])
-    router.push('/')
-  }, [router])
+    try {
+      await clerkSignOut({ redirectUrl: '/' })
+    } catch {
+      router.push('/')
+    }
+  }, [clerkSignOut, router])
 
   const openAuth = useCallback((mode: 'login' | 'register' = 'login') => {
     setAuthModeState(mode)
@@ -308,6 +314,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setAuthMode = useCallback((m: 'login' | 'register') => {
     setAuthModeState(m)
   }, [])
+
 
   // ── Navigation ───────────────────────────────────────────────────────────────
 

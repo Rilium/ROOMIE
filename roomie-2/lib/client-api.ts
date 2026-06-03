@@ -49,22 +49,7 @@ function getCsrfToken(): string {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-
-export async function apiLogin(username: string, password: string, remember: boolean) {
-  return call<{ user: PublicUser }>('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password, remember }),
-  })
-}
-
-export async function apiRegister(
-  name: string, username: string, email: string, password: string, remember: boolean,
-) {
-  return call<{ user: PublicUser }>('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ name, username, email, password, remember }),
-  })
-}
+// Login and register are handled by Clerk (/sign-in, /sign-up).
 
 export async function apiLogout() {
   return call('/api/auth/logout', { method: 'POST' })

@@ -1,8 +1,8 @@
 // ── API HELPERS ───────────────────────────────────────────────────────────────
 // Helpers per Next.js App Router — usa neon-db.ts (Postgres relazionale).
 
-import { getSessionFromRequest, parseCookies } from './session'
-import { getUserById } from './neon-db'
+import { parseCookies } from './session'
+import { getUserByClerkId, getOrCreateRoomieUserFromClerk } from './neon-db'
 import type { DbUser } from './types'
 
 export const IS_PRODUCTION_RUNTIME =
@@ -22,10 +22,6 @@ export function storageGuard(): Response | null {
     )
   }
   return null
-}
-
-export function getSession(req: Request) {
-  return getSessionFromRequest(req)
 }
 
 export const CSRF_COOKIE = 'roomie.csrf'
@@ -58,18 +54,31 @@ export function csrfGuard(req: Request): Response | null {
   return null
 }
 
-export function getAuthUserId(req: Request): string | null {
-  return getSessionFromRequest(req).userId ?? null
+// ── Clerk auth helpers ────────────────────────────────────────────────────────
+
+async function resolveClerkUser(): Promise<DbUser | null> {
+  try {
+    // Dynamic import to avoid breaking if CLERK_SECRET_KEY is a placeholder
+    const { auth, currentUser } = await import('@clerk/nextjs/server')
+    const { userId: clerkId } = await auth()
+    if (!clerkId) return null
+    let user = await getUserByClerkId(clerkId)
+    if (!user) {
+      const clerkUser = await currentUser()
+      if (clerkUser) user = await getOrCreateRoomieUserFromClerk(clerkUser)
+    }
+    return user
+  } catch {
+    return null
+  }
 }
 
 /** Legge utente autenticato dal DB oppure restituisce Response 401. */
-export async function requireAuth(req: Request): Promise<{ user: DbUser } | Response> {
-  const userId = getAuthUserId(req)
-  if (!userId) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 })
-  const user = await getUserById(userId)
-  if (!user) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 })
-  if (user.suspended) return Response.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 })
-  return { user }
+export async function requireAuth(_req?: Request): Promise<{ user: DbUser } | Response> {
+  const clerkUser = await resolveClerkUser()
+  if (!clerkUser) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 })
+  if (clerkUser.suspended) return Response.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 })
+  return { user: clerkUser }
 }
 
 /** Come requireAuth ma verifica anche role=admin. */

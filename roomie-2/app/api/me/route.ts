@@ -1,16 +1,21 @@
-import { getUserById, publicUser } from '@/lib/neon-db'
-import { getAuthUserId, STORAGE_OK } from '@/lib/api-helpers'
+import { auth, currentUser } from '@clerk/nextjs/server'
+import { getUserByClerkId, getOrCreateRoomieUserFromClerk, publicUser } from '@/lib/neon-db'
+import { STORAGE_OK } from '@/lib/api-helpers'
 
-export async function GET(req: Request) {
+export async function GET() {
   if (!STORAGE_OK) return Response.json({ user: null })
 
-  const userId = getAuthUserId(req)
-  if (!userId) return Response.json({ user: null })
-
   try {
-    const user = await getUserById(userId)
-    if (!user) return Response.json({ user: null })
-    return Response.json({ user: publicUser(user) })
+    const { userId: clerkId } = await auth()
+    if (!clerkId) return Response.json({ user: null })
+
+    let user = await getUserByClerkId(clerkId)
+    if (!user) {
+      const clerkUser = await currentUser()
+      if (clerkUser) user = await getOrCreateRoomieUserFromClerk(clerkUser)
+    }
+
+    return Response.json({ user: user ? publicUser(user) : null })
   } catch {
     return Response.json({ user: null })
   }

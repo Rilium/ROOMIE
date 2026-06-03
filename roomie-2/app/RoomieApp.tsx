@@ -37,11 +37,14 @@ function AppRouter({ page }: { page: RoomiePage }) {
   const routePage = PROTECTED_PAGES.includes(page) && !user ? 'home' : page
 
   useEffect(() => {
+    if (loading) return // keep app-booting until init is done
     const body = document.body
     body.classList.toggle('auth-logged-in', Boolean(user))
     body.classList.toggle('auth-logged-out', !user)
-    body.classList.remove('app-booting')
-  }, [user])
+    // Short delay so boot-loader starts its fade-out before content appears (smooth crossfade)
+    const t = setTimeout(() => body.classList.remove('app-booting'), 110)
+    return () => clearTimeout(t)
+  }, [user, loading])
 
   useEffect(() => {
     document.body.classList.forEach(className => {

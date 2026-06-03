@@ -1,18 +1,22 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware } from '@clerk/nextjs/server'
+import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
 
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/api/health/(.*)',
-  '/api/webhooks/(.*)',
-])
+// Clerk runs only as a session enhancer — no page redirects.
+// Page auth is handled client-side by AppContext (modal).
+// API auth is handled server-side by requireAuth() in each handler.
+const handler = clerkMiddleware(() => {})
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect()
+export default async function middleware(request: NextRequest, event: NextFetchEvent) {
+  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? ''
+  if (!key || key.length < 30 || key.includes('YOUR_KEY')) {
+    return NextResponse.next()
   }
-})
+  try {
+    return await handler(request, event)
+  } catch {
+    return NextResponse.next()
+  }
+}
 
 export const config = {
   matcher: [

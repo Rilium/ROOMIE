@@ -1,30 +1,7 @@
-import { randomBytes } from 'crypto'
-import { NextResponse } from 'next/server'
-import { buildSessionCookie } from '@/lib/session'
-import { redirectWithAuthError, appBaseUrl } from '@/lib/api-helpers'
-
-export async function GET(req: Request) {
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    return redirectWithAuthError(req, 'GOOGLE_NOT_CONFIGURED')
-  }
-
-  const state = randomBytes(18).toString('hex')
-  const cookie = buildSessionCookie({ oauthState: state }, 1000 * 60 * 10)
-  const base = appBaseUrl(req)
-
-  const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    redirect_uri: `${base}/api/auth/google/callback`,
-    response_type: 'code',
-    scope: 'openid email profile',
-    state,
-    prompt: 'select_account',
-  })
-
-  const res = NextResponse.redirect(
-    `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+// Google OAuth migrated to Clerk. Configure Google in the Clerk dashboard.
+export async function GET() {
+  return Response.redirect(
+    `${process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? '/sign-in'}`,
     302,
   )
-  res.headers.set('Set-Cookie', cookie)
-  return res
 }

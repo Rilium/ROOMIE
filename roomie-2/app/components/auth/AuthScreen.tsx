@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
-import { apiLogin, apiRegister } from '@/lib/client-api'
+import { apiMe } from '@/lib/client-api'
 
 export default function AuthScreen() {
-  const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, showToast } = useApp()
+  const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, showToast, openLegalDoc } = useApp()
+  const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
+  const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
 
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,75 +30,106 @@ export default function AuthScreen() {
   const acceptPrivacyRef = useRef<HTMLInputElement>(null)
 
   const errMsg: Record<string, string> = {
-    BAD_CREDENTIALS: 'Username o password errati.',
-    USERNAME_TAKEN: 'Username già in uso.',
-    EMAIL_TAKEN: 'Email già registrata.',
-    BAD_USERNAME: 'Username non valido (3-20 caratteri, solo lettere minuscole, numeri e _).',
-    BAD_EMAIL: 'Email non valida.',
-    WEAK_PASSWORD: 'Password troppo corta (minimo 8 caratteri).',
-    BAD_NAME: 'Nome troppo corto.',
-    USER_SUSPENDED: 'Account sospeso. Contatta il supporto.',
-    TERMS_REQUIRED: 'Devi accettare i Termini e la Privacy Policy.',
-    SOCIAL_STATE_ERROR: 'Sessione Google scaduta. Riprova.',
-    GOOGLE_REDIRECT_MISMATCH: 'Callback Google non autorizzata.',
-    GOOGLE_SECRET_INVALID: 'Configurazione Google non valida.',
-    GOOGLE_CANCELLED: 'Accesso Google annullato.',
-    GOOGLE_PROFILE_ERROR: 'Google non ha restituito un profilo valido.',
-    GOOGLE_TOKEN_ERROR: 'Google non ha completato il login. Riprova.',
-    SOCIAL_LOGIN_ERROR: 'Accesso Google non riuscito. Riprova.',
+    form_identifier_not_found:      'Username o email non trovati.',
+    form_password_incorrect:        'Password errata.',
+    form_identifier_exists:         'Email o username già in uso.',
+    form_password_length_too_short: 'Password troppo corta (minimo 8 caratteri).',
+    form_password_pwned:            'Password non sicura. Scegline una più complessa.',
+    USER_SUSPENDED:                 'Account sospeso. Contatta il supporto.',
+    TERMS_REQUIRED:                 'Devi accettare i Termini e la Privacy Policy.',
+  }
+
+  function clerkErrMsg(err: unknown): string {
+    const e = err as { errors?: Array<{ code: string; message?: string }> }
+    const code = e?.errors?.[0]?.code ?? ''
+    const msg  = e?.errors?.[0]?.message ?? ''
+    console.error('[Clerk error]', code, msg, err)
+    return errMsg[code] ?? `Errore (${code || 'unknown'}): ${msg || 'Riprova.'}`
+  }
+
+  const afterAuth = async (
+    sessionId: string,
+    setActiveFn: ((opts: { session: string }) => Promise<void>) | undefined,
+    isRegister = false
+  ) => {
+    await setActiveFn?.({ session: sessionId })
+    const meRes = await apiMe()
+    const user = meRes.data?.user ?? null
+    if (user) {
+      setUser(user)
+      closeAuth()
+      showToast({ title: isRegister ? `Benvenuto, ${user.name.split(' ')[0]}! 🏠` : `Bentornato, ${user.name.split(' ')[0]}!` })
+      showPage('dashboard')
+    } else {
+      setError('Account creato, ma profilo non trovato. Riprova.')
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!signInLoaded || !signIn) return
     setError('')
     setBusy(true)
-    const username = loginUsernameRef.current?.value.trim() || ''
-    const password = loginPasswordRef.current?.value || ''
-    const remember = loginRememberRef.current?.checked ?? true
-
-    const { data, error: err } = await apiLogin(username, password, remember)
-    setBusy(false)
-    if (err || !data?.user) {
-      setError(errMsg[err || ''] || 'Errore di accesso. Riprova.')
-      return
+    const identifier = loginUsernameRef.current?.value.trim() ?? ''
+    const password   = loginPasswordRef.current?.value ?? ''
+    try {
+      const result = await signIn.create({ identifier, password })
+      if (result.status === 'complete') {
+        await afterAuth(result.createdSessionId!, setActiveSignIn)
+      } else {
+        setError('Verifica la tua email prima di accedere.')
+      }
+    } catch (err) {
+      setError(clerkErrMsg(err))
+    } finally {
+      setBusy(false)
     }
-    setUser(data.user)
-    closeAuth()
-    showToast({ title: `Bentornato, ${data.user.name.split(' ')[0]}!` })
-    showPage('dashboard')
   }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!signUpLoaded || !signUp) return
     setError('')
     if (!acceptTermsRef.current?.checked || !acceptPrivacyRef.current?.checked) {
       setError(errMsg.TERMS_REQUIRED)
       return
     }
     setBusy(true)
-    const name = regNameRef.current?.value.trim() || ''
-    const username = regUsernameRef.current?.value.trim() || ''
-    const email = regEmailRef.current?.value.trim() || ''
-    const password = regPasswordRef.current?.value || ''
-    const remember = regRememberRef.current?.checked ?? true
-
-    const { data, error: err } = await apiRegister(name, username, email, password, remember)
-    setBusy(false)
-    if (err || !data?.user) {
-      setError(errMsg[err || ''] || 'Registrazione fallita. Riprova.')
-      return
+    const name     = regNameRef.current?.value.trim() ?? ''
+    const username = regUsernameRef.current?.value.trim() ?? ''
+    const email    = regEmailRef.current?.value.trim() ?? ''
+    const password = regPasswordRef.current?.value ?? ''
+    try {
+      const result = await signUp.create({
+        emailAddress: email,
+        password,
+        username: username || undefined,
+        firstName: name || undefined,
+      })
+      if (result.status === 'complete') {
+        await afterAuth(result.createdSessionId!, setActiveSignUp, true)
+      } else {
+        setError('Controlla la tua email e clicca il link di verifica, poi accedi.')
+      }
+    } catch (err) {
+      setError(clerkErrMsg(err))
+    } finally {
+      setBusy(false)
     }
-    setUser(data.user)
-    closeAuth()
-    showToast({ title: `Benvenuto, ${data.user.name.split(' ')[0]}! 🏠` })
-    showPage('dashboard')
   }
 
-  const handleGoogle = () => {
-    window.location.href = '/api/auth/google'
+  const handleGoogle = async () => {
+    if (!signInLoaded || !signIn) { window.location.href = '/sign-in'; return }
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: '/dashboard',
+      })
+    } catch {
+      window.location.href = '/sign-in'
+    }
   }
-
-  const { openLegalDoc } = useApp()
 
   if (!authOpen) return null
 
@@ -272,6 +306,8 @@ export default function AuthScreen() {
               <label className="auth-check">
                 <input ref={regRememberRef} type="checkbox" defaultChecked /> Crea cookie sessione persistente
               </label>
+              {/* Clerk CAPTCHA — obbligatorio per headless sign-up con bot protection */}
+              <div id="clerk-captcha" />
               <button
                 className="btn-neon btn-neon-submit w-full"
                 type="submit"
