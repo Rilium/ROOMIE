@@ -91,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260604-auth-fix2" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260604-auth-fix3" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         {/* ROOMIE app logic — must run after DOM */}
-        <Script src="/assets/js/roomie.js?v=prod-20260604-auth-fix2" strategy="afterInteractive" />
+        <Script src="/assets/js/roomie.js?v=prod-20260604-auth-fix3" strategy="afterInteractive" />
       </body>
     </html>
     </ClerkProvider>

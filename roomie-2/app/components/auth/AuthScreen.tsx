@@ -12,12 +12,13 @@ export default function AuthScreen() {
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
 
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [error, setError]                           = useState('')
+  const [busy, setBusy]                             = useState(false)
+  const [showLoginPassword, setShowLoginPassword]   = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
-  const [forgotStep, setForgotStep] = useState<ForgotStep | null>(null)
-  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword]       = useState(false)
+  const [forgotStep, setForgotStep]                 = useState<ForgotStep | null>(null)
+  const [verifyingEmail, setVerifyingEmail]         = useState(false) // after signUp, waiting for code
 
   // Login refs
   const loginEmailRef    = useRef<HTMLInputElement>(null)
@@ -32,23 +33,26 @@ export default function AuthScreen() {
   const regRememberRef   = useRef<HTMLInputElement>(null)
   const acceptTermsRef   = useRef<HTMLInputElement>(null)
   const acceptPrivacyRef = useRef<HTMLInputElement>(null)
+  const verifyCodeRef    = useRef<HTMLInputElement>(null)
 
   // Forgot password refs
-  const forgotEmailRef   = useRef<HTMLInputElement>(null)
-  const forgotCodeRef    = useRef<HTMLInputElement>(null)
-  const newPasswordRef   = useRef<HTMLInputElement>(null)
+  const forgotEmailRef = useRef<HTMLInputElement>(null)
+  const forgotCodeRef  = useRef<HTMLInputElement>(null)
+  const newPasswordRef = useRef<HTMLInputElement>(null)
 
   const errMsg: Record<string, string> = {
-    form_identifier_not_found:      'Email non trovata.',
-    form_password_incorrect:        'Password errata.',
-    form_identifier_exists:         'Email già registrata.',
-    form_param_format_invalid:      'Formato non valido. Usa una email es. nome@email.com',
-    form_password_length_too_short: 'Password troppo corta (minimo 8 caratteri).',
-    form_password_pwned:            'Password non sicura. Scegline una più complessa.',
-    form_code_incorrect:            'Codice non corretto.',
-    form_code_expired:              'Codice scaduto. Richiedi un nuovo reset.',
-    USER_SUSPENDED:                 'Account sospeso. Contatta il supporto.',
-    TERMS_REQUIRED:                 'Devi accettare i Termini e la Privacy Policy.',
+    form_identifier_not_found:             'Email non trovata.',
+    form_password_incorrect:               'Password errata.',
+    form_identifier_exists:                'Email già registrata.',
+    form_param_format_invalid:             'Formato non valido. Usa una email, es. nome@email.com',
+    form_password_length_too_short:        'Password troppo corta (minimo 8 caratteri).',
+    form_password_pwned:                   'Password non sicura. Scegline una più complessa.',
+    form_code_incorrect:                   'Codice non corretto.',
+    form_code_expired:                     'Codice scaduto. Richiedi un nuovo reset.',
+    verification_expired:                  'Codice scaduto. Riprova la registrazione.',
+    verification_failed:                   'Verifica fallita. Riprova.',
+    USER_SUSPENDED:                        'Account sospeso. Contatta il supporto.',
+    TERMS_REQUIRED:                        'Devi accettare i Termini e la Privacy Policy.',
   }
 
   function clerkErrMsg(err: unknown): string {
@@ -59,9 +63,8 @@ export default function AuthScreen() {
     return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
   }
 
-  // Retry apiMe — session cookie needs a moment to propagate after setActive
   const fetchUser = async () => {
-    await new Promise(r => setTimeout(r, 700)) // initial wait for cookie
+    await new Promise(r => setTimeout(r, 700))
     for (let i = 0; i < 5; i++) {
       const meRes = await apiMe()
       const u = meRes.data?.user ?? null
@@ -84,22 +87,17 @@ export default function AuthScreen() {
       showToast({ title: isRegister ? `Benvenuto, ${user.name.split(' ')[0]}! 🏠` : `Bentornato, ${user.name.split(' ')[0]}!` })
       showPage('dashboard')
     } else {
-      // Session set but profile fetch timed out — full reload so AppContext.init can retry
       window.location.href = '/dashboard'
     }
   }
 
-  // Handle "session already exists" — just fetch the current user
   const handleSessionExists = async () => {
     const user = await fetchUser()
-    if (user) {
-      setUser(user)
-      closeAuth()
-      showPage('dashboard')
-    } else {
-      window.location.href = '/dashboard'
-    }
+    if (user) { setUser(user); closeAuth(); showPage('dashboard') }
+    else window.location.href = '/dashboard'
   }
+
+  // ── LOGIN ───────────────────────────────────────────────────────────────────
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -124,6 +122,8 @@ export default function AuthScreen() {
     }
   }
 
+  // ── REGISTER ────────────────────────────────────────────────────────────────
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!signUpLoaded || !signUp) return
@@ -146,8 +146,15 @@ export default function AuthScreen() {
       })
       if (result.status === 'complete') {
         await afterAuth(result.createdSessionId!, setActiveSignUp, true)
+      } else if (result.status === 'missing_requirements') {
+        // Email verification required — prepare and show code input
+        const unverified = result.unverifiedFields ?? []
+        if (unverified.includes('email_address')) {
+          await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+        }
+        setVerifyingEmail(true)
       } else {
-        setError('Controlla la tua email e clicca il link di verifica, poi accedi.')
+        setError('Stato inatteso. Riprova.')
       }
     } catch (err) {
       const code = (err as { errors?: Array<{ code: string }> })?.errors?.[0]?.code
@@ -157,6 +164,28 @@ export default function AuthScreen() {
       setBusy(false)
     }
   }
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signUpLoaded || !signUp) return
+    setError('')
+    setBusy(true)
+    const code = verifyCodeRef.current?.value.trim() ?? ''
+    try {
+      const result = await signUp.attemptEmailAddressVerification({ code })
+      if (result.status === 'complete') {
+        await afterAuth(result.createdSessionId!, setActiveSignUp, true)
+      } else {
+        setError('Verifica non completata. Riprova.')
+      }
+    } catch (err) {
+      setError(clerkErrMsg(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── GOOGLE ──────────────────────────────────────────────────────────────────
 
   const handleGoogle = async () => {
     if (!signInLoaded || !signIn) { window.location.href = '/sign-in'; return }
@@ -171,7 +200,7 @@ export default function AuthScreen() {
     }
   }
 
-  // ── FORGOT PASSWORD ────────────────────────────────────────────────────────
+  // ── FORGOT PASSWORD ─────────────────────────────────────────────────────────
 
   const handleForgotSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,7 +240,6 @@ export default function AuthScreen() {
           showToast({ title: `Bentornato, ${user.name.split(' ')[0]}! Password aggiornata.` })
           showPage('dashboard')
         } else {
-          // Session set, profile fetch timed out — full reload
           window.location.href = '/dashboard'
         }
       } else {
@@ -230,8 +258,12 @@ export default function AuthScreen() {
 
   return (
     <div className="login-page" id="auth-screen">
+      {/* Clerk CAPTCHA — must always be in DOM for Clerk to mount the widget */}
+      <div id="clerk-captcha" style={{ position: 'fixed', bottom: 0, left: 0, zIndex: 99999 }} />
+
       <div className="login-shell container py-4">
 
+        {/* ── AUTH LANDING (sinistra) ── */}
         <section className="auth-landing" aria-label="Roomie accesso">
           <div>
             <div className="auth-kicker"><i className="fas fa-lock-open"></i> Clubhouse privata · Torino</div>
@@ -255,12 +287,9 @@ export default function AuthScreen() {
           </div>
         </section>
 
+        {/* ── AUTH PANEL (destra) ── */}
         <section className="auth-panel" aria-label="Accesso account">
-          <button
-            className="modal-close auth-modal-close"
-            onClick={closeAuth}
-            aria-label="Chiudi login"
-          >
+          <button className="modal-close auth-modal-close" onClick={closeAuth} aria-label="Chiudi login">
             <i className="fas fa-times"></i>
           </button>
 
@@ -274,7 +303,7 @@ export default function AuthScreen() {
                   </div>
                   <div className="auth-panel-sub">
                     {forgotStep === 'email' && 'Inserisci la tua email per ricevere il codice.'}
-                    {forgotStep === 'code'  && 'Controlla la tua email e inserisci il codice ricevuto.'}
+                    {forgotStep === 'code'  && 'Inserisci il codice ricevuto via email.'}
                     {forgotStep === 'done'  && 'Accedi con la tua nuova password.'}
                   </div>
                 </div>
@@ -289,13 +318,7 @@ export default function AuthScreen() {
                 <form className="auth-form active" onSubmit={handleForgotSendCode}>
                   <div className="form-group mb-3">
                     <label className="form-label">EMAIL</label>
-                    <input
-                      ref={forgotEmailRef}
-                      className="form-input"
-                      autoComplete="email"
-                      type="email"
-                      placeholder="nome@email.com"
-                    />
+                    <input ref={forgotEmailRef} className="form-input" autoComplete="email" type="email" placeholder="nome@email.com" />
                   </div>
                   <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Invio...' : 'INVIA CODICE'}
@@ -310,25 +333,13 @@ export default function AuthScreen() {
                 <form className="auth-form active" onSubmit={handleForgotConfirm}>
                   <div className="form-group mb-3">
                     <label className="form-label">CODICE RICEVUTO VIA EMAIL</label>
-                    <input
-                      ref={forgotCodeRef}
-                      className="form-input"
-                      autoComplete="one-time-code"
-                      placeholder="es. 123456"
-                      inputMode="numeric"
-                    />
+                    <input ref={forgotCodeRef} className="form-input" autoComplete="one-time-code" placeholder="es. 123456" inputMode="numeric" />
                   </div>
                   <div className="form-group mb-3">
                     <label className="form-label">NUOVA PASSWORD</label>
                     <div className="password-field">
-                      <input
-                        ref={newPasswordRef}
-                        className="form-input"
-                        autoComplete="new-password"
-                        type={showNewPassword ? 'text' : 'password'}
-                        placeholder="Minimo 8 caratteri"
-                      />
-                      <button type="button" className="password-toggle" onClick={() => setShowNewPassword(v => !v)} aria-label={showNewPassword ? 'Nascondi' : 'Mostra'}>
+                      <input ref={newPasswordRef} className="form-input" autoComplete="new-password" type={showNewPassword ? 'text' : 'password'} placeholder="Minimo 8 caratteri" />
+                      <button type="button" className="password-toggle" onClick={() => setShowNewPassword(v => !v)}>
                         <i className={`fas ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
@@ -344,13 +355,51 @@ export default function AuthScreen() {
 
               {forgotStep === 'done' && (
                 <div className="auth-form active">
-                  <button className="btn-neon btn-neon-submit w-full" type="button" onClick={exitForgot}>
-                    VAI AL LOGIN
-                  </button>
+                  <button className="btn-neon btn-neon-submit w-full" type="button" onClick={exitForgot}>VAI AL LOGIN</button>
                 </div>
               )}
             </>
+
+          ) : verifyingEmail ? (
+            /* ── EMAIL VERIFICATION (post-registrazione) ── */
+            <>
+              <div className="auth-panel-head">
+                <div>
+                  <div className="auth-panel-title">Verifica email</div>
+                  <div className="auth-panel-sub">Abbiamo inviato un codice a 6 cifre alla tua email. Inseriscilo qui sotto.</div>
+                </div>
+                <div className="auth-panel-chip">
+                  <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
+                </div>
+              </div>
+
+              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+
+              <form className="auth-form active" onSubmit={handleVerifyEmail}>
+                <div className="form-group mb-3">
+                  <label className="form-label">CODICE DI VERIFICA</label>
+                  <input
+                    ref={verifyCodeRef}
+                    className="form-input"
+                    autoComplete="one-time-code"
+                    placeholder="es. 123456"
+                    inputMode="numeric"
+                    autoFocus
+                  />
+                </div>
+                <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
+                  {busy ? 'Verifica...' : 'VERIFICA E ACCEDI'}
+                </button>
+                <div className="auth-footnote">
+                  <button type="button" className="auth-link" onClick={() => { setVerifyingEmail(false); setError('') }}>
+                    ← Torna alla registrazione
+                  </button>
+                </div>
+              </form>
+            </>
+
           ) : (
+            /* ── LOGIN / REGISTER ── */
             <>
               <div className="auth-panel-head">
                 <div>
@@ -366,12 +415,12 @@ export default function AuthScreen() {
                 <button
                   className={`auth-tab${authMode === 'login' ? ' active' : ''}`}
                   type="button"
-                  onClick={() => { setAuthMode('login'); setError('') }}
+                  onClick={() => { setAuthMode('login'); setError(''); setVerifyingEmail(false) }}
                 >Login</button>
                 <button
                   className={`auth-tab${authMode === 'register' ? ' active' : ''}`}
                   type="button"
-                  onClick={() => { setAuthMode('register'); setError('') }}
+                  onClick={() => { setAuthMode('register'); setError(''); setVerifyingEmail(false) }}
                 >Registrati</button>
               </div>
 
@@ -388,13 +437,7 @@ export default function AuthScreen() {
                   <div className="auth-divider">oppure</div>
                   <div className="form-group mb-3">
                     <label className="form-label">EMAIL</label>
-                    <input
-                      ref={loginEmailRef}
-                      className="form-input"
-                      autoComplete="email"
-                      type="email"
-                      placeholder="nome@email.com"
-                    />
+                    <input ref={loginEmailRef} className="form-input" autoComplete="email" type="email" placeholder="nome@email.com" />
                   </div>
                   <div className="form-group mb-3">
                     <label className="form-label">PASSWORD</label>
@@ -406,7 +449,7 @@ export default function AuthScreen() {
                         type={showLoginPassword ? 'text' : 'password'}
                         placeholder="La tua password"
                       />
-                      <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)} aria-label={showLoginPassword ? 'Nascondi password' : 'Mostra password'}>
+                      <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)}>
                         <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
@@ -419,11 +462,7 @@ export default function AuthScreen() {
                       Hai dimenticato la password?
                     </button>
                   </div>
-                  <button
-                    className="btn-neon btn-neon-submit w-full"
-                    type="submit"
-                    disabled={busy}
-                  >
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Accesso...' : 'LOGIN'}
                   </button>
                   <div className="auth-footnote">Accesso protetto. Le tue chips e prenotazioni restano nel profilo.</div>
@@ -441,31 +480,15 @@ export default function AuthScreen() {
                   <div className="auth-divider">oppure</div>
                   <div className="form-group mb-3">
                     <label className="form-label">NOME</label>
-                    <input
-                      ref={regNameRef}
-                      className="form-input"
-                      autoComplete="name"
-                      placeholder="Es. Marco Bianchi"
-                    />
+                    <input ref={regNameRef} className="form-input" autoComplete="name" placeholder="Es. Marco Bianchi" />
                   </div>
                   <div className="form-group mb-3">
                     <label className="form-label">USERNAME</label>
-                    <input
-                      ref={regUsernameRef}
-                      className="form-input"
-                      autoComplete="username"
-                      placeholder="3-20 caratteri, es. marco_b"
-                    />
+                    <input ref={regUsernameRef} className="form-input" autoComplete="username" placeholder="3-20 caratteri, es. marco_b" />
                   </div>
                   <div className="form-group mb-3">
                     <label className="form-label">EMAIL</label>
-                    <input
-                      ref={regEmailRef}
-                      className="form-input"
-                      autoComplete="email"
-                      type="email"
-                      placeholder="nome@email.com"
-                    />
+                    <input ref={regEmailRef} className="form-input" autoComplete="email" type="email" placeholder="nome@email.com" />
                   </div>
                   <div className="form-group mb-3">
                     <label className="form-label">PASSWORD</label>
@@ -477,7 +500,7 @@ export default function AuthScreen() {
                         type={showRegisterPassword ? 'text' : 'password'}
                         placeholder="Minimo 8 caratteri"
                       />
-                      <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)} aria-label={showRegisterPassword ? 'Nascondi password' : 'Mostra password'}>
+                      <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)}>
                         <i className={`fas ${showRegisterPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
@@ -495,13 +518,7 @@ export default function AuthScreen() {
                   <label className="auth-check">
                     <input ref={regRememberRef} type="checkbox" defaultChecked /> Crea cookie sessione persistente
                   </label>
-                  {/* Clerk CAPTCHA — obbligatorio per headless sign-up con bot protection */}
-                  <div id="clerk-captcha" />
-                  <button
-                    className="btn-neon btn-neon-submit w-full"
-                    type="submit"
-                    disabled={busy}
-                  >
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Registrazione...' : 'CREA ACCOUNT'}
                   </button>
                   <div className="auth-footnote">Le chips di benvenuto vengono aggiunte subito al tuo profilo.</div>
