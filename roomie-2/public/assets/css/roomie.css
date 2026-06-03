@@ -2386,6 +2386,10 @@ body.auth-logged-out .app-subbar{display:none!important}
 .auth-offline.visible{display:block}
 .auth-check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem;font-weight:800;margin:-2px 0 14px}
 .auth-check input{accent-color:var(--neon);width:16px;height:16px}
+.auth-check-row{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 14px}
+.auth-check-row .auth-check{margin:0}
+.auth-link{background:none;border:none;padding:0;color:var(--muted);font-size:.78rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.auth-link:hover{color:var(--neon)}
 .legal-consents{display:grid;gap:8px;margin:4px 0 14px}
 .legal-consent{
   display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:start;

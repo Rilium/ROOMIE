@@ -5,6 +5,8 @@ import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
 import { apiMe } from '@/lib/client-api'
 
+type ForgotStep = 'email' | 'code' | 'done'
+
 export default function AuthScreen() {
   const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, showToast, openLegalDoc } = useApp()
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
@@ -14,27 +16,37 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [forgotStep, setForgotStep] = useState<ForgotStep | null>(null)
+  const [showNewPassword, setShowNewPassword] = useState(false)
 
   // Login refs
-  const loginUsernameRef = useRef<HTMLInputElement>(null)
+  const loginEmailRef    = useRef<HTMLInputElement>(null)
   const loginPasswordRef = useRef<HTMLInputElement>(null)
   const loginRememberRef = useRef<HTMLInputElement>(null)
 
   // Register refs
-  const regNameRef = useRef<HTMLInputElement>(null)
-  const regUsernameRef = useRef<HTMLInputElement>(null)
-  const regEmailRef = useRef<HTMLInputElement>(null)
-  const regPasswordRef = useRef<HTMLInputElement>(null)
-  const regRememberRef = useRef<HTMLInputElement>(null)
-  const acceptTermsRef = useRef<HTMLInputElement>(null)
+  const regNameRef       = useRef<HTMLInputElement>(null)
+  const regUsernameRef   = useRef<HTMLInputElement>(null)
+  const regEmailRef      = useRef<HTMLInputElement>(null)
+  const regPasswordRef   = useRef<HTMLInputElement>(null)
+  const regRememberRef   = useRef<HTMLInputElement>(null)
+  const acceptTermsRef   = useRef<HTMLInputElement>(null)
   const acceptPrivacyRef = useRef<HTMLInputElement>(null)
 
+  // Forgot password refs
+  const forgotEmailRef   = useRef<HTMLInputElement>(null)
+  const forgotCodeRef    = useRef<HTMLInputElement>(null)
+  const newPasswordRef   = useRef<HTMLInputElement>(null)
+
   const errMsg: Record<string, string> = {
-    form_identifier_not_found:      'Username o email non trovati.',
+    form_identifier_not_found:      'Email non trovata.',
     form_password_incorrect:        'Password errata.',
-    form_identifier_exists:         'Email o username già in uso.',
+    form_identifier_exists:         'Email già registrata.',
+    form_param_format_invalid:      'Formato non valido. Usa una email es. nome@email.com',
     form_password_length_too_short: 'Password troppo corta (minimo 8 caratteri).',
     form_password_pwned:            'Password non sicura. Scegline una più complessa.',
+    form_code_incorrect:            'Codice non corretto.',
+    form_code_expired:              'Codice scaduto. Richiedi un nuovo reset.',
     USER_SUSPENDED:                 'Account sospeso. Contatta il supporto.',
     TERMS_REQUIRED:                 'Devi accettare i Termini e la Privacy Policy.',
   }
@@ -44,7 +56,18 @@ export default function AuthScreen() {
     const code = e?.errors?.[0]?.code ?? ''
     const msg  = e?.errors?.[0]?.message ?? ''
     console.error('[Clerk error]', code, msg, err)
-    return errMsg[code] ?? `Errore (${code || 'unknown'}): ${msg || 'Riprova.'}`
+    return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
+  }
+
+  // Retry apiMe up to 4 times (session cookie may take a moment after setActive)
+  const fetchUser = async () => {
+    for (let i = 0; i < 4; i++) {
+      const meRes = await apiMe()
+      const u = meRes.data?.user ?? null
+      if (u) return u
+      await new Promise(r => setTimeout(r, 400 + i * 200))
+    }
+    return null
   }
 
   const afterAuth = async (
@@ -53,15 +76,14 @@ export default function AuthScreen() {
     isRegister = false
   ) => {
     await setActiveFn?.({ session: sessionId })
-    const meRes = await apiMe()
-    const user = meRes.data?.user ?? null
+    const user = await fetchUser()
     if (user) {
       setUser(user)
       closeAuth()
       showToast({ title: isRegister ? `Benvenuto, ${user.name.split(' ')[0]}! 🏠` : `Bentornato, ${user.name.split(' ')[0]}!` })
       showPage('dashboard')
     } else {
-      setError('Account creato, ma profilo non trovato. Riprova.')
+      setError('Profilo non trovato. Riprova o contatta il supporto.')
     }
   }
 
@@ -70,7 +92,7 @@ export default function AuthScreen() {
     if (!signInLoaded || !signIn) return
     setError('')
     setBusy(true)
-    const identifier = loginUsernameRef.current?.value.trim() ?? ''
+    const identifier = loginEmailRef.current?.value.trim() ?? ''
     const password   = loginPasswordRef.current?.value ?? ''
     try {
       const result = await signIn.create({ identifier, password })
@@ -131,6 +153,51 @@ export default function AuthScreen() {
     }
   }
 
+  // ── FORGOT PASSWORD ────────────────────────────────────────────────────────
+
+  const handleForgotSendCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signInLoaded || !signIn) return
+    setError('')
+    setBusy(true)
+    const identifier = forgotEmailRef.current?.value.trim() ?? ''
+    try {
+      await signIn.create({ strategy: 'reset_password_email_code', identifier })
+      setForgotStep('code')
+    } catch (err) {
+      setError(clerkErrMsg(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleForgotConfirm = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!signInLoaded || !signIn) return
+    setError('')
+    setBusy(true)
+    const code     = forgotCodeRef.current?.value.trim() ?? ''
+    const password = newPasswordRef.current?.value ?? ''
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code,
+        password,
+      })
+      if (result.status === 'complete') {
+        await afterAuth(result.createdSessionId!, setActiveSignIn)
+      } else {
+        setForgotStep('done')
+      }
+    } catch (err) {
+      setError(clerkErrMsg(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const exitForgot = () => { setForgotStep(null); setError('') }
+
   if (!authOpen) return null
 
   return (
@@ -169,154 +236,250 @@ export default function AuthScreen() {
             <i className="fas fa-times"></i>
           </button>
 
-          <div className="auth-panel-head">
-            <div>
-              <div className="auth-panel-title">{authMode === 'login' ? 'Accedi' : 'Registrati'}</div>
-              <div className="auth-panel-sub">Account, chips e prenotazioni in un posto solo.</div>
-            </div>
-            <div className="auth-panel-chip">
-              <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
-            </div>
-          </div>
-
-          <div className="auth-tabs" role="tablist">
-            <button
-              className={`auth-tab${authMode === 'login' ? ' active' : ''}`}
-              type="button"
-              onClick={() => { setAuthMode('login'); setError('') }}
-            >Login</button>
-            <button
-              className={`auth-tab${authMode === 'register' ? ' active' : ''}`}
-              type="button"
-              onClick={() => { setAuthMode('register'); setError('') }}
-            >Registrati</button>
-          </div>
-
-          {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
-
-          {/* LOGIN FORM */}
-          {authMode === 'login' && (
-            <form className="auth-form active" onSubmit={handleLogin}>
-              <div className="social-auth">
-                <button className="social-btn google" type="button" onClick={handleGoogle}>
-                  <i className="fab fa-google"></i> Continua con Google
-                </button>
-              </div>
-              <div className="auth-divider">oppure</div>
-              <div className="form-group mb-3">
-                <label className="form-label">USERNAME O EMAIL</label>
-                <input
-                  ref={loginUsernameRef}
-                  className="form-input"
-                  autoComplete="username"
-                  placeholder="es. marco"
-                />
-              </div>
-              <div className="form-group mb-3">
-                <label className="form-label">PASSWORD</label>
-                <div className="password-field">
-                  <input
-                    ref={loginPasswordRef}
-                    className="form-input"
-                    autoComplete="current-password"
-                    type={showLoginPassword ? 'text' : 'password'}
-                    placeholder="La tua password"
-                  />
-                  <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)} aria-label={showLoginPassword ? 'Nascondi password' : 'Mostra password'}>
-                    <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                  </button>
+          {/* ── FORGOT PASSWORD ── */}
+          {forgotStep !== null ? (
+            <>
+              <div className="auth-panel-head">
+                <div>
+                  <div className="auth-panel-title">
+                    {forgotStep === 'done' ? 'Password aggiornata' : 'Reset password'}
+                  </div>
+                  <div className="auth-panel-sub">
+                    {forgotStep === 'email' && 'Inserisci la tua email per ricevere il codice.'}
+                    {forgotStep === 'code'  && 'Controlla la tua email e inserisci il codice ricevuto.'}
+                    {forgotStep === 'done'  && 'Accedi con la tua nuova password.'}
+                  </div>
+                </div>
+                <div className="auth-panel-chip">
+                  <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
                 </div>
               </div>
-              <label className="auth-check">
-                <input ref={loginRememberRef} type="checkbox" defaultChecked /> Resta collegato su questo dispositivo
-              </label>
-              <button
-                className="btn-neon btn-neon-submit w-full"
-                type="submit"
-                disabled={busy}
-              >
-                {busy ? 'Accesso...' : 'LOGIN'}
-              </button>
-              <div className="auth-footnote">Accesso protetto. Le tue chips e prenotazioni restano nel profilo.</div>
-            </form>
-          )}
 
-          {/* REGISTER FORM */}
-          {authMode === 'register' && (
-            <form className="auth-form active" onSubmit={handleRegister}>
-              <div className="social-auth">
-                <button className="social-btn google" type="button" onClick={handleGoogle}>
-                  <i className="fab fa-google"></i> Registrati con Google
-                </button>
-              </div>
-              <div className="auth-divider">oppure</div>
-              <div className="form-group mb-3">
-                <label className="form-label">NOME</label>
-                <input
-                  ref={regNameRef}
-                  className="form-input"
-                  autoComplete="name"
-                  placeholder="Es. Marco Bianchi"
-                />
-              </div>
-              <div className="form-group mb-3">
-                <label className="form-label">USERNAME</label>
-                <input
-                  ref={regUsernameRef}
-                  className="form-input"
-                  autoComplete="username"
-                  placeholder="3-20 caratteri, es. marco_b"
-                />
-              </div>
-              <div className="form-group mb-3">
-                <label className="form-label">EMAIL</label>
-                <input
-                  ref={regEmailRef}
-                  className="form-input"
-                  autoComplete="email"
-                  type="email"
-                  placeholder="nome@email.com"
-                />
-              </div>
-              <div className="form-group mb-3">
-                <label className="form-label">PASSWORD</label>
-                <div className="password-field">
-                  <input
-                    ref={regPasswordRef}
-                    className="form-input"
-                    autoComplete="new-password"
-                    type={showRegisterPassword ? 'text' : 'password'}
-                    placeholder="Minimo 8 caratteri"
-                  />
-                  <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)} aria-label={showRegisterPassword ? 'Nascondi password' : 'Mostra password'}>
-                    <i className={`fas ${showRegisterPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+
+              {forgotStep === 'email' && (
+                <form className="auth-form active" onSubmit={handleForgotSendCode}>
+                  <div className="form-group mb-3">
+                    <label className="form-label">EMAIL</label>
+                    <input
+                      ref={forgotEmailRef}
+                      className="form-input"
+                      autoComplete="email"
+                      type="email"
+                      placeholder="nome@email.com"
+                    />
+                  </div>
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
+                    {busy ? 'Invio...' : 'INVIA CODICE'}
+                  </button>
+                  <div className="auth-footnote">
+                    <button type="button" className="auth-link" onClick={exitForgot}>← Torna al login</button>
+                  </div>
+                </form>
+              )}
+
+              {forgotStep === 'code' && (
+                <form className="auth-form active" onSubmit={handleForgotConfirm}>
+                  <div className="form-group mb-3">
+                    <label className="form-label">CODICE RICEVUTO VIA EMAIL</label>
+                    <input
+                      ref={forgotCodeRef}
+                      className="form-input"
+                      autoComplete="one-time-code"
+                      placeholder="es. 123456"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">NUOVA PASSWORD</label>
+                    <div className="password-field">
+                      <input
+                        ref={newPasswordRef}
+                        className="form-input"
+                        autoComplete="new-password"
+                        type={showNewPassword ? 'text' : 'password'}
+                        placeholder="Minimo 8 caratteri"
+                      />
+                      <button type="button" className="password-toggle" onClick={() => setShowNewPassword(v => !v)} aria-label={showNewPassword ? 'Nascondi' : 'Mostra'}>
+                        <i className={`fas ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                      </button>
+                    </div>
+                  </div>
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
+                    {busy ? 'Salvataggio...' : 'AGGIORNA PASSWORD'}
+                  </button>
+                  <div className="auth-footnote">
+                    <button type="button" className="auth-link" onClick={exitForgot}>← Torna al login</button>
+                  </div>
+                </form>
+              )}
+
+              {forgotStep === 'done' && (
+                <div className="auth-form active">
+                  <button className="btn-neon btn-neon-submit w-full" type="button" onClick={exitForgot}>
+                    VAI AL LOGIN
                   </button>
                 </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="auth-panel-head">
+                <div>
+                  <div className="auth-panel-title">{authMode === 'login' ? 'Accedi' : 'Registrati'}</div>
+                  <div className="auth-panel-sub">Account, chips e prenotazioni in un posto solo.</div>
+                </div>
+                <div className="auth-panel-chip">
+                  <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
+                </div>
               </div>
-              <div className="legal-consents">
-                <label className="legal-consent">
-                  <input ref={acceptTermsRef} type="checkbox" />
-                  <span>Accetto i <button type="button" onClick={() => openLegalDoc('terms')}>Termini e Condizioni</button>.</span>
-                </label>
-                <label className="legal-consent">
-                  <input ref={acceptPrivacyRef} type="checkbox" />
-                  <span>Ho letto la <button type="button" onClick={() => openLegalDoc('privacy')}>Privacy Policy</button>.</span>
-                </label>
+
+              <div className="auth-tabs" role="tablist">
+                <button
+                  className={`auth-tab${authMode === 'login' ? ' active' : ''}`}
+                  type="button"
+                  onClick={() => { setAuthMode('login'); setError('') }}
+                >Login</button>
+                <button
+                  className={`auth-tab${authMode === 'register' ? ' active' : ''}`}
+                  type="button"
+                  onClick={() => { setAuthMode('register'); setError('') }}
+                >Registrati</button>
               </div>
-              <label className="auth-check">
-                <input ref={regRememberRef} type="checkbox" defaultChecked /> Crea cookie sessione persistente
-              </label>
-              {/* Clerk CAPTCHA — obbligatorio per headless sign-up con bot protection */}
-              <div id="clerk-captcha" />
-              <button
-                className="btn-neon btn-neon-submit w-full"
-                type="submit"
-                disabled={busy}
-              >
-                {busy ? 'Registrazione...' : 'CREA ACCOUNT'}
-              </button>
-              <div className="auth-footnote">Le chips di benvenuto vengono aggiunte subito al tuo profilo.</div>
-            </form>
+
+              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+
+              {/* LOGIN FORM */}
+              {authMode === 'login' && (
+                <form className="auth-form active" onSubmit={handleLogin}>
+                  <div className="social-auth">
+                    <button className="social-btn google" type="button" onClick={handleGoogle}>
+                      <i className="fab fa-google"></i> Continua con Google
+                    </button>
+                  </div>
+                  <div className="auth-divider">oppure</div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">EMAIL</label>
+                    <input
+                      ref={loginEmailRef}
+                      className="form-input"
+                      autoComplete="email"
+                      type="email"
+                      placeholder="nome@email.com"
+                    />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">PASSWORD</label>
+                    <div className="password-field">
+                      <input
+                        ref={loginPasswordRef}
+                        className="form-input"
+                        autoComplete="current-password"
+                        type={showLoginPassword ? 'text' : 'password'}
+                        placeholder="La tua password"
+                      />
+                      <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)} aria-label={showLoginPassword ? 'Nascondi password' : 'Mostra password'}>
+                        <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="auth-check-row">
+                    <label className="auth-check">
+                      <input ref={loginRememberRef} type="checkbox" defaultChecked /> Resta collegato
+                    </label>
+                    <button type="button" className="auth-link" onClick={() => { setError(''); setForgotStep('email') }}>
+                      Hai dimenticato la password?
+                    </button>
+                  </div>
+                  <button
+                    className="btn-neon btn-neon-submit w-full"
+                    type="submit"
+                    disabled={busy}
+                  >
+                    {busy ? 'Accesso...' : 'LOGIN'}
+                  </button>
+                  <div className="auth-footnote">Accesso protetto. Le tue chips e prenotazioni restano nel profilo.</div>
+                </form>
+              )}
+
+              {/* REGISTER FORM */}
+              {authMode === 'register' && (
+                <form className="auth-form active" onSubmit={handleRegister}>
+                  <div className="social-auth">
+                    <button className="social-btn google" type="button" onClick={handleGoogle}>
+                      <i className="fab fa-google"></i> Registrati con Google
+                    </button>
+                  </div>
+                  <div className="auth-divider">oppure</div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">NOME</label>
+                    <input
+                      ref={regNameRef}
+                      className="form-input"
+                      autoComplete="name"
+                      placeholder="Es. Marco Bianchi"
+                    />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">USERNAME</label>
+                    <input
+                      ref={regUsernameRef}
+                      className="form-input"
+                      autoComplete="username"
+                      placeholder="3-20 caratteri, es. marco_b"
+                    />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">EMAIL</label>
+                    <input
+                      ref={regEmailRef}
+                      className="form-input"
+                      autoComplete="email"
+                      type="email"
+                      placeholder="nome@email.com"
+                    />
+                  </div>
+                  <div className="form-group mb-3">
+                    <label className="form-label">PASSWORD</label>
+                    <div className="password-field">
+                      <input
+                        ref={regPasswordRef}
+                        className="form-input"
+                        autoComplete="new-password"
+                        type={showRegisterPassword ? 'text' : 'password'}
+                        placeholder="Minimo 8 caratteri"
+                      />
+                      <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)} aria-label={showRegisterPassword ? 'Nascondi password' : 'Mostra password'}>
+                        <i className={`fas ${showRegisterPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="legal-consents">
+                    <label className="legal-consent">
+                      <input ref={acceptTermsRef} type="checkbox" />
+                      <span>Accetto i <button type="button" onClick={() => openLegalDoc('terms')}>Termini e Condizioni</button>.</span>
+                    </label>
+                    <label className="legal-consent">
+                      <input ref={acceptPrivacyRef} type="checkbox" />
+                      <span>Ho letto la <button type="button" onClick={() => openLegalDoc('privacy')}>Privacy Policy</button>.</span>
+                    </label>
+                  </div>
+                  <label className="auth-check">
+                    <input ref={regRememberRef} type="checkbox" defaultChecked /> Crea cookie sessione persistente
+                  </label>
+                  {/* Clerk CAPTCHA — obbligatorio per headless sign-up con bot protection */}
+                  <div id="clerk-captcha" />
+                  <button
+                    className="btn-neon btn-neon-submit w-full"
+                    type="submit"
+                    disabled={busy}
+                  >
+                    {busy ? 'Registrazione...' : 'CREA ACCOUNT'}
+                  </button>
+                  <div className="auth-footnote">Le chips di benvenuto vengono aggiunte subito al tuo profilo.</div>
+                </form>
+              )}
+            </>
           )}
         </section>
       </div>
