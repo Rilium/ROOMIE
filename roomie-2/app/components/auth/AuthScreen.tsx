@@ -59,13 +59,14 @@ export default function AuthScreen() {
     return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
   }
 
-  // Retry apiMe up to 4 times (session cookie may take a moment after setActive)
+  // Retry apiMe — session cookie needs a moment to propagate after setActive
   const fetchUser = async () => {
-    for (let i = 0; i < 4; i++) {
+    await new Promise(r => setTimeout(r, 700)) // initial wait for cookie
+    for (let i = 0; i < 5; i++) {
       const meRes = await apiMe()
       const u = meRes.data?.user ?? null
       if (u) return u
-      await new Promise(r => setTimeout(r, 400 + i * 200))
+      await new Promise(r => setTimeout(r, 500 + i * 200))
     }
     return null
   }
@@ -83,7 +84,20 @@ export default function AuthScreen() {
       showToast({ title: isRegister ? `Benvenuto, ${user.name.split(' ')[0]}! 🏠` : `Bentornato, ${user.name.split(' ')[0]}!` })
       showPage('dashboard')
     } else {
-      setError('Profilo non trovato. Riprova o contatta il supporto.')
+      // Session set but profile fetch timed out — full reload so AppContext.init can retry
+      window.location.href = '/dashboard'
+    }
+  }
+
+  // Handle "session already exists" — just fetch the current user
+  const handleSessionExists = async () => {
+    const user = await fetchUser()
+    if (user) {
+      setUser(user)
+      closeAuth()
+      showPage('dashboard')
+    } else {
+      window.location.href = '/dashboard'
     }
   }
 
@@ -102,6 +116,8 @@ export default function AuthScreen() {
         setError('Verifica la tua email prima di accedere.')
       }
     } catch (err) {
+      const code = (err as { errors?: Array<{ code: string }> })?.errors?.[0]?.code
+      if (code === 'session_exists') { await handleSessionExists(); setBusy(false); return }
       setError(clerkErrMsg(err))
     } finally {
       setBusy(false)
@@ -134,6 +150,8 @@ export default function AuthScreen() {
         setError('Controlla la tua email e clicca il link di verifica, poi accedi.')
       }
     } catch (err) {
+      const code = (err as { errors?: Array<{ code: string }> })?.errors?.[0]?.code
+      if (code === 'session_exists') { await handleSessionExists(); setBusy(false); return }
       setError(clerkErrMsg(err))
     } finally {
       setBusy(false)
@@ -185,7 +203,17 @@ export default function AuthScreen() {
         password,
       })
       if (result.status === 'complete') {
-        await afterAuth(result.createdSessionId!, setActiveSignIn)
+        await setActiveSignIn?.({ session: result.createdSessionId! })
+        const user = await fetchUser()
+        if (user) {
+          setUser(user)
+          closeAuth()
+          showToast({ title: `Bentornato, ${user.name.split(' ')[0]}! Password aggiornata.` })
+          showPage('dashboard')
+        } else {
+          // Session set, profile fetch timed out — full reload
+          window.location.href = '/dashboard'
+        }
       } else {
         setForgotStep('done')
       }

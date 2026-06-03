@@ -189,11 +189,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const [meRes, cfgRes] = await Promise.all([apiMe(), apiAppConfig()])
         if (!mounted) return
         roomieUser = meRes.data?.user || null
+        if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
+
+        // If landing on a protected page without a user (e.g. after OAuth redirect),
+        // retry apiMe a few times — Clerk session cookie may need a moment to propagate.
+        if (!roomieUser && PROTECTED_PAGES.includes(PATH_TO_PAGE[window.location.pathname] || '')) {
+          for (let i = 0; i < 4; i++) {
+            if (!mounted) return
+            await new Promise(r => setTimeout(r, 600 + i * 400))
+            const retry = await apiMe()
+            roomieUser = retry.data?.user || null
+            if (roomieUser) break
+          }
+        }
+
+        if (!mounted) return
         if (roomieUser) {
           userRef.current = roomieUser
           setUserState(roomieUser)
         }
-        if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
       } catch (err) {
         console.error('[app:init] failed', err)
       } finally {

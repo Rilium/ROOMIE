@@ -73,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Animated favicon placeholder — set by roomie.js initAnimatedFavicon() */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <link id="roomie-favicon" rel="icon" type="image/png" href="/favicon.ico" />
+        <link id="roomie-favicon" rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
         {/* Google Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -91,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260604-auth-fix" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260604-auth-fix2" />
 
         {/* GSAP — must load before roomie.js */}
         <Script
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         {/* ROOMIE app logic — must run after DOM */}
-        <Script src="/assets/js/roomie.js?v=prod-20260604-auth-fix" strategy="afterInteractive" />
+        <Script src="/assets/js/roomie.js?v=prod-20260604-auth-fix2" strategy="afterInteractive" />
       </body>
     </html>
     </ClerkProvider>
