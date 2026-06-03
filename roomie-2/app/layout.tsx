@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const viewport: Viewport = {
   themeColor: '#0D0D0D',
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
+    <ClerkProvider>
     <html lang="it">
       <head>
         {/* Structured data */}
@@ -124,5 +126,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script src="/assets/js/roomie.js?v=prod-20260602-routing-beam1" strategy="afterInteractive" />
       </body>
     </html>
+    </ClerkProvider>
   )
 }
