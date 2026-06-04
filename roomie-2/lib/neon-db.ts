@@ -771,7 +771,6 @@ export async function logEvent(
 ): Promise<void> {
   await ensureBootstrapData()
   const sql = getDb()
-  console.log('[audit]', type, userId, details)
   try {
     await sql`
       INSERT INTO audit_log (id, type, user_id, details)

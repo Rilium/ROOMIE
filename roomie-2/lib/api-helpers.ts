@@ -96,27 +96,3 @@ export function appBaseUrl(req: Request): string {
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || url.host
   return (process.env.APP_URL || `${proto}://${host}`).replace(/\/$/, '')
 }
-
-export function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const payload = String(token || '').split('.')[1]
-    if (!payload) return {}
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>
-  } catch {
-    return {}
-  }
-}
-
-export function googleTokenErrorCode(token: Record<string, unknown> = {}): string {
-  const error = String(token.error || '')
-  const description = String(token.error_description || '').toLowerCase()
-  if (error === 'invalid_client' || description.includes('client secret')) return 'GOOGLE_SECRET_INVALID'
-  if (error === 'invalid_grant' || description.includes('bad request')) return 'GOOGLE_CODE_EXPIRED'
-  if (error === 'redirect_uri_mismatch' || description.includes('redirect_uri')) return 'GOOGLE_REDIRECT_MISMATCH'
-  return 'GOOGLE_TOKEN_ERROR'
-}
-
-export function redirectWithAuthError(req: Request, code = 'SOCIAL_NOT_CONFIGURED'): Response {
-  const base = appBaseUrl(req)
-  return Response.redirect(`${base}/?auth_error=${encodeURIComponent(code)}`, 302)
-}
