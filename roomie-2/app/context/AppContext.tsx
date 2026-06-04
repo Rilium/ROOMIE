@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { usePathname, useRouter } from 'next/navigation'
 import { useClerk } from '@clerk/nextjs'
 import type { PublicUser, AppConfig, Booking } from '@/lib/types'
-import { apiMe, apiAppConfig, apiLogout } from '@/lib/client-api'
+import { apiMe, apiAppConfig, apiDashboard, apiLogout } from '@/lib/client-api'
+import { isBookingLiveNow } from '@/lib/utils'
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
 
@@ -244,6 +245,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     setActivePage(page)
   }, [pathname, loading])
+
+  useEffect(() => {
+    if (!user) {
+      setActiveSessionState(null)
+      return
+    }
+    let mounted = true
+    apiDashboard().then(({ data }) => {
+      if (!mounted) return
+      const liveBooking = data?.currentLive || null
+      setActiveSessionState(prev => {
+        if (liveBooking) {
+          return {
+            booking: liveBooking,
+            accessStep: prev?.booking.id === liveBooking.id ? prev.accessStep : 0,
+            shutterDone: prev?.booking.id === liveBooking.id ? prev.shutterDone : false,
+            keyDone: prev?.booking.id === liveBooking.id ? prev.keyDone : false,
+            doorDone: prev?.booking.id === liveBooking.id ? prev.doorDone : false,
+          }
+        }
+        if (prev?.booking && isBookingLiveNow(prev.booking)) return prev
+        return null
+      })
+    }).catch(() => {})
+    return () => { mounted = false }
+  }, [user])
 
   // Modal handlers
   const openModalNfc = useCallback(() => setModalNfc(true), [])

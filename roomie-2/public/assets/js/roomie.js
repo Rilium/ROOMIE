@@ -24,6 +24,32 @@ let motionResizeTimer = null;
 let accessSafety = {shutter:false, key:false, door:false, power:false};
 let roomInside = false;
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function sanitizeHtml(html) {
+  if(window.DOMPurify?.sanitize) return window.DOMPurify.sanitize(String(html || ''));
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+  template.content.querySelectorAll('script,style,iframe,object,embed,form,input,button').forEach(node => node.remove());
+  template.content.querySelectorAll('*').forEach(node => {
+    [...node.attributes].forEach(attr => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value || '';
+      if(name.startsWith('on') || value.trim().toLowerCase().startsWith('javascript:')) {
+        node.removeAttribute(attr.name);
+      }
+    });
+  });
+  return template.innerHTML;
+}
+
 const heroSlides = [
   {
     image:'/assets/images/roomie-hero-slide-1.webp',
@@ -579,10 +605,10 @@ function setHeroSlide(index, manual=false) {
   bgSlides.forEach((bg, i) => bg.classList.toggle('active', i === index));
   content?.classList.add('is-changing');
   window.setTimeout(() => {
-    title.innerHTML = slide.title;
+    title.innerHTML = sanitizeHtml(slide.title);
     addr.textContent = slide.addr;
     sub.textContent = slide.sub;
-    meta.innerHTML = slide.meta.map(item => `<span>${item}</span>`).join('');
+    meta.innerHTML = slide.meta.map(item => `<span>${escapeHtml(item)}</span>`).join('');
     content?.classList.remove('is-changing');
   }, 120);
   document.querySelectorAll('.hero-dot').forEach((dot, i) => {
@@ -827,10 +853,17 @@ function copyPartnerCode() {
   showToast('Codice partner copiato! ✓');
 }
 
-function copyWifiCredentials() {
-  const text = 'ROOMIE Wi-Fi\nUsername: $wag_Barca\nPassword: !nexus2018.';
-  navigator.clipboard?.writeText(text);
-  showToast({title:'Wi-Fi copiato', copy:'Username e password pronti da incollare.'});
+async function copyWifiCredentials() {
+  try {
+    const response = await fetch('/api/room/wifi');
+    const data = await response.json();
+    if(!response.ok || !data?.wifi?.configured) throw new Error('WIFI_UNAVAILABLE');
+    const text = `ROOMIE Wi-Fi\nUsername: ${data.wifi.ssid}\nPassword: ${data.wifi.password}`;
+    navigator.clipboard?.writeText(text);
+    showToast({title:'Wi-Fi copiato', copy:'Username e password pronti da incollare.'});
+  } catch {
+    showToast({title:'Wi-Fi disponibile in sessione', copy:'Accedi al profilo durante la sessione live.', type:'warn'});
+  }
 }
 
 function updateCameraClock() {
@@ -951,9 +984,9 @@ async function openLegalDoc(type) {
     if(!response.ok) throw new Error('DOC_NOT_FOUND');
     const arrayBuffer = await response.arrayBuffer();
     const result = await window.mammoth.convertToHtml({arrayBuffer});
-    if(body) body.innerHTML = (result.value || doc.fallback) + legalDocDownloadLink(doc);
+    if(body) body.innerHTML = sanitizeHtml(result.value || doc.fallback) + legalDocDownloadLink(doc);
   } catch (err) {
-    if(body) body.innerHTML = doc.fallback + legalDocDownloadLink(doc);
+    if(body) body.innerHTML = sanitizeHtml(doc.fallback) + legalDocDownloadLink(doc);
     showToast({title:'Documento aperto', copy:'Ti mostro la versione leggibile in app.', type:'info'});
   }
 }
@@ -1007,7 +1040,7 @@ function showToast(msg) {
     : {title:msg.title || 'Fatto', copy:msg.copy || '', type:msg.type || 'ok'};
   t.classList.toggle('warn', payload.type === 'warn');
   const icon = payload.type === 'warn' ? 'fa-exclamation-triangle' : 'fa-check';
-  t.innerHTML = `<div class="toast-icon"><i class="fas ${icon}"></i></div><div><div class="toast-title">${payload.title}</div>${payload.copy ? `<div class="toast-copy">${payload.copy}</div>` : ''}</div>`;
+  t.innerHTML = `<div class="toast-icon"><i class="fas ${icon}"></i></div><div><div class="toast-title">${escapeHtml(payload.title)}</div>${payload.copy ? `<div class="toast-copy">${escapeHtml(payload.copy)}</div>` : ''}</div>`;
   t.classList.remove('hidden');
   requestAnimationFrame(() => t.classList.add('visible'));
   window.clearTimeout(toastTimer);

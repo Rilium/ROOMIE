@@ -10,7 +10,7 @@ import {
   getUserById,
 } from '@/lib/neon-db'
 import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
-import { bookingAccessUntilIso, calcBookingPrice, isValidDateString, isValidTimeString, serializeBooking } from '@/lib/utils'
+import { bookingAccessUntilIso, calcBookingPrice, isValidDateString, isValidTimeString, serializeBookingForUser } from '@/lib/utils'
 
 export async function GET(req: Request) {
   const guard = storageGuard()
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     ? await listBookings()
     : await getBookingsByUser(user.id)
 
-  return Response.json({ bookings: bookings.map(serializeBooking) })
+  return Response.json({ bookings: bookings.map(b => serializeBookingForUser(b)) })
 }
 
 export async function POST(req: Request) {
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     const updatedUser = freshUser ?? { ...user, chips: newChips }
 
     return Response.json(
-      { booking: serializeBooking(booking), user: publicUser(updatedUser) },
+      { booking: serializeBookingForUser(booking), user: publicUser(updatedUser) },
       { status: 201 },
     )
   } catch (err) {

@@ -19,16 +19,9 @@ export default function ConfirmPage() {
 
   useEffect(() => { setMounted(true) }, [])
 
-  // Usa sempre il booking reale dall'activeSession quando disponibile.
+  // L'accesso fisico deve usare solo booking reali, mai draft client.
   const b = activeSession?.booking ?? booking
-  const bookingForAccess: Booking | null = activeSession?.booking ?? (b ? ({
-    ...b,
-    id: (b as any).id || '',
-    userId: (b as any).userId || '',
-    people: (b as any).people || (b as any).guests || 1,
-    status: (b as any).status || 'confirmed',
-    createdAt: (b as any).createdAt || new Date().toISOString(),
-  } as Booking) : null)
+  const bookingForAccess: Booking | null = activeSession?.booking ?? null
   const lockboxCode = String((activeSession?.booking as any)?.lockboxCode || (b as any)?.lockboxCode || '')
   const bookingId = activeSession?.booking?.id || (b as any)?.id as string | undefined
   const accessLive = bookingForAccess ? isBookingLiveNow(bookingForAccess) : false

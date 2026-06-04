@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
 import { apiGetAddons, apiOrderAddons } from '@/lib/client-api'
+import { isBookingLiveNow } from '@/lib/utils'
 import type { Addon } from '@/lib/types'
 
 export default function ShopPage() {
@@ -22,7 +23,7 @@ export default function ShopPage() {
 
   const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0)
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
-  const isLive = Boolean(activeSession)
+  const isLive = Boolean(activeSession?.booking && isBookingLiveNow(activeSession.booking))
   const balance = user?.chips ?? 0
 
   const handleCheckout = useCallback(async () => {

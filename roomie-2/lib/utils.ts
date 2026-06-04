@@ -82,6 +82,7 @@ export function bookingAccessUntilIso(date: string, start: string, end: string):
 }
 
 export const ACTIVE_STATUSES: Booking['status'][] = ['confirmed', 'pending']
+export const LIVE_ACCESS_STATUSES: Booking['status'][] = ['confirmed']
 
 export function bookingStartDate(booking: Booking): Date {
   const date = booking?.date || '1970-01-01'
@@ -100,7 +101,7 @@ function bookingEndDate(booking: Booking): Date {
 }
 
 export function isBookingLiveNow(booking: Booking, now = new Date()): boolean {
-  if (!ACTIVE_STATUSES.includes(booking.status)) return false
+  if (!LIVE_ACCESS_STATUSES.includes(booking.status)) return false
   return now >= bookingStartDate(booking) && now <= bookingEndDate(booking)
 }
 
@@ -110,6 +111,16 @@ export function serializeBooking(booking: Booking): Booking {
     lockboxCode: booking.lockboxCode || '',
     doorCode: booking.doorCode || '',
     accessValidUntil: booking.accessValidUntil || booking.end || '',
+  }
+}
+
+export function serializeBookingForUser(booking: Booking, now = new Date()): Booking {
+  const serialized = serializeBooking(booking)
+  if (isBookingLiveNow(serialized, now)) return serialized
+  return {
+    ...serialized,
+    lockboxCode: '',
+    doorCode: '',
   }
 }
 
@@ -140,13 +151,14 @@ export function calcBookingPrice(
 
 export async function buildDashboardSummary(user: DbUser, bookings: Booking[], addons: Addon[], config: AppConfig) {
   const now = new Date()
-  const serialized = bookings.map(serializeBooking)
+  const serialized = bookings.map(b => serializeBookingForUser(b, now))
   const sorted = [...serialized].sort(
     (a, b) => bookingStartDate(a).getTime() - bookingStartDate(b).getTime(),
   )
   const upcoming = sorted.filter(
     b => ACTIVE_STATUSES.includes(b.status) && bookingStartDate(b) >= now,
   )
+  const currentLive = sorted.find(b => isBookingLiveNow(b, now)) || null
   const next =
     upcoming[0] ||
     sorted.find(b => ACTIVE_STATUSES.includes(b.status)) ||
@@ -217,6 +229,8 @@ export async function buildDashboardSummary(user: DbUser, bookings: Booking[], a
     },
     bookings: serialized,
     next,
+    nextBooking: next,
+    currentLive,
     history: [...serialized]
       .sort((a, b) => bookingStartDate(b).getTime() - bookingStartDate(a).getTime())
       .slice(0, 6),
@@ -227,6 +241,8 @@ export async function buildDashboardSummary(user: DbUser, bookings: Booking[], a
       toNeon,
       chips: Number(user.chips || 0),
     },
+    sessionCount: bookings.length,
+    chipsSpent: totalSpent,
     mission,
     recommended,
     recommendedAddons,

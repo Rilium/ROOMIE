@@ -1,4 +1,4 @@
-import { getBookingById, hasBookingConflictNeon, logEvent, patchBookingAdmin } from '@/lib/neon-db'
+import { getBookingById, getConfig, hasBookingConflictNeon, logEvent, patchBookingAdmin } from '@/lib/neon-db'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { bookingAccessUntilIso, isValidDateString, isValidTimeString, serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
@@ -19,6 +19,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!booking) return Response.json({ error: 'BOOKING_NOT_FOUND' }, { status: 404 })
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const cfg = await getConfig()
   const next = { ...booking }
   const changedFields: string[] = []
 
@@ -36,6 +37,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   if (body.people !== undefined) {
     const p = Number(body.people || 1)
+    if (!Number.isInteger(p) || p < 1 || p > Number(cfg.maxPeople || 8)) {
+      return Response.json({ error: 'BAD_PEOPLE', max: Number(cfg.maxPeople || 8) }, { status: 400 })
+    }
     if (p !== booking.people) { next.people = p; changedFields.push('people') }
   }
 
@@ -49,6 +53,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       )
     }
     const newTotal = Number(body.totalChips || booking.totalChips || 0)
+    if (!Number.isInteger(newTotal) || newTotal < 0 || newTotal > 10000) {
+      return Response.json({ error: 'BAD_TOTAL_CHIPS' }, { status: 400 })
+    }
     if (newTotal !== booking.totalChips) {
       next.totalChips = newTotal
       changedFields.push('totalChips')

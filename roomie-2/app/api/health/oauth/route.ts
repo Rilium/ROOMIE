@@ -1,17 +1,19 @@
-export function GET() {
-  const googleClientId = process.env.GOOGLE_CLIENT_ID || ''
-  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
+import { requireAdmin } from '@/lib/api-helpers'
+
+export async function GET(req: Request) {
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
+
+  const publishable = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
+  const secret = process.env.CLERK_SECRET_KEY || ''
   return Response.json({
-    google: {
-      clientIdPresent: Boolean(googleClientId),
-      clientIdLooksValid: /\.apps\.googleusercontent\.com$/.test(googleClientId),
-      clientIdLength: googleClientId.length,
-      clientSecretPresent: Boolean(googleClientSecret),
-      clientSecretLooksValid: /^GOCSPX-/.test(googleClientSecret),
-      clientSecretLength: googleClientSecret.length,
-      flow: 'authorization_code',
-      secretRequired: true,
-      redirectUri: `${process.env.APP_URL || 'https://roomie.rilio.it'}/api/auth/google/callback`,
+    auth: {
+      provider: 'clerk',
+      publishableConfigured: Boolean(publishable),
+      secretConfigured: Boolean(secret),
+      signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/sign-in',
+      signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || '/sign-up',
+      ssoCallbackUrl: '/sso-callback',
     },
   })
 }

@@ -75,8 +75,16 @@ export interface DashboardData {
   user: PublicUser
   bookings: Booking[]
   nextBooking: Booking | null
+  currentLive?: Booking | null
   sessionCount: number
   chipsSpent: number
+  stats?: {
+    totalBookings: number
+    totalSpent: number
+    monthCount: number
+    toNeon: number
+    chips: number
+  }
 }
 
 export async function apiDashboard() {

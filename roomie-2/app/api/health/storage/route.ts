@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless'
+import { requireAdmin } from '@/lib/api-helpers'
 
 const DATABASE_URL =
   process.env.DATABASE_URL ||
@@ -6,7 +7,10 @@ const DATABASE_URL =
   process.env.POSTGRES_PRISMA_URL ||
   ''
 
-export async function GET() {
+export async function GET(req: Request) {
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
+
   if (!DATABASE_URL) {
     return Response.json(
       {

@@ -1,5 +1,6 @@
 import { getBookingById, logAccess } from '@/lib/neon-db'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
+import { isBookingLiveNow } from '@/lib/utils'
 
 const ACCESS_EVENTS = new Set([
   'lockbox_viewed',
@@ -36,6 +37,9 @@ export async function POST(req: Request) {
   if (!booking) return Response.json({ error: 'BOOKING_NOT_FOUND' }, { status: 404 })
   if (booking.userId !== user.id && user.role !== 'admin') {
     return Response.json({ error: 'BOOKING_FORBIDDEN' }, { status: 403 })
+  }
+  if (!isBookingLiveNow(booking)) {
+    return Response.json({ error: 'LIVE_BOOKING_REQUIRED' }, { status: 409 })
   }
 
   await logAccess({

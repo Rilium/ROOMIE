@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const name = String(body.name || '').trim()
   const price = Number(body.price || 0)
-  if (!name || !Number.isFinite(price) || price < 0) {
+  if (!name || !Number.isInteger(price) || price < 0) {
     return Response.json({ error: 'BAD_ADDON' }, { status: 400 })
   }
 

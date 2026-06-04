@@ -1,4 +1,9 @@
-export function GET() {
+import { requireAdmin } from '@/lib/api-helpers'
+
+export async function GET(req: Request) {
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
+
   const secret = process.env.STRIPE_SECRET_KEY || ''
   const publishable = process.env.STRIPE_PUBLISHABLE_KEY || ''
   const webhook = process.env.STRIPE_WEBHOOK_SECRET || ''

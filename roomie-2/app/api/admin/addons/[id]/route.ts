@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   if (body.price !== undefined) {
     const price = Number(body.price)
-    if (!Number.isFinite(price) || price < 0) {
+    if (!Number.isInteger(price) || price < 0) {
       return Response.json({ error: 'BAD_PRICE' }, { status: 400 })
     }
     patch.price = price

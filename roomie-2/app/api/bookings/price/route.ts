@@ -6,6 +6,16 @@ import { getConfig } from '@/lib/neon-db'
 import { storageGuard } from '@/lib/api-helpers'
 import { calcBookingPrice } from '@/lib/utils'
 
+function publicPricingConfig(cfg: Awaited<ReturnType<typeof getConfig>>) {
+  return {
+    hourlyPrice: cfg.hourlyPrice,
+    dayPrice: cfg.dayPrice,
+    guestPassPrice: cfg.guestPassPrice,
+    maxPeople: cfg.maxPeople,
+    lockboxCode: '',
+  }
+}
+
 export async function GET(req: Request) {
   const guard = storageGuard()
   if (guard) return guard
@@ -19,5 +29,5 @@ export async function GET(req: Request) {
 
   const cfg = await getConfig()
   const totalChips = calcBookingPrice(preset, duration, guests, cfg)
-  return Response.json({ totalChips, config: cfg })
+  return Response.json({ totalChips, config: publicPricingConfig(cfg) })
 }

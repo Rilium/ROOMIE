@@ -40,7 +40,9 @@ export async function POST(req: Request) {
     .map((item: Record<string, unknown>) => {
       const addon = addonMap.get(String(item.id || ''))
       if (!addon || addon.status !== 'active') return null
-      const qty = Math.max(1, Math.min(10, Number(item.qty || 1)))
+      const rawQty = Number(item.qty || 1)
+      if (!Number.isInteger(rawQty) || rawQty < 1 || rawQty > 10) return null
+      const qty = rawQty
       return {
         id: addon.id,
         name: addon.name,
