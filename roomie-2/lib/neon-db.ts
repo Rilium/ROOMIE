@@ -109,7 +109,8 @@ export async function ensureBootstrapData(): Promise<void> {
         await sql`
           INSERT INTO users (id, username, email, name, role, chips, password_hash, suspended)
           VALUES ('usr_admin', ${username}, ${email}, ${name}, 'admin', 999, ${passwordHash}, FALSE)
-          ON CONFLICT (username) DO UPDATE SET
+          ON CONFLICT (id) DO UPDATE SET
+            username = EXCLUDED.username,
             email = EXCLUDED.email,
             name = EXCLUDED.name,
             role = 'admin',
@@ -834,11 +835,16 @@ async function uniqueUsernameNeon(seed: string): Promise<string> {
 
 interface ClerkUserProfile {
   id: string
-  emailAddresses: Array<{ emailAddress: string }>
+  emailAddresses: Array<{ id?: string; emailAddress: string }>
+  primaryEmailAddressId?: string | null
   firstName?: string | null
   lastName?: string | null
   username?: string | null
   imageUrl?: string
+  unsafeMetadata?: {
+    roomieUsername?: unknown
+    roomieDisplayName?: unknown
+  } | null
 }
 
 export async function getUserByClerkId(clerkId: string): Promise<DbUser | null> {
@@ -858,7 +864,10 @@ export async function getOrCreateRoomieUserFromClerk(profile: ClerkUserProfile):
   const clerkId = profile.id
   if (!clerkId) return null
 
-  const primaryEmail = profile.emailAddresses[0]?.emailAddress ?? ''
+  const primaryEmail = (
+    profile.emailAddresses.find(address => address.id === profile.primaryEmailAddressId) ??
+    profile.emailAddresses[0]
+  )?.emailAddress ?? ''
   const email = normalizeEmail(primaryEmail)
 
   // 1. Fast path: already linked
@@ -884,9 +893,15 @@ export async function getOrCreateRoomieUserFromClerk(profile: ClerkUserProfile):
   // 3. Create new user
   if (!isValidEmailString(email)) return null
 
+  const metadataName = typeof profile.unsafeMetadata?.roomieDisplayName === 'string'
+    ? profile.unsafeMetadata.roomieDisplayName.trim()
+    : ''
   const nameParts = [profile.firstName, profile.lastName].filter(Boolean)
-  const name = nameParts.length > 0 ? nameParts.join(' ').trim() : email.split('@')[0]
-  const rawBase = (profile.username ?? email.split('@')[0]).replace(/[^a-z0-9_]/g, '_').toLowerCase()
+  const name = metadataName || (nameParts.length > 0 ? nameParts.join(' ').trim() : email.split('@')[0])
+  const metadataUsername = typeof profile.unsafeMetadata?.roomieUsername === 'string'
+    ? profile.unsafeMetadata.roomieUsername.trim()
+    : ''
+  const rawBase = (metadataUsername || profile.username || email.split('@')[0]).replace(/[^a-z0-9_]/g, '_').toLowerCase()
   const base = rawBase.slice(0, 16) || 'user'
   const seed = base.length >= 3 ? base : `${base}_user`
   const username = await uniqueUsernameNeon(seed)

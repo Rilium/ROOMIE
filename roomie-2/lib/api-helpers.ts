@@ -2,6 +2,7 @@
 // Helpers per Next.js App Router — usa neon-db.ts (Postgres relazionale).
 
 import { parseCookies } from './session'
+import { hasUsableClerkConfig } from './clerk-config'
 import { getUserByClerkId, getOrCreateRoomieUserFromClerk } from './neon-db'
 import type { DbUser } from './types'
 
@@ -57,6 +58,8 @@ export function csrfGuard(req: Request): Response | null {
 // ── Clerk auth helpers ────────────────────────────────────────────────────────
 
 async function resolveClerkUser(): Promise<DbUser | null> {
+  if (!hasUsableClerkConfig()) return null
+
   try {
     // Dynamic import to avoid breaking if CLERK_SECRET_KEY is a placeholder
     const { auth, currentUser } = await import('@clerk/nextjs/server')

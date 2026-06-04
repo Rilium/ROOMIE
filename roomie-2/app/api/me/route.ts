@@ -1,9 +1,11 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { getUserByClerkId, getOrCreateRoomieUserFromClerk, publicUser } from '@/lib/neon-db'
 import { STORAGE_OK } from '@/lib/api-helpers'
+import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
 export async function GET() {
   if (!STORAGE_OK) return Response.json({ user: null })
+  if (!hasUsableClerkConfig()) return Response.json({ user: null })
 
   try {
     const { userId: clerkId } = await auth()

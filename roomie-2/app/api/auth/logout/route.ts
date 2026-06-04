@@ -2,13 +2,16 @@ import { auth } from '@clerk/nextjs/server'
 import { logEvent } from '@/lib/neon-db'
 import { clearSessionCookie } from '@/lib/session'
 import { getUserByClerkId } from '@/lib/neon-db'
+import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
 export async function POST() {
   try {
-    const { userId: clerkId } = await auth()
-    if (clerkId) {
-      const user = await getUserByClerkId(clerkId)
-      if (user) await logEvent('logout', user.id, { via: 'clerk' })
+    if (hasUsableClerkConfig()) {
+      const { userId: clerkId } = await auth()
+      if (clerkId) {
+        const user = await getUserByClerkId(clerkId)
+        if (user) await logEvent('logout', user.id, { via: 'clerk' })
+      }
     }
   } catch {}
 

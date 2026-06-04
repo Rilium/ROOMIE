@@ -7,9 +7,14 @@ import { useApp } from '@/app/context/AppContext'
 import { apiMe } from '@/lib/client-api'
 
 type ForgotStep = 'email' | 'code' | 'done'
+type SetActiveFn = (opts: {
+  session: string
+  redirectUrl?: string
+  navigate?: (opts: { decorateUrl: (url: string) => string }) => Promise<unknown> | void
+}) => Promise<void>
 
 export default function AuthScreen() {
-  const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, showToast, openLegalDoc } = useApp()
+  const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, openLegalDoc } = useApp()
   const { getToken } = useAuth()
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
@@ -80,24 +85,18 @@ export default function AuthScreen() {
     return null
   }
 
-  const afterAuth = async (
-    sessionId: string,
-    setActiveFn: ((opts: { session: string }) => Promise<void>) | undefined,
-    isRegister = false
-  ) => {
-    await setActiveFn?.({ session: sessionId })
-    // Get token immediately after session activation — bypasses cookie timing issues
-    let token: string | null = null
-    try { token = await getToken() } catch {}
-    const user = await fetchUser(token)
-    if (user) {
-      setUser(user)
-      closeAuth()
-      showToast({ title: isRegister ? `Benvenuto, ${user.name.split(' ')[0]}! 🏠` : `Bentornato, ${user.name.split(' ')[0]}!` })
-      showPage('dashboard')
-    } else {
+  const activateAndRedirect = async (sessionId: string, setActiveFn: SetActiveFn | undefined) => {
+    if (!setActiveFn) {
       window.location.href = '/dashboard'
+      return
     }
+
+    await setActiveFn({
+      session: sessionId,
+      navigate: ({ decorateUrl }) => {
+        window.location.href = decorateUrl('/dashboard')
+      },
+    })
   }
 
   const handleSessionExists = async () => {
@@ -118,7 +117,7 @@ export default function AuthScreen() {
     try {
       const result = await signIn.create({ identifier, password })
       if (result.status === 'complete') {
-        await afterAuth(result.createdSessionId!, setActiveSignIn)
+        await activateAndRedirect(result.createdSessionId!, setActiveSignIn)
       } else {
         setError('Verifica la tua email prima di accedere.')
       }
@@ -150,11 +149,16 @@ export default function AuthScreen() {
       const result = await signUp.create({
         emailAddress: email,
         password,
-        username: username || undefined,
         firstName: name || undefined,
+        unsafeMetadata: {
+          roomieUsername: username || undefined,
+          roomieDisplayName: name || undefined,
+          acceptedTerms: true,
+          acceptedPrivacy: true,
+        },
       })
       if (result.status === 'complete') {
-        await afterAuth(result.createdSessionId!, setActiveSignUp, true)
+        await activateAndRedirect(result.createdSessionId!, setActiveSignUp)
       } else if (result.status === 'missing_requirements') {
         // Email verification required — prepare and show code input
         const unverified = result.unverifiedFields ?? []
@@ -183,7 +187,7 @@ export default function AuthScreen() {
     try {
       const result = await signUp.attemptEmailAddressVerification({ code })
       if (result.status === 'complete') {
-        await afterAuth(result.createdSessionId!, setActiveSignUp, true)
+        await activateAndRedirect(result.createdSessionId!, setActiveSignUp)
       } else {
         setError('Verifica non completata. Riprova.')
       }
@@ -241,18 +245,7 @@ export default function AuthScreen() {
         password,
       })
       if (result.status === 'complete') {
-        await setActiveSignIn?.({ session: result.createdSessionId! })
-        let forgotToken: string | null = null
-        try { forgotToken = await getToken() } catch {}
-        const user = await fetchUser(forgotToken)
-        if (user) {
-          setUser(user)
-          closeAuth()
-          showToast({ title: `Bentornato, ${user.name.split(' ')[0]}! Password aggiornata.` })
-          showPage('dashboard')
-        } else {
-          window.location.href = '/dashboard'
-        }
+        await activateAndRedirect(result.createdSessionId!, setActiveSignIn)
       } else {
         setForgotStep('done')
       }

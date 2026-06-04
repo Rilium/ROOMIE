@@ -1,5 +1,6 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
+import { hasUsableClerkPublishableKey } from '@/lib/clerk-config'
 
 // Clerk runs as a session enhancer — no page redirects.
 // Page auth is handled client-side by AppContext (modal).
@@ -7,10 +8,10 @@ import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server
 const handler = clerkMiddleware(() => {})
 
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
-  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? ''
-  if (!key || key.length < 30 || key.includes('YOUR_KEY')) {
+  if (!hasUsableClerkPublishableKey()) {
     return NextResponse.next()
   }
+
   try {
     return await handler(request, event)
   } catch (err) {
