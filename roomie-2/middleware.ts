@@ -1,9 +1,9 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
 
-// Clerk runs only as a session enhancer — no page redirects.
+// Clerk runs as a session enhancer — no page redirects.
 // Page auth is handled client-side by AppContext (modal).
-// API auth is handled server-side by requireAuth() in each handler.
+// API auth is handled server-side by auth() in each handler.
 const handler = clerkMiddleware(() => {})
 
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
@@ -13,7 +13,8 @@ export default async function middleware(request: NextRequest, event: NextFetchE
   }
   try {
     return await handler(request, event)
-  } catch {
+  } catch (err) {
+    console.error('[clerk-middleware] error:', err)
     return NextResponse.next()
   }
 }

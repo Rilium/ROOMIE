@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
 import { apiMe } from '@/lib/client-api'
@@ -9,6 +10,7 @@ type ForgotStep = 'email' | 'code' | 'done'
 
 export default function AuthScreen() {
   const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, showToast, openLegalDoc } = useApp()
+  const { getToken } = useAuth()
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
 
@@ -63,13 +65,17 @@ export default function AuthScreen() {
     return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
   }
 
-  const fetchUser = async () => {
-    await new Promise(r => setTimeout(r, 700))
+  const fetchUser = async (token?: string | null) => {
+    await new Promise(r => setTimeout(r, 300))
     for (let i = 0; i < 5; i++) {
-      const meRes = await apiMe()
+      const meRes = await apiMe(token ?? undefined)
       const u = meRes.data?.user ?? null
       if (u) return u
-      await new Promise(r => setTimeout(r, 500 + i * 200))
+      // On retry, attempt to get a fresh token in case it wasn't ready yet
+      if (i === 0) {
+        try { token = await getToken() } catch {}
+      }
+      await new Promise(r => setTimeout(r, 400 + i * 200))
     }
     return null
   }
@@ -80,7 +86,10 @@ export default function AuthScreen() {
     isRegister = false
   ) => {
     await setActiveFn?.({ session: sessionId })
-    const user = await fetchUser()
+    // Get token immediately after session activation — bypasses cookie timing issues
+    let token: string | null = null
+    try { token = await getToken() } catch {}
+    const user = await fetchUser(token)
     if (user) {
       setUser(user)
       closeAuth()
@@ -233,7 +242,9 @@ export default function AuthScreen() {
       })
       if (result.status === 'complete') {
         await setActiveSignIn?.({ session: result.createdSessionId! })
-        const user = await fetchUser()
+        let forgotToken: string | null = null
+        try { forgotToken = await getToken() } catch {}
+        const user = await fetchUser(forgotToken)
         if (user) {
           setUser(user)
           closeAuth()

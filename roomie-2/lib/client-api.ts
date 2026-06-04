@@ -55,8 +55,10 @@ export async function apiLogout() {
   return call('/api/auth/logout', { method: 'POST' })
 }
 
-export async function apiMe() {
-  return call<{ user: PublicUser }>('/api/me')
+export async function apiMe(token?: string) {
+  return call<{ user: PublicUser }>('/api/me', token ? {
+    headers: { Authorization: `Bearer ${token}` },
+  } : undefined)
 }
 
 // ── APP ───────────────────────────────────────────────────────────────────────
