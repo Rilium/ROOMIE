@@ -31,3 +31,6 @@ yarn-error.log*
 
 # Local data (dev only)
 data/roomie-db.json
+
+# clerk configuration (can include secrets)
+/.clerk/
