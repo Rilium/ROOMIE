@@ -99,6 +99,17 @@ export default function AuthScreen() {
     })
   }
 
+  const registrationMetadata = () => {
+    const name = regNameRef.current?.value.trim() ?? ''
+    const username = regUsernameRef.current?.value.trim() ?? ''
+    return {
+      roomieUsername: username || undefined,
+      roomieDisplayName: name || undefined,
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    }
+  }
+
   const handleSessionExists = async () => {
     const user = await fetchUser()
     if (user) { setUser(user); closeAuth(); showPage('dashboard') }
@@ -142,7 +153,6 @@ export default function AuthScreen() {
     }
     setBusy(true)
     const name     = regNameRef.current?.value.trim() ?? ''
-    const username = regUsernameRef.current?.value.trim() ?? ''
     const email    = regEmailRef.current?.value.trim() ?? ''
     const password = regPasswordRef.current?.value ?? ''
     try {
@@ -150,12 +160,8 @@ export default function AuthScreen() {
         emailAddress: email,
         password,
         firstName: name || undefined,
-        unsafeMetadata: {
-          roomieUsername: username || undefined,
-          roomieDisplayName: name || undefined,
-          acceptedTerms: true,
-          acceptedPrivacy: true,
-        },
+        legalAccepted: true,
+        unsafeMetadata: registrationMetadata(),
       })
       if (result.status === 'complete') {
         await activateAndRedirect(result.createdSessionId!, setActiveSignUp)
@@ -201,6 +207,26 @@ export default function AuthScreen() {
   // ── GOOGLE ──────────────────────────────────────────────────────────────────
 
   const handleGoogle = async () => {
+    if (authMode === 'register') {
+      if (!acceptTermsRef.current?.checked || !acceptPrivacyRef.current?.checked) {
+        setError(errMsg.TERMS_REQUIRED)
+        return
+      }
+      if (!signUpLoaded || !signUp) { window.location.href = '/sign-up'; return }
+      try {
+        await signUp.authenticateWithRedirect({
+          strategy: 'oauth_google',
+          redirectUrl: '/sso-callback',
+          redirectUrlComplete: '/dashboard',
+          legalAccepted: true,
+          unsafeMetadata: registrationMetadata(),
+        })
+      } catch (err) {
+        setError(clerkErrMsg(err))
+      }
+      return
+    }
+
     if (!signInLoaded || !signIn) { window.location.href = '/sign-in'; return }
     try {
       await signIn.authenticateWithRedirect({
@@ -208,8 +234,8 @@ export default function AuthScreen() {
         redirectUrl: '/sso-callback',
         redirectUrlComplete: '/dashboard',
       })
-    } catch {
-      window.location.href = '/sign-in'
+    } catch (err) {
+      setError(clerkErrMsg(err))
     }
   }
 
