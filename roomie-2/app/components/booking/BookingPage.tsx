@@ -4,7 +4,15 @@ import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
 import { apiCreateBooking, apiBookingPrice } from '@/lib/client-api'
-import BorderBeam from '@/app/components/ui/BorderBeam'
+import {
+  BookingFlowLayout,
+  BookingStepper,
+  BookingStickyBar,
+  CompactRoomSummary,
+  SessionOptionCard,
+  type BookingStepItem,
+  type RoomExperience,
+} from '@/app/components/booking/BookingFlowComponents'
 
 interface Preset {
   id: string
@@ -15,13 +23,30 @@ interface Preset {
   chips: number
   defaultStart: string
   isDay?: boolean
+  badge?: string
 }
 
 const PRESETS: Preset[] = [
   { id: 'quick', label: 'Quick Match', icon: 'fa-bolt', sub: '1h · da adesso · botta veloce', duration: 1, chips: 12, defaultStart: '18:00' },
-  { id: 'ranked', label: 'Ranked Session', icon: 'fa-gamepad', sub: '2h · valore migliore · già selezionata', duration: 2, chips: 24, defaultStart: '20:00' },
+  { id: 'ranked', label: 'Ranked Session', icon: 'fa-gamepad', sub: '2h · valore migliore', duration: 2, chips: 24, defaultStart: '20:00', badge: 'CONSIGLIATA' },
   { id: 'movie', label: 'Movie Night', icon: 'fa-film', sub: '3h · ore 20:00 · divano e schermo pieno', duration: 3, chips: 36, defaultStart: '20:00' },
-  { id: 'full', label: 'Full Experience', icon: 'fa-trophy', sub: 'Giornata · 09:00→23:00 · tutto tuo', duration: 14, chips: 60, defaultStart: '09:00', isDay: true },
+  { id: 'full', label: 'Full Experience', icon: 'fa-trophy', sub: '09:00-23:00 · tutto tuo', duration: 14, chips: 60, defaultStart: '09:00', isDay: true },
+]
+
+const BOOKING_STEPS: BookingStepItem[] = [
+  { label: 'Sessione' },
+  { label: 'Orario' },
+  { label: 'Extra' },
+  { label: 'Checkout' },
+]
+
+const ROOM_EXPERIENCES: RoomExperience[] = [
+  { label: 'PS5', className: 'console-pill console-ps' },
+  { label: 'XBOX', className: 'console-pill console-xbox' },
+  { label: 'SNES', className: 'console-pill console-nintendo' },
+  { label: 'PC 4K', className: 'console-pill console-pc' },
+  { label: 'NETFLIX', className: 'logo-pill logo-netflix' },
+  { label: 'DAZN', className: 'logo-pill logo-dazn' },
 ]
 
 function addHours(time: string, hours: number): string {
@@ -46,7 +71,7 @@ function nowDateTime(): { date: string; time: string } {
 }
 
 export default function BookingPage() {
-  const { user, config, setUser, setBookingDraft, setActiveSession, openModalInvite, showPage, showToast, activePage } = useApp()
+  const { user, config, invitedFriends, removeInvitedFriend, setUser, setBookingDraft, setActiveSession, openModalInvite, showPage, showToast, activePage } = useApp()
   const [mounted, setMounted] = useState(false)
 
   const [step, setStep] = useState(0)
@@ -58,6 +83,7 @@ export default function BookingPage() {
   const [liveMode, setLiveMode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'now' | 'plan'>('plan')
+  const [slotConflict, setSlotConflict] = useState<string | null>(null)
   // serverPrice: fetched from /api/bookings/price; falls back to local estimate
   const [serverPrice, setServerPrice] = useState<number | null>(null)
   const [priceLoading, setPriceLoading] = useState(true)
@@ -70,6 +96,7 @@ export default function BookingPage() {
   // Local estimate (shown while server confirms)
   const baseChips = preset.isDay ? config.dayPrice : duration * config.hourlyPrice
   const guestChips = guests * config.guestPassPrice
+  const totalPeople = 1 + invitedFriends.length + guests
   const totalChips = serverPrice ?? (baseChips + guestChips)
   const cashback = Math.floor(totalChips * 0.5)
   const balance = user?.chips ?? 0
@@ -92,6 +119,10 @@ export default function BookingPage() {
     if (activePage === 'room') setStep(0)
   }, [activePage])
 
+  useEffect(() => {
+    setGuests(prev => Math.min(prev, Math.max(0, config.maxPeople - 1 - invitedFriends.length)))
+  }, [config.maxPeople, invitedFriends.length])
+
   // Sync draft to context whenever booking changes
   useEffect(() => {
     setBookingDraft({
@@ -101,31 +132,35 @@ export default function BookingPage() {
       start,
       end,
       guests,
+      friends: invitedFriends.map(friend => friend.id),
       liveMode,
       totalChips,
       totalEur: totalChips,
       room: 'Via Terni',
       step,
     })
-  }, [preset, duration, date, start, guests, liveMode, totalChips, step, setBookingDraft, end])
+  }, [preset, duration, date, start, guests, invitedFriends, liveMode, totalChips, step, setBookingDraft, end])
 
   const selectPreset = useCallback((p: Preset) => {
     setPresetState(p)
     setDuration(p.duration)
     setStart(p.defaultStart)
+    setSlotConflict(null)
   }, [])
 
   const setDur = useCallback((h: number) => {
     setDuration(h)
     setPresetState(prev => ({ ...prev, isDay: false }))
+    setSlotConflict(null)
   }, [])
 
   const adjustGuests = useCallback((delta: number) => {
-    setGuests(prev => Math.max(0, Math.min(config.maxPeople - 1, prev + delta)))
-  }, [config.maxPeople])
+    setGuests(prev => Math.max(0, Math.min(config.maxPeople - 1 - invitedFriends.length, prev + delta)))
+  }, [config.maxPeople, invitedFriends.length])
 
   const goNext = useCallback(() => {
     if (step === 3) return
+    if (step === 1) setSlotConflict(null)
     setStep(s => s + 1)
   }, [step])
 
@@ -144,12 +179,18 @@ export default function BookingPage() {
       showPage('token')
       return
     }
+    if (totalPeople > config.maxPeople) {
+      showToast({ title: 'Troppi partecipanti', copy: `Massimo ${config.maxPeople}: rimuovi qualcuno o abbassa i guest pass.`, type: 'warn' })
+      setStep(2)
+      return
+    }
     setBusy(true)
     const { data, error } = await apiCreateBooking({
       date,
       start,
       end,
-      people: 1 + guests,
+      people: totalPeople,
+      friendIds: invitedFriends.map(friend => friend.id),
       preset: preset.id,
       duration,
       guests,
@@ -160,12 +201,16 @@ export default function BookingPage() {
     if (error || !data?.booking) {
       const msgs: Record<string, string> = {
         INSUFFICIENT_CHIPS: 'Chips insufficienti. Ricarica e riprova.',
-        SLOT_BLOCKED: 'Slot già occupato, scegli un altro orario.',
+        SLOT_BLOCKED: 'Questo slot e gia occupato o bloccato. Torna allo step orario e scegli un altro inizio.',
         BAD_BOOKING_DATE: 'Data non valida.',
         BAD_BOOKING_TIME: 'Orario non valido.',
         BAD_PEOPLE: `Troppi partecipanti (max ${config.maxPeople}).`,
       }
-      showToast({ title: msgs[error || ''] || 'Errore prenotazione.', type: 'warn' })
+      if (error === 'SLOT_BLOCKED') {
+        setSlotConflict(`${date} · ${start}-${end}`)
+        setStep(1)
+      }
+      showToast({ title: error === 'SLOT_BLOCKED' ? 'Slot non disponibile' : (msgs[error || ''] || 'Errore prenotazione.'), copy: error === 'SLOT_BLOCKED' ? msgs.SLOT_BLOCKED : undefined, type: 'warn' })
       return
     }
     // Update context with server-confirmed booking + updated user chips
@@ -174,6 +219,7 @@ export default function BookingPage() {
     // Inizializza la sessione attiva con la prenotazione appena creata
     setActiveSession({
       booking: data.booking,
+      friends: invitedFriends,
       accessStep: 0,
       shutterDone: false,
       keyDone: false,
@@ -181,119 +227,73 @@ export default function BookingPage() {
     })
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [priceLoading, serverPrice, balance, totalChips, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
+  }, [priceLoading, serverPrice, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
 
-  const stepLabels = ['Sessione', 'Quando', 'Gruppo', 'Riepilogo']
   const handleNowMode = useCallback(() => {
     const current = nowDateTime()
     setMode('now')
     setDate(current.date)
     setStart(current.time)
+    setSlotConflict(null)
   }, [])
 
+  const selectedDurationLabel = preset.isDay ? '09:00-23:00' : `${duration}h`
+  const selectedItemLabel = `${preset.label} · ${selectedDurationLabel}`
+  const stickyPrice = priceLoading
+    ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span>
+    : `${totalChips} chips`
+  const formatChipPrice = useCallback((chips: number) => `${chips} chips`, [])
+
   const stickyNav = (
-    <div className="booking-sticky" aria-label="Navigazione prenotazione">
-      <BorderBeam size={88} duration={6.5} initialOffset={18} colorFrom="#C8FF00" colorTo="#00FFD1" borderWidth={1.1} />
-      <button className="sticky-back" type="button" onClick={goPrev} aria-label="Indietro">
-        <i className="fas fa-chevron-left"></i>
-      </button>
-      <div>
-        <div className="sticky-total-label">Step {step + 1} di 4 · {stepLabels[step]}</div>
-        <div className="sticky-total-val">{priceLoading ? '...' : totalChips} chips</div>
-        <div style={{ fontSize: '.72rem', color: 'var(--muted)', lineHeight: '1.1' }}>
-          {preset.label} · {preset.isDay ? 'Giornata' : `${duration}h`}
-        </div>
-      </div>
-      {step < 3 ? (
-        <button className="sticky-next" type="button" onClick={goNext}>CONTINUA</button>
-      ) : (
-        <button className="sticky-next" type="button" onClick={handleConfirm} disabled={busy || priceLoading || serverPrice == null}>
-          {busy ? '...' : 'PAGA'}
-        </button>
-      )}
-    </div>
+    <BookingStickyBar
+      currentStep={step + 1}
+      totalSteps={BOOKING_STEPS.length}
+      price={stickyPrice}
+      selectedItem={selectedItemLabel}
+      ctaLabel={step < 3 ? 'CONTINUA' : (busy ? '...' : 'PAGA')}
+      onBack={goPrev}
+      onCta={step < 3 ? goNext : handleConfirm}
+      disabled={step === 3 && (busy || priceLoading || serverPrice == null)}
+    />
   )
 
   return (
     <div className="page active" id="page-room">
       {mounted ? createPortal(stickyNav, document.body) : stickyNav}
-      <div className="booking-shell" style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
-
-        {/* Room header */}
-        <div style={{ background: 'var(--dark2)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', marginBottom: '20px' }}>
-          <div style={{ background: 'linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.82)),url(\'/assets/images/roomie-real-3.webp\') center/cover', padding: '40px 24px', textAlign: 'center', position: 'relative' }}>
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: '3.5rem', marginBottom: '8px' }}>🏭</div>
-              <div style={{ fontFamily: '\'Bebas Neue\',sans-serif', fontSize: '2.5rem', color: 'var(--neon)', textShadow: '0 0 30px rgba(200,255,0,.4)', marginBottom: '4px' }}>VIA TERNI</div>
-              <div style={{ fontSize: '.8rem', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--muted)' }}>TORINO · EX NEGOZIO FRONTE STRADA</div>
-              <div className="room-badges">
-                <div className="trust-pill" style={{ fontSize: '.75rem' }}><span style={{ color: 'var(--neon)' }}>●</span> Scegli orario</div>
-                <div className="trust-pill" style={{ fontSize: '.75rem' }}>{config.maxPeople} persone max</div>
-                <div className="trust-pill" style={{ fontSize: '.75rem' }}>40 m²</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)' }}>
-            <div className="room-console-strip">
-              <span className="console-pill console-ps" style={{ fontSize: '.72rem' }}>PS1-5</span>
-              <span className="console-pill console-xbox" style={{ fontSize: '.72rem' }}>XBOX</span>
-              <span className="console-pill console-nintendo" style={{ fontSize: '.72rem' }}>SNES</span>
-              <span className="console-pill console-pc" style={{ fontSize: '.72rem' }}>PC 4K</span>
-              <span className="logo-pill logo-netflix" style={{ fontSize: '.72rem', padding: '4px 10px' }}>NETFLIX</span>
-              <span className="logo-pill logo-dazn" style={{ fontSize: '.72rem', padding: '4px 10px' }}>DAZN</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Booking form */}
-        <div className="booking-panel">
-          <div className="booking-header">
-            <div>
-              <div style={{ fontFamily: '\'Bebas Neue\',sans-serif', fontSize: '1.5rem', color: '#fff' }}>PRENOTA LA ROOM</div>
-              <div style={{ fontSize: '.8rem', color: 'var(--muted)' }}>Scegli il mood. Le chips fanno il resto.</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontWeight: 900, fontSize: '2rem', color: 'var(--neon)', lineHeight: '1' }}>
-                {totalChips} chips
-              </div>
-              <div style={{ fontSize: '.72rem', color: 'var(--muted)' }}>= €{totalChips}</div>
-            </div>
-          </div>
+      <div className="booking-shell roomie-shell roomie-shell-compact">
+        <BookingFlowLayout
+          roomSummary={
+            <CompactRoomSummary
+              title="VIA TERNI"
+              location="Torino · Ex negozio fronte strada"
+              image="/assets/images/roomie-real-3.webp"
+              status="Disponibile"
+              stats={[
+                { label: 'Capienza', value: `${config.maxPeople} persone` },
+                { label: 'Superficie', value: '40 m²' },
+              ]}
+              experiences={ROOM_EXPERIENCES}
+            />
+          }
+        >
+          <div className="booking-panel">
 
           <div className="booking-body">
-            {/* Progress dots */}
-            <div className="booking-progress" aria-label="Step prenotazione">
-              {[0, 1, 2, 3].map(i => (
-                <button
-                  key={i}
-                  className={`booking-dot${step === i ? ' active' : ''}`}
-                  type="button"
-                  onClick={() => setStep(i)}
-                  aria-label={`Vai allo step ${i + 1}: ${stepLabels[i]}`}
-                  aria-current={step === i ? 'step' : undefined}
-                />
-              ))}
-            </div>
+            <BookingStepper steps={BOOKING_STEPS} activeStep={step} onStepClick={setStep} />
 
             {/* STEP 0: Sessione */}
             {step === 0 && (
               <div className="booking-step active">
                 <div className="booking-step-title">Scegli la sessione</div>
-                <div className="booking-step-sub">Parti da un preset sociale. Puoi sempre personalizzare dopo.</div>
+                <div className="booking-step-sub">Configura la durata di partenza. Premendo Continua passi alla scelta dell&apos;orario.</div>
                 <div className="preset-list">
                   {PRESETS.map(p => (
-                    <button
+                    <SessionOptionCard
                       key={p.id}
-                      className={`preset-chip${preset.id === p.id ? ' active' : ''}`}
-                      type="button"
-                      onClick={() => selectPreset(p)}
-                    >
-                      <span className="preset-copy">
-                        <span className="preset-title"><i className={`fas ${p.icon}`}></i> {p.label}</span>
-                        <span className="preset-sub">{p.sub}</span>
-                      </span>
-                      <span className="preset-price">{p.chips} chips</span>
-                    </button>
+                      option={p}
+                      selected={preset.id === p.id}
+                      onSelect={selectPreset}
+                    />
                   ))}
                 </div>
               </div>
@@ -306,22 +306,26 @@ export default function BookingPage() {
                 <div className="booking-step-sub">Adesso per entrare subito, oppure pianifica la serata.</div>
                 <div className="booking-mode">
                   <button className={mode === 'now' ? 'active' : ''} onClick={handleNowMode}>Adesso</button>
-                  <button className={mode === 'plan' ? 'active' : ''} onClick={() => setMode('plan')}>Pianifica</button>
+                  <button className={mode === 'plan' ? 'active' : ''} onClick={() => { setMode('plan'); setSlotConflict(null) }}>Pianifica</button>
                 </div>
                 <div className="event-chip">
                   <div className="event-row">
                     <div>
                       <label className="form-label">DATA</label>
-                      <input type="date" className="form-input" value={date} disabled={mode === 'now'} onChange={e => setDate(e.target.value)} />
+                      <input type="date" className="form-input" value={date} disabled={mode === 'now'} onChange={e => { setDate(e.target.value); setSlotConflict(null) }} />
                     </div>
                     <div>
                       <label className="form-label">INIZIO</label>
-                      <input type="time" className="form-input" value={start} step="900" disabled={mode === 'now'} onChange={e => setStart(e.target.value)} />
+                      <input type="time" className="form-input" value={start} step="900" disabled={mode === 'now'} onChange={e => { setStart(e.target.value); setSlotConflict(null) }} />
                     </div>
                   </div>
-                  <div className="slot-availability">
-                    <strong>Orario selezionato</strong>
-                    <span>{date} · {start}→{end}</span>
+                  <div className={`slot-availability${slotConflict ? ' blocked' : ''}`} role={slotConflict ? 'alert' : undefined}>
+                    <strong>{slotConflict ? 'Slot non disponibile' : 'Orario selezionato'}</strong>
+                    <span>
+                      {slotConflict
+                        ? `${slotConflict} e' gia occupato o bloccato. Scegli un altro inizio.`
+                        : `${date} · ${start}→${end}`}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -330,7 +334,7 @@ export default function BookingPage() {
             {/* STEP 2: Persone */}
             {step === 2 && (
               <div className="booking-step active">
-                <div className="booking-step-title">Chi viene?</div>
+                <div className="booking-step-title">Extra per il gruppo</div>
                 <div className="booking-step-sub">Tu sei l&apos;host. Aggiungi amici Roomie o guest pass temporanei.</div>
                 <div className="event-chip">
                   <label className="form-label">PARTECIPANTI</label>
@@ -343,20 +347,37 @@ export default function BookingPage() {
                       </span>
                       <span className="friend-state">Sempre</span>
                     </button>
+                    {invitedFriends.map(friend => (
+                      <button className="friend-chip active" type="button" key={friend.id} onClick={() => removeInvitedFriend(friend.id)}>
+                        <span className="friend-avatar">{friend.name.slice(0, 2).toUpperCase()}</span>
+                        <span className="friend-main">
+                          <span className="friend-name">{friend.name}</span>
+                          <span className="friend-meta">{friend.meta || `@${friend.username}`}</span>
+                        </span>
+                        <span className="friend-state">Rimuovi</span>
+                      </button>
+                    ))}
                     <button className="friend-chip add" type="button" onClick={openModalInvite}>
-                      <span className="friend-avatar" style={{ fontSize: '1.1rem', fontWeight: 900 }}>+</span>
+                      <span className="friend-avatar friend-avatar-plus">+</span>
                       <span className="friend-main">
                         <span className="friend-name">Aggiungi amico</span>
                         <span className="friend-meta">Cerca su Roomie o invia link</span>
                       </span>
                     </button>
                   </div>
+                  {invitedFriends.length > 0 && (
+                    <div className="presence-alert">
+                      Tutti i membri del gruppo devono essere presenti per avviare esperienze, luci e Live Mode. Se manca qualcuno entri lo stesso, ma la room resta in modalità attesa.
+                    </div>
+                  )}
                   <div className="guest-stepper">
                     <div>
-                      <div className="form-label" style={{ margin: '0 0 3px' }}>GUEST PASS TEMPORANEI</div>
-                      <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>+{config.guestPassPrice} chips cad.</div>
+                      <div className="form-label guest-pass-label">GUEST PASS TEMPORANEI</div>
+                      <div className="booking-guest-note">
+                        {totalPeople}/{config.maxPeople} persone · +{formatChipPrice(config.guestPassPrice)} cad.
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="booking-inline-row">
                       <button className="guest-btn" type="button" onClick={() => adjustGuests(-1)}>−</button>
                       <div className="guest-count">{guests}</div>
                       <button className="guest-btn" type="button" onClick={() => adjustGuests(1)}>+</button>
@@ -369,8 +390,8 @@ export default function BookingPage() {
             {/* STEP 3: Riepilogo */}
             {step === 3 && (
               <div className="booking-step active">
-                <div className="booking-step-title">Extra e riepilogo</div>
-                <div className="booking-step-sub">Live Mode, durata custom e totale prima del pagamento.</div>
+                <div className="booking-step-title">Checkout</div>
+                <div className="booking-step-sub">Controlla extra, durata e totale prima del pagamento.</div>
 
                 <button
                   type="button"
@@ -415,31 +436,38 @@ export default function BookingPage() {
 
                 <div className="price-box">
                   <div className="price-row"><span>Room</span><span>{preset.label} · {preset.isDay ? 'Giornata' : `${duration}h`}</span></div>
-                  {guests > 0 && (
-                    <div className="price-row"><span>Guest pass ({guests})</span><span>{guestChips} chips</span></div>
+                  {invitedFriends.length > 0 && (
+                    <div className="price-row"><span>Account Roomie ({invitedFriends.length})</span><span>inclusi</span></div>
                   )}
-                  <div className="price-row"><span>Deposito</span><span>0 chips</span></div>
+                  {guests > 0 && (
+                    <div className="price-row"><span>Guest pass ({guests})</span><span>{formatChipPrice(guestChips)}</span></div>
+                  )}
+                  <div className="price-row"><span>Deposito</span><span>{formatChipPrice(0)}</span></div>
                   {liveMode && (
-                    <div className="price-row" style={{ color: 'var(--neon)' }}>
+                    <div className="price-row text-neon">
                       <span>Cashback dopo live</span><span>+{cashback} chips</span>
                     </div>
                   )}
                   <div className="price-total">
                     <span>TOTALE</span>
-                    <span className="tok">{totalChips} chips</span>
+                    <span className="tok">
+                      {priceLoading ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span> : formatChipPrice(totalChips)}
+                    </span>
                   </div>
+                  {!priceLoading && <div className="price-euro-note">Equivalente indicativo: €{totalChips}</div>}
                 </div>
 
-                <p style={{ textAlign: 'center', fontSize: '.78rem', color: 'var(--muted)', marginTop: '10px' }}>
-                  Saldo attuale: <strong style={{ color: 'var(--neon)' }}>{balance} chips</strong>
+                <p className="booking-balance-note">
+                  Saldo attuale: <strong className="roomie-strong-neon">{balance} chips</strong>
                   {balance < totalChips && (
-                    <> · <button onClick={() => showPage('token')} style={{ background: 'none', border: 'none', color: 'var(--neon)', fontSize: '.78rem', fontWeight: 700, cursor: 'pointer' }}>Ricarica</button></>
+                    <> · <button onClick={() => showPage('token')} className="booking-link-reset">Ricarica</button></>
                   )}
                 </p>
               </div>
             )}
           </div>
-        </div>
+          </div>
+        </BookingFlowLayout>
 
       </div>
     </div>

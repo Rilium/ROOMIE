@@ -1,0 +1,166 @@
+/* ROOMIE design tokens and Bootstrap theme variables. */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --neon:#C8FF00;
+  --neon2:#00FFD1;
+  --orange:#FF5A1F;
+  --dark:#0D0D0D;
+  --dark2:#141414;
+  --dark3:#1C1C1C;
+  --dark4:#242424;
+  --brick:#2A1F1A;
+  --iron:#1A1A22;
+  --text:#E8E8E8;
+  --muted:#888;
+  --border:#333;
+  --token:var(--neon);
+  --r:8px;
+  --roomie-shell-max:43.75rem;
+  --roomie-shell-gutter:16px;
+
+  /* ── Bootstrap variable overrides — keep ROOMIE look on BS components ── */
+  --bs-body-bg:var(--dark);
+  --bs-body-color:var(--text);
+  --bs-body-font-family:'Barlow',sans-serif;
+  --bs-border-color:var(--border);
+  --bs-border-radius:8px;
+
+  /* Primary → neon lime */
+  --bs-primary:var(--neon);
+  --bs-primary-rgb:200,255,0;
+  --bs-link-color:var(--neon);
+  --bs-link-hover-color:#b0e600;
+  --bs-focus-ring-color:rgba(200,255,0,.35);
+
+  /* Secondary → dark graphite */
+  --bs-secondary:var(--border);
+  --bs-secondary-rgb:51,51,51;
+
+  /* Nav pills */
+  --bs-nav-pills-link-active-bg:var(--neon);
+  --bs-nav-pills-link-active-color:var(--dark);
+  --bs-nav-link-color:var(--muted);
+  --bs-nav-link-hover-color:var(--text);
+
+  /* Nav tabs */
+  --bs-nav-tabs-border-color:var(--border);
+  --bs-nav-tabs-link-active-bg:var(--dark3);
+  --bs-nav-tabs-link-active-color:var(--text);
+  --bs-nav-tabs-link-active-border-color:var(--border) var(--border) var(--dark3);
+  --bs-nav-tabs-link-hover-border-color:var(--border);
+
+  /* Buttons */
+  --bs-btn-font-weight:800;
+  --bs-btn-border-radius:8px;
+
+  /* Forms */
+  --bs-form-control-bg:var(--dark3);
+  --bs-form-control-color:var(--text);
+  --bs-form-control-border-color:var(--border);
+  --bs-input-bg:var(--dark3);
+  --bs-input-color:var(--text);
+  --bs-input-border-color:var(--border);
+  --bs-input-focus-border-color:var(--neon);
+  --bs-input-focus-box-shadow:0 0 0 3px rgba(200,255,0,.18);
+
+  /* Cards */
+  --bs-card-bg:var(--dark2);
+  --bs-card-border-color:var(--border);
+  --bs-card-color:var(--text);
+
+  /* Modals */
+  --bs-modal-bg:var(--dark2);
+  --bs-modal-color:var(--text);
+  --bs-modal-border-color:var(--border);
+  --bs-modal-header-border-color:var(--border);
+  --bs-modal-footer-border-color:var(--border);
+
+  /* Dropdowns */
+  --bs-dropdown-bg:var(--dark3);
+  --bs-dropdown-color:var(--text);
+  --bs-dropdown-border-color:var(--border);
+  --bs-dropdown-link-color:var(--text);
+  --bs-dropdown-link-hover-bg:var(--dark4);
+  --bs-dropdown-link-hover-color:var(--neon);
+  --bs-dropdown-link-active-bg:var(--neon);
+  --bs-dropdown-link-active-color:var(--dark);
+
+  /* Tables */
+  --bs-table-bg:transparent;
+  --bs-table-color:var(--text);
+  --bs-table-border-color:var(--border);
+  --bs-table-striped-bg:rgba(255,255,255,.04);
+  --bs-table-hover-bg:rgba(200,255,0,.06);
+
+  /* Badges */
+  --bs-badge-font-weight:800;
+
+  /* Alerts → map to ROOMIE orange/neon */
+  --bs-success-rgb:200,255,0;
+  --bs-danger-rgb:255,90,31;
+  --bs-warning-rgb:255,90,31;
+  --bs-info-rgb:0,255,209;
+  --bs-success:var(--neon);
+  --bs-danger:var(--orange);
+  --bs-warning:var(--orange);
+  --bs-info:var(--neon2);
+
+  /* Pagination */
+  --bs-pagination-bg:var(--dark3);
+  --bs-pagination-color:var(--muted);
+  --bs-pagination-border-color:var(--border);
+  --bs-pagination-hover-bg:var(--dark4);
+  --bs-pagination-hover-color:var(--text);
+  --bs-pagination-active-bg:var(--neon);
+  --bs-pagination-active-color:var(--dark);
+  --bs-pagination-active-border-color:var(--neon);
+  --bs-pagination-disabled-bg:var(--dark2);
+  --bs-pagination-disabled-color:#555;
+
+  /* List group */
+  --bs-list-group-bg:var(--dark2);
+  --bs-list-group-color:var(--text);
+  --bs-list-group-border-color:var(--border);
+  --bs-list-group-action-hover-bg:var(--dark3);
+  --bs-list-group-action-hover-color:var(--text);
+  --bs-list-group-action-active-bg:var(--dark4);
+  --bs-list-group-active-bg:var(--neon);
+  --bs-list-group-active-color:var(--dark);
+  --bs-list-group-active-border-color:var(--neon);
+
+  /* Accordion */
+  --bs-accordion-bg:var(--dark2);
+  --bs-accordion-color:var(--text);
+  --bs-accordion-border-color:var(--border);
+  --bs-accordion-btn-color:var(--text);
+  --bs-accordion-btn-bg:var(--dark2);
+  --bs-accordion-btn-active-color:var(--neon);
+  --bs-accordion-btn-active-bg:var(--dark3);
+  --bs-accordion-btn-icon-color:var(--muted);
+  --bs-accordion-btn-active-icon-color:var(--neon);
+  --bs-accordion-active-color:var(--neon);
+  --bs-accordion-active-bg:var(--dark3);
+
+  /* Tooltips / popovers */
+  --bs-tooltip-bg:var(--dark4);
+  --bs-tooltip-color:var(--text);
+  --bs-popover-bg:var(--dark3);
+  --bs-popover-body-color:var(--text);
+  --bs-popover-border-color:var(--border);
+  --bs-popover-header-bg:var(--dark4);
+  --bs-popover-header-color:var(--text);
+
+  /* Progress */
+  --bs-progress-bg:var(--dark3);
+  --bs-progress-bar-bg:var(--neon);
+  --bs-progress-bar-color:var(--dark);
+
+  /* Offcanvas */
+  --bs-offcanvas-bg:var(--dark2);
+  --bs-offcanvas-color:var(--text);
+  --bs-offcanvas-border-color:var(--border);
+  --mobile-nav-space:calc(78px + env(safe-area-inset-bottom));
+  --mobile-fixed-bottom:calc(var(--mobile-nav-space) + 16px);
+  --top-safe:calc(var(--nav-h) + env(safe-area-inset-top) + 16px);
+  --hero-top-safe:calc(var(--nav-h) + env(safe-area-inset-top) + 40px);
+}

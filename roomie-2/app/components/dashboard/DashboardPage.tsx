@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useClerk } from '@clerk/nextjs'
 import { useApp } from '@/app/context/AppContext'
-import { apiDashboard, apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
+import { apiDashboard, apiExtendBooking, apiRoomWifi, apiUpdateProfile } from '@/lib/client-api'
 import type { Booking } from '@/lib/types'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 
@@ -28,25 +29,46 @@ function statusClass(s: string) {
 }
 
 export default function DashboardPage() {
-  const { user, showPage, showToast, setActiveSession } = useApp()
+  const { user, setUser, showPage, showToast, setActiveSession } = useApp()
+  const clerk = useClerk()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [chipsSpent, setChipsSpent] = useState(0)
   const [wifi, setWifi] = useState<{ ssid: string; password: string; configured: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [profileName, setProfileName] = useState('')
+  const [profileUsername, setProfileUsername] = useState('')
+  const [profileBusy, setProfileBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await apiDashboard()
-    if (data) {
-      setBookings(data.bookings || [])
-      setSessionCount(data.sessionCount || 0)
-      setChipsSpent(data.chipsSpent || 0)
+    setLoadError('')
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error('DASHBOARD_TIMEOUT')), 8000)
+      })
+      const { data, error } = await Promise.race([apiDashboard(), timeout])
+      if (data) {
+        setBookings(data.bookings || [])
+        setSessionCount(data.sessionCount || 0)
+        setChipsSpent(data.chipsSpent || 0)
+      } else if (error) {
+        setLoadError(error)
+      }
+    } catch {
+      setLoadError('DASHBOARD_TIMEOUT')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (!user) return
+    setProfileName(user.name || '')
+    setProfileUsername(user.username || '')
+  }, [user])
   useEffect(() => {
     apiRoomWifi().then(({ data }) => {
       if (data?.wifi) setWifi(data.wifi)
@@ -89,7 +111,38 @@ export default function DashboardPage() {
     showToast({ title: 'Credenziali Wi-Fi copiate' })
   }
 
-  if (!user) return null
+  const saveProfile = async () => {
+    setProfileBusy(true)
+    const { data, error } = await apiUpdateProfile({ name: profileName, username: profileUsername })
+    setProfileBusy(false)
+    if (error || !data?.user) {
+      const msgs: Record<string, string> = {
+        BAD_NAME: 'Nome troppo corto.',
+        BAD_USERNAME: 'Username non valido: usa 3-24 caratteri.',
+        USERNAME_TAKEN: 'Username gia in uso.',
+      }
+      showToast({ title: msgs[error || ''] || 'Impossibile salvare il profilo.', type: 'warn' })
+      return
+    }
+    setUser(data.user)
+    showToast({ title: 'Profilo aggiornato' })
+  }
+
+  if (!user) {
+    return (
+      <div className="page active" id="page-dashboard">
+        <div className="dash-main">
+          <div className="page-skeleton" aria-label="Caricamento profilo">
+            <div className="roomie-skeleton page-skeleton-card shimmer" style={{ minHeight: '220px' }}></div>
+            <div className="page-skeleton-grid">
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+              <div className="roomie-skeleton page-skeleton-card shimmer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="page active" id="page-dashboard">
@@ -125,6 +178,13 @@ export default function DashboardPage() {
       <div className="dash-main">
 
         {/* Next session launchpad */}
+        {loadError && (
+          <div className="shop-locked-banner" style={{ display: 'block' }}>
+            <strong>Profilo lento a rispondere.</strong> Alcuni dati potrebbero arrivare tra poco. Puoi riprovare senza restare su schermata nera.
+            <button type="button" className="shop-lock-cta" onClick={load}>RICARICA PROFILO</button>
+          </div>
+        )}
+
         {nextBooking ? (
           <>
             <div className="next-session-chip" style={{ borderColor: 'rgba(200,255,0,.3)', marginBottom: '24px' }}>
@@ -177,6 +237,48 @@ export default function DashboardPage() {
             <button onClick={copyPartnerCode} className="quiet-action" style={{ borderRadius: '10px', padding: '12px', fontWeight: 900 }}>COPIA CODICE</button>
           </div>
         </div>
+
+        <section className="profile-data-card">
+          <div className="profile-data-head">
+            <div>
+              <div className="dash-section-label">Dati profilo</div>
+              <div className="profile-data-title">Account, sicurezza e documenti</div>
+            </div>
+            <span className={`status-badge ${user.role === 'admin' ? 's-live' : 's-paid'}`}>{user.role}</span>
+          </div>
+          <div className="profile-edit-grid">
+            <label>
+              <span>Nome visualizzato</span>
+              <input className="form-input" value={profileName} onChange={e => setProfileName(e.target.value)} />
+            </label>
+            <label>
+              <span>Username</span>
+              <input className="form-input" value={profileUsername} onChange={e => setProfileUsername(e.target.value)} />
+            </label>
+          </div>
+          <div className="profile-data-actions">
+            <button className="btn-neon" type="button" onClick={saveProfile} disabled={profileBusy}>
+              {profileBusy ? 'SALVO...' : 'SALVA DATI'}
+            </button>
+            <button className="quiet-action" type="button" onClick={() => clerk.openUserProfile?.()}>
+              RESET PASSWORD / ACCOUNT CLERK
+            </button>
+          </div>
+          <div className="profile-doc-row">
+            <div>
+              <strong>Documento</strong>
+              <span>
+                {user.documentVerificationStatus === 'mock_verified'
+                  ? `${user.documentType === 'driver_license' ? 'Patente' : 'Carta identita'} · ${user.documentName || 'Documento'} · ${user.documentLast4 || '--'}`
+                  : 'Non ancora caricato'}
+              </span>
+            </div>
+            <div>
+              <strong>Consensi</strong>
+              <span>{user.termsAcceptedAt && user.privacyAcceptedAt ? 'Termini e Privacy accettati' : 'Da completare'}</span>
+            </div>
+          </div>
+        </section>
 
         {/* Tools */}
         <div className="profile-tools-grid">

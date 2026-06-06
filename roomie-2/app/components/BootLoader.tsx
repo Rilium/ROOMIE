@@ -9,11 +9,19 @@ export default function BootLoader() {
   const [exiting, setExiting] = useState(false)
 
   useEffect(() => {
+    const maxT = setTimeout(() => {
+      setExiting(true)
+      setTimeout(() => setMounted(false), 420)
+    }, 3500)
     if (!loading) {
       setExiting(true)
       const t = setTimeout(() => setMounted(false), 420)
-      return () => clearTimeout(t)
+      return () => {
+        clearTimeout(t)
+        clearTimeout(maxT)
+      }
     }
+    return () => clearTimeout(maxT)
   }, [loading])
 
   if (!mounted) return null
@@ -23,10 +31,10 @@ export default function BootLoader() {
         <div className="boot-shell">
           <div className="roomie-loader-brand">ROOMIE</div>
           <span className="roomie-chip" aria-hidden="true"></span>
-          <div className="boot-skeleton">
-            <div className="roomie-skeleton roomie-skeleton-line lg shimmer"></div>
-            <div className="roomie-skeleton roomie-skeleton-line shimmer" style={{ width: '84%' }}></div>
-            <div className="roomie-skeleton roomie-skeleton-line sm shimmer" style={{ width: '58%' }}></div>
+          <div className="boot-status-dots" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
           <div className="boot-copy">Prepariamo la room</div>
         </div>

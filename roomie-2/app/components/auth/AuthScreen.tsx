@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useEffect, useState, useRef } from 'react'
+import { useAuth, useClerk, useSessionList } from '@clerk/nextjs'
 import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
 import { apiMe } from '@/lib/client-api'
@@ -12,10 +12,37 @@ type SetActiveFn = (opts: {
   redirectUrl?: string
   navigate?: (opts: { decorateUrl: (url: string) => string }) => Promise<unknown> | void
 }) => Promise<void>
+type PendingSignUp = {
+  status?: string | null
+  createdSessionId?: string | null
+  emailAddress?: string | null
+  missingFields?: string[]
+  unverifiedFields?: string[]
+  verifications?: {
+    externalAccount?: {
+      status?: string | null
+      strategy?: string | null
+      error?: {
+        code?: string
+        message?: string
+        longMessage?: string
+      } | null
+    }
+  }
+  update?: (params: Record<string, unknown>) => Promise<PendingSignUp>
+  prepareEmailAddressVerification?: (params: { strategy: 'email_code' }) => Promise<unknown>
+  authenticateWithRedirect?: (params: Record<string, unknown>) => Promise<void>
+}
 
 export default function AuthScreen() {
   const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, openLegalDoc } = useApp()
-  const { getToken } = useAuth()
+  const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth()
+  const { signOut } = useClerk()
+  const sessionList = useSessionList() as {
+    isLoaded?: boolean
+    sessions?: Array<{ id: string }>
+    setActive?: (opts: { session: string }) => Promise<void>
+  }
   const { signIn, setActive: setActiveSignIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, setActive: setActiveSignUp, isLoaded: signUpLoaded } = useSignUp()
 
@@ -30,14 +57,12 @@ export default function AuthScreen() {
   // Login refs
   const loginEmailRef    = useRef<HTMLInputElement>(null)
   const loginPasswordRef = useRef<HTMLInputElement>(null)
-  const loginRememberRef = useRef<HTMLInputElement>(null)
 
   // Register refs
   const regNameRef       = useRef<HTMLInputElement>(null)
   const regUsernameRef   = useRef<HTMLInputElement>(null)
   const regEmailRef      = useRef<HTMLInputElement>(null)
   const regPasswordRef   = useRef<HTMLInputElement>(null)
-  const regRememberRef   = useRef<HTMLInputElement>(null)
   const acceptTermsRef   = useRef<HTMLInputElement>(null)
   const acceptPrivacyRef = useRef<HTMLInputElement>(null)
   const verifyCodeRef    = useRef<HTMLInputElement>(null)
@@ -46,6 +71,7 @@ export default function AuthScreen() {
   const forgotEmailRef = useRef<HTMLInputElement>(null)
   const forgotCodeRef  = useRef<HTMLInputElement>(null)
   const newPasswordRef = useRef<HTMLInputElement>(null)
+  const syncingSessionRef = useRef(false)
 
   const errMsg: Record<string, string> = {
     form_identifier_not_found:             'Email non trovata.',
@@ -70,6 +96,13 @@ export default function AuthScreen() {
     return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
   }
 
+  function isSessionExistsError(err: unknown): boolean {
+    const e = err as { errors?: Array<{ code?: string; message?: string }>; message?: string }
+    const first = e?.errors?.[0]
+    const text = `${first?.code || ''} ${first?.message || ''} ${e?.message || ''}`.toLowerCase()
+    return text.includes('session_exists') || text.includes('session already exists')
+  }
+
   const fetchUser = async (token?: string | null) => {
     await new Promise(r => setTimeout(r, 300))
     for (let i = 0; i < 5; i++) {
@@ -83,6 +116,23 @@ export default function AuthScreen() {
       await new Promise(r => setTimeout(r, 400 + i * 200))
     }
     return null
+  }
+
+  const completeLocalSession = async () => {
+    const token = await getToken().catch(() => null)
+    const user = await fetchUser(token)
+    if (user) {
+      setUser(user)
+      closeAuth()
+      showPage('dashboard')
+      return true
+    }
+    return false
+  }
+
+  const authUrl = (path: string) => {
+    if (typeof window === 'undefined') return path
+    return new URL(path, window.location.origin).toString()
   }
 
   const activateAndRedirect = async (sessionId: string, setActiveFn: SetActiveFn | undefined) => {
@@ -110,11 +160,104 @@ export default function AuthScreen() {
     }
   }
 
-  const handleSessionExists = async () => {
-    const user = await fetchUser()
-    if (user) { setUser(user); closeAuth(); showPage('dashboard') }
-    else window.location.href = '/dashboard'
+  const usernameFromEmail = (email?: string | null) => {
+    const seed = (email || 'roomie_user').split('@')[0] || 'roomie_user'
+    const cleaned = seed.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '').slice(0, 20)
+    return cleaned.length >= 3 ? cleaned : `roomie_${cleaned || 'user'}`
   }
+
+  const recoverPendingSignUp = async () => {
+    const pending = signUp as unknown as PendingSignUp | null
+    if (!pending || pending.status !== 'missing_requirements') return false
+
+    setBusy(true)
+    setError('')
+    try {
+      let next = pending
+      const externalError = next.verifications?.externalAccount?.error
+      if (externalError) {
+        console.error('[Clerk Google OAuth error]', externalError)
+        if (externalError.code === 'oauth_token_exchange_error') {
+          setError("Google non e' configurato correttamente in Clerk: il client secret OAuth non e' valido.")
+        } else {
+          setError(`Google non ha completato l'accesso: ${externalError.message || externalError.code || 'errore OAuth'}.`)
+        }
+        return false
+      }
+
+      const missing = new Set(next.missingFields || [])
+      const patch: Record<string, unknown> = {}
+
+      if (missing.has('legal_accepted') || missing.has('legalAccepted')) {
+        patch.legalAccepted = true
+      }
+      if (missing.has('username')) {
+        patch.username = usernameFromEmail(next.emailAddress)
+      }
+      if (Object.keys(patch).length && next.update) {
+        next = await next.update({
+          ...patch,
+          unsafeMetadata: registrationMetadata(),
+        })
+      }
+
+      if (next.status === 'complete' && next.createdSessionId) {
+        await activateAndRedirect(next.createdSessionId, setActiveSignUp)
+        return true
+      }
+
+      if (next.unverifiedFields?.includes('email_address')) {
+        await next.prepareEmailAddressVerification?.({ strategy: 'email_code' })
+        setVerifyingEmail(true)
+        return true
+      }
+
+      setError(`Registrazione Google incompleta: ${next.missingFields?.join(', ') || 'requisiti mancanti'}.`)
+      return false
+    } catch (err) {
+      setError(clerkErrMsg(err))
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleSessionExists = async (): Promise<boolean> => {
+    if (syncingSessionRef.current) return false
+    syncingSessionRef.current = true
+    setBusy(true)
+    setError('')
+    try {
+      if (!isSignedIn && sessionList.isLoaded && sessionList.sessions?.length && sessionList.setActive) {
+        await sessionList.setActive({ session: sessionList.sessions[0].id })
+        await new Promise(r => setTimeout(r, 250))
+      }
+      const token = await getToken().catch(() => null)
+      const user = await fetchUser(token)
+      if (user) { setUser(user); closeAuth(); showPage('dashboard'); return true }
+      await signOut().catch(() => {})
+      setError('Sessione precedente resettata. Riprovo il login...')
+      return false
+    } finally {
+      syncingSessionRef.current = false
+      setBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!authOpen || !authLoaded || !isSignedIn) return
+    void handleSessionExists()
+  }, [authOpen, authLoaded, isSignedIn, sessionList.isLoaded])
+
+  useEffect(() => {
+    if (!authOpen || authMode !== 'register' || !signUpLoaded) return
+    void recoverPendingSignUp()
+  }, [authOpen, authMode, signUpLoaded, signUp?.status])
+
+  useEffect(() => {
+    document.body.classList.toggle('auth-modal-open', authOpen)
+    return () => document.body.classList.remove('auth-modal-open')
+  }, [authOpen])
 
   // ── LOGIN ───────────────────────────────────────────────────────────────────
 
@@ -122,6 +265,10 @@ export default function AuthScreen() {
     e.preventDefault()
     if (!signInLoaded || !signIn) return
     setError('')
+    if (authLoaded && isSignedIn) {
+      await handleSessionExists()
+      return
+    }
     setBusy(true)
     const identifier = loginEmailRef.current?.value.trim() ?? ''
     const password   = loginPasswordRef.current?.value ?? ''
@@ -133,8 +280,21 @@ export default function AuthScreen() {
         setError('Verifica la tua email prima di accedere.')
       }
     } catch (err) {
-      const code = (err as { errors?: Array<{ code: string }> })?.errors?.[0]?.code
-      if (code === 'session_exists') { await handleSessionExists(); setBusy(false); return }
+      if (isSessionExistsError(err)) {
+        const recovered = await handleSessionExists()
+        if (recovered) return
+        try {
+          const retry = await signIn.create({ identifier, password })
+          if (retry.status === 'complete') {
+            await activateAndRedirect(retry.createdSessionId!, setActiveSignIn)
+          } else {
+            setError('Verifica la tua email prima di accedere.')
+          }
+        } catch (retryErr) {
+          setError(clerkErrMsg(retryErr))
+        }
+        return
+      }
       setError(clerkErrMsg(err))
     } finally {
       setBusy(false)
@@ -147,6 +307,10 @@ export default function AuthScreen() {
     e.preventDefault()
     if (!signUpLoaded || !signUp) return
     setError('')
+    if (authLoaded && isSignedIn) {
+      await handleSessionExists()
+      return
+    }
     if (!acceptTermsRef.current?.checked || !acceptPrivacyRef.current?.checked) {
       setError(errMsg.TERMS_REQUIRED)
       return
@@ -176,8 +340,7 @@ export default function AuthScreen() {
         setError('Stato inatteso. Riprova.')
       }
     } catch (err) {
-      const code = (err as { errors?: Array<{ code: string }> })?.errors?.[0]?.code
-      if (code === 'session_exists') { await handleSessionExists(); setBusy(false); return }
+      if (isSessionExistsError(err)) { await handleSessionExists(); return }
       setError(clerkErrMsg(err))
     } finally {
       setBusy(false)
@@ -207,22 +370,31 @@ export default function AuthScreen() {
   // ── GOOGLE ──────────────────────────────────────────────────────────────────
 
   const handleGoogle = async () => {
+    setError('')
+    setBusy(true)
+    if (authLoaded && isSignedIn) {
+      const completed = await completeLocalSession()
+      if (!completed) await handleSessionExists()
+      setBusy(false)
+      return
+    }
+
     if (authMode === 'register') {
-      if (!acceptTermsRef.current?.checked || !acceptPrivacyRef.current?.checked) {
-        setError(errMsg.TERMS_REQUIRED)
-        return
-      }
       if (!signUpLoaded || !signUp) { window.location.href = '/sign-up'; return }
       try {
-        await signUp.authenticateWithRedirect({
+        const oauthSignUp = signUp as unknown as PendingSignUp
+        await oauthSignUp.authenticateWithRedirect?.({
           strategy: 'oauth_google',
-          redirectUrl: '/sso-callback',
-          redirectUrlComplete: '/dashboard',
+          redirectUrl: authUrl('/sso-callback'),
+          redirectUrlComplete: authUrl('/dashboard'),
+          continueSignIn: true,
+          continueSignUp: true,
           legalAccepted: true,
           unsafeMetadata: registrationMetadata(),
         })
       } catch (err) {
         setError(clerkErrMsg(err))
+        setBusy(false)
       }
       return
     }
@@ -231,11 +403,12 @@ export default function AuthScreen() {
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: '/dashboard',
+        redirectUrl: authUrl('/sso-callback'),
+        redirectUrlComplete: authUrl('/dashboard'),
       })
     } catch (err) {
       setError(clerkErrMsg(err))
+      setBusy(false)
     }
   }
 
@@ -288,9 +461,6 @@ export default function AuthScreen() {
 
   return (
     <div className="login-page" id="auth-screen">
-      {/* Clerk CAPTCHA — must always be in DOM for Clerk to mount the widget */}
-      <div id="clerk-captcha" style={{ position: 'fixed', bottom: 0, left: 0, zIndex: 99999 }} />
-
       <div className="login-shell container py-4">
 
         {/* ── AUTH LANDING (sinistra) ── */}
@@ -342,7 +512,7 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+              {error && <div className="auth-error visible">{error}</div>}
 
               {forgotStep === 'email' && (
                 <form className="auth-form active" onSubmit={handleForgotSendCode}>
@@ -403,7 +573,7 @@ export default function AuthScreen() {
                 </div>
               </div>
 
-              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+              {error && <div className="auth-error visible">{error}</div>}
 
               <form className="auth-form active" onSubmit={handleVerifyEmail}>
                 <div className="form-group mb-3">
@@ -433,8 +603,12 @@ export default function AuthScreen() {
             <>
               <div className="auth-panel-head">
                 <div>
-                  <div className="auth-panel-title">{authMode === 'login' ? 'Accedi' : 'Registrati'}</div>
-                  <div className="auth-panel-sub">Account, chips e prenotazioni in un posto solo.</div>
+                  <div className="auth-panel-title">{authMode === 'login' ? 'Bentornato' : 'Crea il profilo'}</div>
+                  <div className="auth-panel-sub">
+                    {authMode === 'login'
+                      ? 'Entra e vai subito a prenotazioni, chips e accesso room.'
+                      : 'Ti servono solo email, password e consensi. Il profilo Roomie si prepara al primo accesso.'}
+                  </div>
                 </div>
                 <div className="auth-panel-chip">
                   <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
@@ -454,14 +628,18 @@ export default function AuthScreen() {
                 >Registrati</button>
               </div>
 
-              {error && <div className="auth-error" style={{ display: 'block' }}>{error}</div>}
+              {error && <div className="auth-error visible">{error}</div>}
 
               {/* LOGIN FORM */}
               {authMode === 'login' && (
                 <form className="auth-form active" onSubmit={handleLogin}>
+                  <div className="auth-benefit-strip">
+                    <span><i className="fas fa-shield-alt"></i> Sessione sicura</span>
+                    <span><i className="fas fa-bolt"></i> Dashboard immediata</span>
+                  </div>
                   <div className="social-auth">
-                    <button className="social-btn google" type="button" onClick={handleGoogle}>
-                      <i className="fab fa-google"></i> Continua con Google
+                    <button className="social-btn google" type="button" onClick={handleGoogle} disabled={busy}>
+                      <i className="fab fa-google"></i> {busy ? 'Apertura Google...' : 'Continua con Google'}
                     </button>
                   </div>
                   <div className="auth-divider">oppure</div>
@@ -485,26 +663,28 @@ export default function AuthScreen() {
                     </div>
                   </div>
                   <div className="auth-check-row">
-                    <label className="auth-check">
-                      <input ref={loginRememberRef} type="checkbox" defaultChecked /> Resta collegato
-                    </label>
+                    <span className="auth-check">Sessione protetta da Clerk</span>
                     <button type="button" className="auth-link" onClick={() => { setError(''); setForgotStep('email') }}>
                       Hai dimenticato la password?
                     </button>
                   </div>
                   <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
-                    {busy ? 'Accesso...' : 'LOGIN'}
+                    {busy ? 'Accesso...' : 'ENTRA IN ROOMIE'}
                   </button>
-                  <div className="auth-footnote">Accesso protetto. Le tue chips e prenotazioni restano nel profilo.</div>
+                  <div className="auth-footnote">Se hai gia' una sessione attiva, la recuperiamo senza farti rifare il giro.</div>
                 </form>
               )}
 
               {/* REGISTER FORM */}
               {authMode === 'register' && (
                 <form className="auth-form active" onSubmit={handleRegister}>
+                  <div className="auth-benefit-strip">
+                    <span><i className="fas fa-gift"></i> Chips benvenuto</span>
+                    <span><i className="fas fa-calendar-check"></i> Prenoti subito</span>
+                  </div>
                   <div className="social-auth">
-                    <button className="social-btn google" type="button" onClick={handleGoogle}>
-                      <i className="fab fa-google"></i> Registrati con Google
+                    <button className="social-btn google" type="button" onClick={handleGoogle} disabled={busy}>
+                      <i className="fab fa-google"></i> {busy ? 'Apertura Google...' : 'Registrati con Google'}
                     </button>
                   </div>
                   <div className="auth-divider">oppure</div>
@@ -546,12 +726,12 @@ export default function AuthScreen() {
                     </label>
                   </div>
                   <label className="auth-check">
-                    <input ref={regRememberRef} type="checkbox" defaultChecked /> Crea cookie sessione persistente
+                    Sessione account protetta da Clerk
                   </label>
                   <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Registrazione...' : 'CREA ACCOUNT'}
                   </button>
-                  <div className="auth-footnote">Le chips di benvenuto vengono aggiunte subito al tuo profilo.</div>
+                  <div className="auth-footnote">Dopo la verifica email ti portiamo direttamente nella dashboard.</div>
                 </form>
               )}
             </>

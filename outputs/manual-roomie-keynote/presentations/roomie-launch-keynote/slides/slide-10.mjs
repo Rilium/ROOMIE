@@ -1,2 +1,0 @@
-import {bg,bebas,sub,label,chip,card,text,page,C} from './common.mjs';
-export async function slide10(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);label(s,ctx,'OGGETTO',72,58);bebas(s,ctx,"LA ROOMIE\nCHIP.",72,150,470,190,{size:78});sub(s,ctx,'NFC fisica. Sempre con te. Zero app davanti alla porta.',76,365,470,{size:23});chip(s,ctx,770,150,230);card(s,ctx,720,470,335,78,{stroke:C.neon,fill:'rgba(200,255,0,.08)'});text(s,ctx,'Fiche NFC pronta',790,494,220,28,{size:26,face:'Barlow Condensed'});page(s,ctx,10);return s;}

@@ -1,2 +1,0 @@
-import {bg,bebas,sub,label,image,overlay,cta,chip,page,IMG,C} from './common.mjs';
-export async function slide16(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);await image(s,ctx,IMG+'/roomie-hero-slide-1.jpg',0,0,1280,720);overlay(s,ctx,.58);label(s,ctx,'ROOMIE',72,60);bebas(s,ctx,"BLOCCA\nLA ROOM.",72,150,520,220,{size:88,color:C.neon});sub(s,ctx,'Entra. Fai quello che vuoi.',76,385,430,{size:28});cta(s,ctx,'PRENOTA ORA',76,500,310,72);chip(s,ctx,1090,545,96);page(s,ctx,16);return s;}

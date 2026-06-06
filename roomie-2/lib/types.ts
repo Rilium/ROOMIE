@@ -9,6 +9,13 @@ export interface PublicUser {
   role: 'user' | 'admin'
   chips: number
   suspended: boolean
+  termsAcceptedAt?: string | null
+  privacyAcceptedAt?: string | null
+  documentVerificationStatus?: 'missing' | 'pending' | 'mock_verified' | 'verified' | 'rejected'
+  documentType?: 'id_card' | 'driver_license' | null
+  documentLast4?: string | null
+  documentName?: string | null
+  documentVerifiedAt?: string | null
 }
 
 export interface AppConfig {
@@ -101,6 +108,13 @@ export interface DbUser {
   provider?: string
   providerId?: string
   avatar?: string
+  termsAcceptedAt?: string | null
+  privacyAcceptedAt?: string | null
+  documentVerificationStatus?: 'missing' | 'pending' | 'mock_verified' | 'verified' | 'rejected'
+  documentType?: 'id_card' | 'driver_license' | null
+  documentLast4?: string | null
+  documentName?: string | null
+  documentVerifiedAt?: string | null
   createdAt: string
 }
 

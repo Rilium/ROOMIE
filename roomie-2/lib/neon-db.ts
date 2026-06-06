@@ -52,6 +52,13 @@ export async function ensureBootstrapData(): Promise<void> {
 
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_id TEXT UNIQUE`
       await sql`CREATE INDEX IF NOT EXISTS idx_users_clerk_id ON users (clerk_id)`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_accepted_at TIMESTAMPTZ`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_verification_status TEXT NOT NULL DEFAULT 'missing'`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_type TEXT`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_last4 TEXT`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_name TEXT`
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_verified_at TIMESTAMPTZ`
 
       await sql`
         CREATE TABLE IF NOT EXISTS rate_limits (
@@ -139,6 +146,13 @@ export function publicUser(u: DbUser): PublicUser {
     role: u.role,
     chips: u.chips,
     suspended: u.suspended ?? false,
+    termsAcceptedAt: u.termsAcceptedAt ?? null,
+    privacyAcceptedAt: u.privacyAcceptedAt ?? null,
+    documentVerificationStatus: u.documentVerificationStatus ?? 'missing',
+    documentType: u.documentType ?? null,
+    documentLast4: u.documentLast4 ?? null,
+    documentName: u.documentName ?? null,
+    documentVerifiedAt: u.documentVerifiedAt ?? null,
   }
 }
 
@@ -190,6 +204,13 @@ function rowToDbUser(r: Record<string, unknown>): DbUser {
     provider:     r.provider ? String(r.provider) : undefined,
     providerId:   r.provider_id ? String(r.provider_id) : undefined,
     avatar:       r.avatar ? String(r.avatar) : undefined,
+    termsAcceptedAt: r.terms_accepted_at ? new Date(r.terms_accepted_at as string).toISOString() : null,
+    privacyAcceptedAt: r.privacy_accepted_at ? new Date(r.privacy_accepted_at as string).toISOString() : null,
+    documentVerificationStatus: (r.document_verification_status as DbUser['documentVerificationStatus']) ?? 'missing',
+    documentType: r.document_type ? (String(r.document_type) as DbUser['documentType']) : null,
+    documentLast4: r.document_last4 ? String(r.document_last4) : null,
+    documentName: r.document_name ? String(r.document_name) : null,
+    documentVerifiedAt: r.document_verified_at ? new Date(r.document_verified_at as string).toISOString() : null,
     createdAt:    r.created_at ? new Date(r.created_at as string).toISOString() : new Date().toISOString(),
   }
 }
@@ -307,6 +328,60 @@ export async function patchUserAdmin(
       role      = COALESCE(${updates.role ?? null}, role),
       suspended = COALESCE(${updates.suspended ?? null}, suspended)
     WHERE id = ${id}
+    RETURNING *
+  `
+  return rows[0] ? rowToDbUser(rows[0]) : null
+}
+
+export async function patchOwnUserProfile(
+  id: string,
+  updates: Partial<Pick<DbUser, 'name' | 'username'>>,
+): Promise<DbUser | null> {
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE users SET
+      name = COALESCE(${updates.name ?? null}, name),
+      username = COALESCE(${updates.username ?? null}, username),
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `
+  return rows[0] ? rowToDbUser(rows[0]) : null
+}
+
+export async function acceptUserLegal(userId: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE users SET
+      terms_accepted_at = COALESCE(terms_accepted_at, NOW()),
+      privacy_accepted_at = COALESCE(privacy_accepted_at, NOW()),
+      updated_at = NOW()
+    WHERE id = ${userId}
+    RETURNING *
+  `
+  return rows[0] ? rowToDbUser(rows[0]) : null
+}
+
+export async function mockVerifyUserDocument(
+  userId: string,
+  data: {
+    documentType: 'id_card' | 'driver_license'
+    documentLast4: string
+    documentName: string
+  },
+): Promise<DbUser | null> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE users SET
+      document_verification_status = 'mock_verified',
+      document_type = ${data.documentType},
+      document_last4 = ${data.documentLast4},
+      document_name = ${data.documentName},
+      document_verified_at = NOW(),
+      updated_at = NOW()
+    WHERE id = ${userId}
     RETURNING *
   `
   return rows[0] ? rowToDbUser(rows[0]) : null
@@ -844,6 +919,8 @@ interface ClerkUserProfile {
   unsafeMetadata?: {
     roomieUsername?: unknown
     roomieDisplayName?: unknown
+    acceptedTerms?: unknown
+    acceptedPrivacy?: unknown
   } | null
 }
 
@@ -886,6 +963,9 @@ export async function getOrCreateRoomieUserFromClerk(profile: ClerkUserProfile):
     user = await getUserByEmail(email)
     if (user) {
       await linkClerkId(user.id, clerkId)
+      if (profile.unsafeMetadata?.acceptedTerms === true || profile.unsafeMetadata?.acceptedPrivacy === true) {
+        user = await acceptUserLegal(user.id) ?? user
+      }
       return user
     }
   }
@@ -916,6 +996,9 @@ export async function getOrCreateRoomieUserFromClerk(profile: ClerkUserProfile):
   })
 
   await linkClerkId(user.id, clerkId)
+  if (profile.unsafeMetadata?.acceptedTerms === true || profile.unsafeMetadata?.acceptedPrivacy === true) {
+    user = await acceptUserLegal(user.id) ?? user
+  }
   await logEvent('clerk_register', user.id, { clerkId, email })
   return user
 }

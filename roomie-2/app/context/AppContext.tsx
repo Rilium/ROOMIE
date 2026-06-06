@@ -2,9 +2,9 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useClerk } from '@clerk/nextjs'
+import { useAuth, useClerk } from '@clerk/nextjs'
 import type { PublicUser, AppConfig, Booking } from '@/lib/types'
-import { apiMe, apiAppConfig, apiDashboard, apiLogout } from '@/lib/client-api'
+import { apiMe, apiAppConfig, apiDashboard, apiLogout, setAuthTokenGetter } from '@/lib/client-api'
 import { isBookingLiveNow } from '@/lib/utils'
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
@@ -14,6 +14,15 @@ export interface CartItem {
   name: string
   price: number
   qty: number
+}
+
+export interface InvitedFriend {
+  id: string
+  username: string
+  name: string
+  meta?: string
+  avatar?: string
+  source?: string
 }
 
 export interface BookingDraft {
@@ -33,6 +42,7 @@ export interface BookingDraft {
 
 export interface ActiveSession {
   booking: Booking
+  friends?: InvitedFriend[]
   accessStep: number
   shutterDone: boolean
   keyDone: boolean
@@ -55,8 +65,10 @@ interface AppContextValue {
   authMode: 'login' | 'register'
   authOpen: boolean
   loading: boolean
+  authTransition: 'logout' | null
   toast: ToastPayload | null
   booking: BookingDraft
+  invitedFriends: InvitedFriend[]
   cart: CartItem[]
   activeSession: ActiveSession | null
 
@@ -88,6 +100,8 @@ interface AppContextValue {
 
   // Booking
   setBookingDraft: (b: Partial<BookingDraft>) => void
+  addInvitedFriends: (friends: InvitedFriend[]) => void
+  removeInvitedFriend: (id: string) => void
   clearBookingDraft: () => void
 
   // Cart
@@ -146,7 +160,7 @@ const PAGE_TO_PATH: Record<string, string> = {
 const PATH_TO_PAGE: Record<string, string> = Object.fromEntries(
   Object.entries(PAGE_TO_PATH).map(([page, path]) => [path, page])
 )
-const PROTECTED_PAGES = ['room', 'checkout', 'confirm', 'session', 'dashboard', 'token', 'shop', 'admin']
+const PROTECTED_PAGES = ['checkout', 'confirm', 'session', 'dashboard', 'token', 'shop', 'admin']
 
 export function useApp() {
   const ctx = useContext(AppContext)
@@ -156,21 +170,32 @@ export function useApp() {
 
 // ── PROVIDER ──────────────────────────────────────────────────────────────────
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({
+  children,
+  initialAuthMode = 'login',
+  initialAuthOpen = false,
+}: {
+  children: React.ReactNode
+  initialAuthMode?: 'login' | 'register'
+  initialAuthOpen?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const { signOut: clerkSignOut } = useClerk()
+  const { isLoaded: clerkLoaded, isSignedIn, getToken } = useAuth()
   const [user, setUserState] = useState<PublicUser | null>(null)
   const userRef = useRef<PublicUser | null>(null)
   const [config, setConfigState] = useState<AppConfig>(defaultConfig)
   const [activePage, setActivePage] = useState(() => PATH_TO_PAGE[pathname || '/'] || 'home')
-  const [authMode, setAuthModeState] = useState<'login' | 'register'>('login')
-  const [authOpen, setAuthOpen] = useState(false)
+  const [authMode, setAuthModeState] = useState<'login' | 'register'>(initialAuthMode)
+  const [authOpen, setAuthOpen] = useState(initialAuthOpen)
   const [loading, setLoading] = useState(true)
+  const [authTransition, setAuthTransition] = useState<'logout' | null>(null)
   const [toast, setToast] = useState<ToastPayload | null>(null)
   const [booking, setBookingState] = useState<BookingDraft>(defaultBooking)
   const [cart, setCart] = useState<CartItem[]>([])
   const [activeSession, setActiveSessionState] = useState<ActiveSession | null>(null)
+  const [invitedFriends, setInvitedFriends] = useState<InvitedFriend[]>([])
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Modal state
@@ -180,14 +205,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [modalLegalDoc, setModalLegalDoc] = useState<{ open: boolean; type: LegalDocType | null }>({ open: false, type: null })
   const [modalInvite, setModalInvite] = useState(false)
 
+  useEffect(() => {
+    if (!clerkLoaded || !isSignedIn) {
+      setAuthTokenGetter(null)
+      return
+    }
+    setAuthTokenGetter(() => getToken())
+    return () => setAuthTokenGetter(null)
+  }, [clerkLoaded, isSignedIn, getToken])
+
   // ── Init ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
+    if (!clerkLoaded) return
+
     let mounted = true
     const init = async () => {
       let roomieUser: PublicUser | null = null
       try {
-        const [meRes, cfgRes] = await Promise.all([apiMe(), apiAppConfig()])
+        const token = isSignedIn ? await getToken().catch(() => null) : null
+        const [meRes, cfgRes] = await Promise.all([apiMe(token ?? undefined), apiAppConfig()])
         if (!mounted) return
         roomieUser = meRes.data?.user || null
         if (cfgRes.data?.config) setConfigState(cfgRes.data.config)
@@ -198,7 +235,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           for (let i = 0; i < 4; i++) {
             if (!mounted) return
             await new Promise(r => setTimeout(r, 600 + i * 400))
-            const retry = await apiMe()
+            const retryToken = isSignedIn ? await getToken().catch(() => null) : null
+            const retry = await apiMe(retryToken ?? undefined)
             roomieUser = retry.data?.user || null
             if (roomieUser) break
           }
@@ -221,8 +259,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         if (routePage) {
           if (PROTECTED_PAGES.includes(routePage) && !roomieUser) {
-            setAuthModeState('login')
-            setAuthOpen(true)
+            if (!isSignedIn) {
+              setAuthModeState('login')
+              setAuthOpen(true)
+            } else {
+              setAuthOpen(false)
+            }
             setActivePage('home')
           } else {
             setActivePage(routePage)
@@ -233,18 +275,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     init()
     return () => { mounted = false }
-  }, [router])
+  }, [router, clerkLoaded, isSignedIn, getToken])
 
   useEffect(() => {
+    if (!clerkLoaded) return
+
     const page = PATH_TO_PAGE[pathname || '/'] || 'home'
-    if (PROTECTED_PAGES.includes(page) && !userRef.current && !loading) {
+    if (PROTECTED_PAGES.includes(page) && !userRef.current && !loading && !isSignedIn) {
       setAuthModeState('login')
       setAuthOpen(true)
       setActivePage('home')
       return
     }
     setActivePage(page)
-  }, [pathname, loading])
+  }, [pathname, loading, clerkLoaded, isSignedIn])
 
   useEffect(() => {
     if (!user) {
@@ -257,12 +301,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const liveBooking = data?.currentLive || null
       setActiveSessionState(prev => {
         if (liveBooking) {
+          const sameBooking = prev?.booking.id === liveBooking.id
           return {
             booking: liveBooking,
-            accessStep: prev?.booking.id === liveBooking.id ? prev.accessStep : 0,
-            shutterDone: prev?.booking.id === liveBooking.id ? prev.shutterDone : false,
-            keyDone: prev?.booking.id === liveBooking.id ? prev.keyDone : false,
-            doorDone: prev?.booking.id === liveBooking.id ? prev.doorDone : false,
+            friends: sameBooking ? prev?.friends : invitedFriends,
+            accessStep: sameBooking ? prev.accessStep : 0,
+            shutterDone: sameBooking ? prev.shutterDone : false,
+            keyDone: sameBooking ? prev.keyDone : false,
+            doorDone: sameBooking ? prev.doorDone : false,
           }
         }
         if (prev?.booking && isBookingLiveNow(prev.booking)) return prev
@@ -270,7 +316,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     }).catch(() => {})
     return () => { mounted = false }
-  }, [user])
+  }, [user, invitedFriends])
 
   // Modal handlers
   const openModalNfc = useCallback(() => setModalNfc(true), [])
@@ -330,15 +376,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
+    setAuthTransition('logout')
+    setAuthOpen(false)
     try { await apiLogout() } catch {}
-    userRef.current = null
-    setUserState(null)
-    setActivePage('home')
-    setActiveSessionState(null)
-    setCart([])
     try {
       await clerkSignOut({ redirectUrl: '/' })
     } catch {
+      userRef.current = null
+      setUserState(null)
+      setActivePage('home')
+      setActiveSessionState(null)
+      setCart([])
+      setAuthTransition(null)
       router.push('/')
     }
   }, [clerkSignOut, router])
@@ -367,7 +416,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const path = PAGE_TO_PATH[page] || '/'
     setActivePage(page)
     router.push(path)
-    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }))
+    window.setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
+    }, 90)
   }, [openAuth, router])
 
   // ── Toast ─────────────────────────────────────────────────────────────────
@@ -385,8 +436,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBookingState(prev => ({ ...prev, ...updates }))
   }, [])
 
+  const addInvitedFriends = useCallback((friends: InvitedFriend[]) => {
+    setInvitedFriends(prev => {
+      const byId = new Map(prev.map(friend => [friend.id, friend]))
+      friends.forEach(friend => byId.set(friend.id, friend))
+      const next = Array.from(byId.values()).slice(0, 7)
+      setBookingState(current => ({ ...current, friends: next.map(friend => friend.id) }))
+      return next
+    })
+    setActiveSessionState(current => {
+      if (!current) return current
+      const byId = new Map((current.friends ?? []).map(friend => [friend.id, friend]))
+      friends.forEach(friend => byId.set(friend.id, friend))
+      return { ...current, friends: Array.from(byId.values()).slice(0, 7) }
+    })
+  }, [])
+
+  const removeInvitedFriend = useCallback((id: string) => {
+    setInvitedFriends(prev => {
+      const next = prev.filter(friend => friend.id !== id)
+      setBookingState(current => ({ ...current, friends: next.map(friend => friend.id) }))
+      return next
+    })
+    setActiveSessionState(current => current ? {
+      ...current,
+      friends: (current.friends ?? []).filter(friend => friend.id !== id),
+    } : current)
+  }, [])
+
   const clearBookingDraft = useCallback(() => {
     setBookingState(defaultBooking)
+    setInvitedFriends([])
   }, [])
 
   // ── Cart ──────────────────────────────────────────────────────────────────
@@ -462,14 +542,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── Value ──────────────────────────────────────────────────────────────────
 
   const value: AppContextValue = {
-    user, config, activePage, authMode, authOpen, loading, toast,
-    booking, cart, activeSession,
+    user, config, activePage, authMode, authOpen, loading, authTransition, toast,
+    booking, invitedFriends, cart, activeSession,
     modalNfc, modalCodeUnlock, modalTokenBuy, modalLegalDoc, modalInvite,
     openModalNfc, openModalCodeUnlock, openModalTokenBuy, openLegalDoc, openModalInvite, closeModal,
     setUser, logout, openAuth, closeAuth, setAuthMode,
     showPage,
     showToast,
-    setBookingDraft, clearBookingDraft,
+    setBookingDraft, addInvitedFriends, removeInvitedFriend, clearBookingDraft,
     addToCart, updateCartItem, removeCartItem, clearCart,
     setActiveSession,
     setConfig,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/app/context/AppContext'
+import { HyperText } from '@/app/components/magicui/hyper-text'
 
 const HERO_SLIDES = [
   {
@@ -77,8 +78,14 @@ export default function LandingLegacy() {
     goHeroSlide(dx < 0 ? 1 : -1)
   }
 
+  const handleHomePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.currentTarget
+    target.style.setProperty('--home-grid-x', `${event.clientX}px`)
+    target.style.setProperty('--home-grid-y', `${event.clientY}px`)
+  }
+
   return (
-    <div className="page active" id="page-home">
+    <div className="page active home-grid-pattern" id="page-home" onPointerMove={handleHomePointerMove}>
 
       {/* HERO */}
       <section
@@ -110,10 +117,9 @@ export default function LandingLegacy() {
               <span className="hero-badge-dot"></span>
               LIVE · VIA TERNI
             </div>
-            <h1 className="hero-title">
-              <span id="hero-headline">{currentHero.title}</span><br />
-              <span className="neon-line">{currentHero.neon}</span>
-            </h1>
+            <HyperText as="h1" className="hero-title" duration={900} delay={120}>
+              {`${currentHero.title}\n${currentHero.neon}`}
+            </HyperText>
             <p className="hero-addr">{currentHero.addr}</p>
             <p className="hero-sub">{currentHero.sub}</p>
           </div>
@@ -148,6 +154,7 @@ export default function LandingLegacy() {
             ></button>
           ))}
         </div>
+        <div className="hero-bottom-beam" aria-hidden="true"></div>
       </section>
 
       {/* INSIDE */}

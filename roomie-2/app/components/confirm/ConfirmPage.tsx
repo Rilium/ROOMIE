@@ -32,13 +32,13 @@ export default function ConfirmPage() {
 
   // Programmatic scroll to step
   const scrollToStep = useCallback((step: number) => {
+    setAccessStep(step)
     const el = flowRef.current
     if (!el) return
-    const stepEl = el.children[step] as HTMLElement | undefined
-    if (stepEl) {
-      el.scrollTo({ left: stepEl.offsetLeft, behavior: 'smooth' })
-    }
-    setAccessStep(step)
+    window.requestAnimationFrame(() => {
+      const stepEl = el.children[step] as HTMLElement | undefined
+      if (stepEl) el.scrollTo({ left: stepEl.offsetLeft, behavior: 'smooth' })
+    })
   }, [])
 
   const copyCode = useCallback(() => {
@@ -61,13 +61,18 @@ export default function ConfirmPage() {
       return
     }
     setKeyDone(true)
+    if (activeSession) setActiveSession({ ...activeSession, keyDone: true })
     void apiLogAccess(bookingId, 'lockbox_viewed', 'lockbox')
     scrollToStep(1)
   }
 
   const handleShutterDone = () => {
-    if (!accessLive) return
+    if (!accessLive) {
+      showToast({ title: 'Accesso bloccato', copy: `Si sblocca da ${accessDateLabel}.`, type: 'warn' })
+      return
+    }
     setShutterDone(true)
+    if (activeSession) setActiveSession({ ...activeSession, keyDone: true, shutterDone: true })
     void apiLogAccess(bookingId, 'shutter_done', 'key')
     void apiLogAccess(bookingId, 'key_replaced', 'lockbox')
     scrollToStep(2)
@@ -114,8 +119,8 @@ export default function ConfirmPage() {
       showToast({ title: 'Accesso non ancora disponibile', copy: `Torna da ${accessDateLabel}.`, type: 'warn' })
       return
     }
-    scrollToStep(0)
     setAccessSheetOpen(true)
+    window.setTimeout(() => scrollToStep(accessStep), 80)
   }
 
   const closeAccessSheet = () => setAccessSheetOpen(false)
@@ -176,7 +181,7 @@ export default function ConfirmPage() {
             <div className="access-display">
               <div className={`access-code-text${codeVisible ? '' : ' masked'}`}>
                 {codeVisible ? (
-                  <span style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontSize: '2.5rem', fontWeight: 900, letterSpacing: '8px', color: 'var(--neon)' }}>
+                  <span className="confirm-code">
                     {lockboxCode}
                   </span>
                 ) : (
@@ -249,17 +254,17 @@ export default function ConfirmPage() {
                 <div className="access-desc">Usa la ROOMIE Chip NFC sul lettore oppure il codice porta.</div>
               </div>
             </div>
-            <div style={{ height: '160px', borderRadius: '16px', background: 'radial-gradient(circle at 50% 18%,rgba(200,255,0,.18),transparent 52%),linear-gradient(135deg,#050505,#1f1f1f)', border: '1px solid rgba(255,255,255,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '14px', flexShrink: 0 }}>
+            <div className="confirm-access-art">
               <div className="roomie-chip roomie-chip-lg" aria-label="ROOMIE NFC chip"></div>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="confirm-access-actions">
               <button
                 onClick={() => handleDoorUnlock('nfc')}
-                style={{ flex: 1, background: 'rgba(0,255,209,.12)', border: '1px solid var(--neon2)', color: 'var(--neon2)', borderRadius: '8px', padding: '12px', fontWeight: 800, fontSize: '.84rem' }}
+                className="confirm-access-primary"
               >CHIP NFC</button>
               <button
                 onClick={() => handleDoorUnlock('code')}
-                style={{ flex: 1, background: 'var(--dark3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px', padding: '12px', fontWeight: 800, fontSize: '.84rem' }}
+                className="confirm-access-secondary"
               >CODICE PORTA</button>
             </div>
           </div>
@@ -267,15 +272,15 @@ export default function ConfirmPage() {
           {/* Step 4: Dentro */}
           <div className="access-sheet-step">
             <div className="inside-live-chip">
-              <div style={{ fontSize: '.72rem', fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--neon)', marginBottom: '8px' }}>
+              <div className="roomie-kicker-neon">
                 <i className="fas fa-unlock"></i> ACCESSO RIUSCITO
               </div>
-              <div style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontWeight: 900, fontSize: '2.4rem', color: '#fff', lineHeight: '1' }}>SEI DENTRO.</div>
-              <div style={{ fontSize: '.88rem', color: 'rgba(255,255,255,.72)', marginTop: '8px', lineHeight: '1.55' }}>
-                Room tua fino alle <strong style={{ color: 'var(--neon)' }}>{b?.end || '22:00'}</strong>.
+              <div className="confirm-access-title">SEI DENTRO.</div>
+              <div className="confirm-access-copy">
+                Room tua fino alle <strong className="roomie-strong-neon">{b?.end || '22:00'}</strong>.
               </div>
-              <div className="inside-actions" style={{ marginTop: '20px' }}>
-                <button className="btn-neon" style={{ justifyContent: 'center', padding: '12px' }} onClick={() => { closeAccessSheet(); showPage('session') }}>
+              <div className="inside-actions mt-20">
+                <button className="btn-neon roomie-btn-access-action" onClick={() => { closeAccessSheet(); showPage('session') }}>
                   SESSIONE LIVE
                 </button>
                 <button className="btn-outline-neon" onClick={() => { closeAccessSheet(); showPage('shop') }}>ADDON</button>
@@ -303,13 +308,13 @@ export default function ConfirmPage() {
 
   return (
     <div className={`page active${accessLive ? '' : ' access-waiting'}`} id="page-confirm">
-      <div className="booking-shell" style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="booking-shell roomie-shell">
 
         {/* Confirmed hero */}
         <div className="confirm-hero">
           <span className="confirm-emoji"><i className="fas fa-check-circle"></i></span>
           <div className="confirm-title">PRENOTAZIONE<br />CONFERMATA</div>
-          <div style={{ fontSize: '.88rem', color: 'rgba(255,255,255,.6)', lineHeight: '1.6' }}>
+          <div className="confirm-muted-copy">
             La room è bloccata. Prima alzi la serranda, poi apri la porta con ROOMIE Chip o codice.
           </div>
         </div>
@@ -319,7 +324,7 @@ export default function ConfirmPage() {
           <div className="detail-item"><div className="detail-label">Data</div><div className="detail-val">{b?.date || '—'}</div></div>
           <div className="detail-item"><div className="detail-label">Orario</div><div className="detail-val">{b?.start || '—'} → {b?.end || '—'}</div></div>
           <div className="detail-item"><div className="detail-label">Persone</div><div className="detail-val">{(b as any)?.people || 1}</div></div>
-          <div className="detail-item"><div className="detail-label">Pagato</div><div className="detail-val" style={{ color: 'var(--neon)' }}>{b?.totalChips || 0} chips</div></div>
+          <div className="detail-item"><div className="detail-label">Pagato</div><div className="detail-val roomie-strong-neon">{b?.totalChips || 0} chips</div></div>
         </div>
 
         {/* Arrival card */}
@@ -338,8 +343,7 @@ export default function ConfirmPage() {
           </div>
           <button
             id="arrival-start-btn"
-            className="btn-neon w-full"
-            style={{ justifyContent: 'center', padding: '13px', marginTop: '14px' }}
+            className="btn-neon w-full roomie-btn-live-action"
             onClick={openAccessSheet}
           >
             <i className="fas fa-route"></i> INIZIA ACCESSO
@@ -364,10 +368,10 @@ export default function ConfirmPage() {
           </div>
         )}
 
-        <button onClick={() => showPage('shop')} style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '10px', padding: '12px', fontWeight: 700, fontSize: '.85rem', marginTop: '20px', marginBottom: '8px' }}>
+        <button onClick={() => showPage('shop')} className="confirm-secondary-btn">
           SHOP ADDON & SNACK
         </button>
-        <button onClick={() => showPage('dashboard')} style={{ width: '100%', background: 'transparent', border: 'none', color: 'var(--muted)', borderRadius: '10px', padding: '8px', fontSize: '.82rem' }}>
+        <button onClick={() => showPage('dashboard')} className="confirm-tertiary-btn">
           Le mie prenotazioni
         </button>
       </div>

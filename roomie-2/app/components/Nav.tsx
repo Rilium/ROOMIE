@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/app/context/AppContext'
+import { ShineBorder } from '@/app/components/magicui/shine-border'
+import { isBookingLiveNow } from '@/lib/utils'
 
 interface NavItem {
   id: string
@@ -19,8 +21,38 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function Nav() {
-  const { activePage, showPage, user, openAuth, logout, openLegalDoc } = useApp()
+  const { activePage, showPage, user, openAuth, logout, openLegalDoc, activeSession } = useApp()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [bottomCompact, setBottomCompact] = useState(false)
+  const lastScrollYRef = useRef(0)
+  const liveBooking = activeSession?.booking
+  const hasLiveRoom = Boolean(liveBooking && isBookingLiveNow(liveBooking) && activeSession?.doorDone)
+
+  useEffect(() => {
+    const setCompact = (compact: boolean) => {
+      setBottomCompact(compact)
+      document.body.classList.toggle('mobile-nav-compact', compact)
+    }
+
+    lastScrollYRef.current = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      const delta = y - lastScrollYRef.current
+      if (y > 80 && delta > 8) setCompact(true)
+      if (delta < -8 || y < 40) setCompact(false)
+      lastScrollYRef.current = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      document.body.classList.remove('mobile-nav-compact')
+    }
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.toggle('has-system-live-bar', hasLiveRoom)
+    return () => document.body.classList.remove('has-system-live-bar')
+  }, [hasLiveRoom])
 
   const handleNav = (item: NavItem) => {
     if (item.requireAuth && !user) {
@@ -46,7 +78,7 @@ export default function Nav() {
   const visibleItems = NAV_ITEMS.filter(item => {
     // Nascondi "Accesso" se non c'è sessione attiva e non si è sulla pagina confirm/session
     if (item.id === 'session') {
-      return ['confirm', 'session'].includes(activePage)
+      return Boolean(activeSession?.booking) || ['confirm', 'session'].includes(activePage)
     }
     // Da sloggato la bottom nav deve restare secca: Home, Prenota, Profilo.
     // Lo shop resta raggiungibile dopo login, così non promette acquisti fuori contesto.
@@ -56,6 +88,22 @@ export default function Nav() {
 
   return (
     <>
+      {hasLiveRoom && (
+        <button className="system-live-bar" type="button" onClick={() => showPage('session')} aria-label="Vai alla pagina Sei dentro">
+          <ShineBorder duration={5.5} initialOffset={22} colorFrom="#ff3b30" colorTo="#00ffd1" borderWidth={1.2} />
+          <span className="system-live-pill">
+            <span className="system-live-dot" aria-hidden="true"></span>
+            ROOMIE LIVE
+          </span>
+          <span className="system-live-main">
+            <strong>Sei dentro</strong>
+            <span>Controlli, cam e shop attivi fino alle {liveBooking?.end || '--:--'}</span>
+          </span>
+          <span className="system-live-action">
+            Apri <i className="fas fa-arrow-right"></i>
+          </span>
+        </button>
+      )}
       <nav className="roomie-nav" aria-label="Navigazione principale">
         <div className="container-fluid">
           <div className="nav-left">
@@ -145,9 +193,9 @@ export default function Nav() {
               </>
             )}
 
-            <div className="drawer-section">Legale</div>
+            <div className="drawer-section drawer-legal-section">Legale</div>
             {(['terms', 'privacy', 'cookie'] as const).map(doc => (
-              <button key={doc} className="drawer-link" type="button" onClick={() => { setDrawerOpen(false); openLegalDoc(doc) }}>
+              <button key={doc} className="drawer-link drawer-legal-link" type="button" onClick={() => { setDrawerOpen(false); openLegalDoc(doc) }}>
                 <span className="drawer-icon"><i className="fas fa-file-contract"></i></span>
                 <span>
                   <span className="drawer-main">{doc === 'terms' ? 'Termini' : doc === 'privacy' ? 'Privacy' : 'Cookie'}</span>
@@ -171,7 +219,7 @@ export default function Nav() {
         </div>
       )}
 
-      <nav className="mobile-bottom-nav" aria-label="Navigazione mobile">
+      <nav className={`mobile-bottom-nav${bottomCompact ? ' is-compact' : ''}`} aria-label="Navigazione mobile">
         {visibleItems.map(item => (
           <button
             key={item.id}

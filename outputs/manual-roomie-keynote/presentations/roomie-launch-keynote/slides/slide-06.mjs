@@ -1,2 +1,0 @@
-import {bg,bebas,sub,label,image,card,page,A,C} from './common.mjs';
-export async function slide06(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);label(s,ctx,'BOOKING',64,54);bebas(s,ctx,"PRENOTI\nUN MOOD.",64,152,430,190,{size:76});sub(s,ctx,'Non scegli ore. Scegli la serata.',68,365,420,{size:24});card(s,ctx,505,68,700,585,{stroke:C.neon});await image(s,ctx,A+'/room.jpg',520,82,670,555,'cover');page(s,ctx,6);return s;}

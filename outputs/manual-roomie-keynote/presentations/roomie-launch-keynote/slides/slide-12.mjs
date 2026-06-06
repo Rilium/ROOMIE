@@ -1,2 +1,0 @@
-import {bg,bebas,sub,label,image,card,page,A,C} from './common.mjs';
-export async function slide12(presentation,ctx){const s=presentation.slides.add();bg(s,ctx);label(s,ctx,'SHOP',70,55);bebas(s,ctx,"SOLO QUANDO\nSERVE.",70,135,460,190,{size:72});sub(s,ctx,"Snack, streaming, setup.\nAttivi durante la sessione.",74,430,390,{size:22,h:90});card(s,ctx,505,65,700,590,{stroke:'rgba(255,255,255,.18)'});await image(s,ctx,A+'/shop.jpg',520,80,670,560,'cover');page(s,ctx,12);return s;}

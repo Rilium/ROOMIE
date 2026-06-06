@@ -33,14 +33,14 @@ const LEGAL = {
     title: 'Cookie Policy',
     meta: 'ROOMIE · Ultimo aggiornamento: 2024',
     file: '/legal/cookie-policy-roomie.docx',
-    fallback: `<p>ROOMIE usa solo cookie tecnici essenziali per la sessione di autenticazione (<code>roomie.auth</code>). Nessun cookie di tracciamento o analisi di terze parti. Il cookie di sessione scade entro 30 giorni (o 12 ore se "resta collegato" è disattivato).</p>`,
+    fallback: `<p>ROOMIE usa solo cookie tecnici essenziali per autenticazione, sicurezza e continuita' della sessione. L'accesso account e' gestito da Clerk; il cookie legacy <code>roomie.auth</code> puo' essere rimosso al logout se ancora presente da versioni precedenti. Nessun cookie di tracciamento o analisi di terze parti.</p>`,
   },
 }
 
 // ── MODAL WRAPPER ─────────────────────────────────────────────────────────────
 
 function ModalOverlay({ open, onClose, maxWidth = 380, children }: {
-  open: boolean; onClose: () => void; maxWidth?: number; children: React.ReactNode
+  open: boolean; onClose: () => void; maxWidth?: number | string; children: React.ReactNode
 }) {
   useEffect(() => {
     if (!open) return
@@ -283,7 +283,7 @@ function LegalDocModal() {
   }, [modalLegalDoc.open, doc])
 
   return (
-    <ModalOverlay open={modalLegalDoc.open} onClose={close} maxWidth={700}>
+    <ModalOverlay open={modalLegalDoc.open} onClose={close} maxWidth="var(--roomie-shell-max)">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexShrink: 0 }}>
         <div>
           <div className="modal-title">{doc?.title ?? ''}</div>
@@ -344,17 +344,19 @@ function LegalDocModal() {
 // ── INVITE MODAL ──────────────────────────────────────────────────────────────
 
 function InviteModal() {
-  const { modalInvite, closeModal, showToast } = useApp()
+  const { modalInvite, closeModal, showToast, addInvitedFriends } = useApp()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<{ id: string; username: string; name: string }[]>([])
+  const [results, setResults] = useState<{ id: string; username: string; name: string; meta?: string; avatar?: string; source?: string }[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const close = () => { closeModal('invite'); setQuery(''); setResults([]); setSelected([]) }
+  const close = () => { closeModal('invite'); setQuery(''); setResults([]); setSelected([]); setSearchError('') }
 
   const search = (q: string) => {
     setQuery(q)
+    setSearchError('')
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (q.trim().length < 2) { setResults([]); return }
     debounceRef.current = setTimeout(async () => {
@@ -362,7 +364,15 @@ function InviteModal() {
       try {
         const res = await fetch(`/api/friends/platform?q=${encodeURIComponent(q.trim())}`)
         const data = await res.json()
+        if (!res.ok) {
+          setResults([])
+          setSearchError(data.error || 'CLERK_USERS_API_FAILED')
+          return
+        }
         setResults((data.friends ?? []).slice(0, 6))
+      } catch {
+        setResults([])
+        setSearchError('CLERK_USERS_API_FAILED')
       } finally { setLoading(false) }
     }, 300)
   }
@@ -372,8 +382,23 @@ function InviteModal() {
   }
 
   const generateLink = () => {
-    const link = `${window.location.origin}/?invite=${Math.random().toString(36).slice(2, 10)}`
+    const link = `${window.location.origin}/invite/${Math.random().toString(36).slice(2, 10)}`
     navigator.clipboard.writeText(link).then(() => showToast({ title: 'Link copiato!' }))
+  }
+
+  const confirmSelected = () => {
+    const friends = results.filter(user => selected.includes(user.id))
+    if (!friends.length) {
+      showToast({ title: 'Seleziona almeno un account', type: 'warn' })
+      return
+    }
+    addInvitedFriends(friends)
+    showToast({
+      title: 'Gruppo aggiornato',
+      copy: 'Per avviare tutte le esperienze devono essere presenti tutti. Puoi comunque entrare: luci/esperienze restano in attesa, almeno stai al caldo o al fresco.',
+      type: 'ok',
+    })
+    close()
   }
 
   return (
@@ -391,6 +416,7 @@ function InviteModal() {
         />
       </div>
       {loading && <div style={{ fontSize: '.8rem', color: 'var(--muted)', marginBottom: '8px' }}>Ricerca…</div>}
+      {searchError && <div className="auth-error visible">Clerk Users API non ha risposto: {searchError}</div>}
       {results.length > 0 && (
         <div style={{ marginBottom: '12px' }}>
           {results.map(u => (
@@ -408,13 +434,21 @@ function InviteModal() {
             >
               <span style={{ flex: 1 }}>
                 <span style={{ fontWeight: 700, display: 'block', fontSize: '.85rem' }}>{u.name}</span>
-                <span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>@{u.username}</span>
+                <span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>{u.meta || `@${u.username}`}</span>
               </span>
               {selected.includes(u.id) && <i className="fas fa-check" style={{ color: 'var(--neon)' }}></i>}
             </button>
           ))}
         </div>
       )}
+      <button
+        className="btn-neon w-full"
+        style={{ justifyContent: 'center', marginBottom: '12px' }}
+        onClick={confirmSelected}
+        disabled={selected.length === 0}
+      >
+        AGGIUNGI {selected.length > 0 ? selected.length : ''} AL GRUPPO
+      </button>
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
         <div style={{ fontSize: '.8rem', color: 'var(--muted)', marginBottom: '8px' }}>Oppure genera link invito per guest</div>
         <button className="btn-neon w-full" style={{ justifyContent: 'center' }} onClick={generateLink}>

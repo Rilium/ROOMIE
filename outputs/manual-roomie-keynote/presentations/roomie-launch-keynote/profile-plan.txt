@@ -1,8 +1,0 @@
-task mode: create
-primary deck-profile: consumer-retail
-secondary gates: product-platform, gtm-growth
-required proof objects: product screenshots, ROOMIE physical-digital flow, booking/access/shop/live-mode UI moments
-source/asset requirements: use local ROOMIE screenshots and product imagery only
-brand authenticity: no fake partner logos; use ROOMIE color/type/UI language, screenshots from production
-QA gates: cinematic rhythm, one idea per slide, no dense copy, 15 slides max
-known missing inputs: no user-provided PPT template

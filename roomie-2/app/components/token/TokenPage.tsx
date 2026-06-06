@@ -36,10 +36,10 @@ export default function TokenPage() {
 
   return (
     <div className="page active" id="page-token">
-      <div style={{ maxWidth: '700px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="roomie-shell">
 
         <span className="section-label">Il tuo saldo</span>
-        <h2 style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontWeight: 900, fontSize: '3rem', color: '#fff', lineHeight: '1', marginBottom: '20px' }}>
+        <h2 className="token-title">
           ROOMIE CHIPS
         </h2>
 
@@ -50,21 +50,21 @@ export default function TokenPage() {
               <div className="token-name">ROOMIE CHIPS</div>
               <div className="token-rate">1 chip = <strong>€1</strong> · Come una prepagata, solo per Roomie</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="roomie-chip roomie-chip-lg" style={{ '--chip-size': '96px', margin: '0 0 10px auto' } as React.CSSProperties}></div>
-              <div style={{ fontSize: '.8rem', color: 'var(--muted)', marginBottom: '4px' }}>Il tuo saldo</div>
-              <div style={{ fontFamily: '\'Barlow Condensed\',sans-serif', fontWeight: 900, fontSize: '3.5rem', color: 'var(--neon)', lineHeight: '1' }}>
+            <div className="token-balance-box">
+              <div className="roomie-chip roomie-chip-lg token-balance-chip"></div>
+              <div className="roomie-copy-muted mb-4">Il tuo saldo</div>
+              <div className="token-balance-value">
                 €{user?.chips ?? 0}
               </div>
-              <div style={{ fontSize: '.8rem', color: 'var(--muted)' }}>disponibili ora</div>
+              <div className="roomie-copy-muted">disponibili ora</div>
             </div>
           </div>
         </div>
 
         {/* Ricarica */}
-        <div className="chip" style={{ padding: '20px', marginBottom: '20px' }}>
-          <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff', marginBottom: '4px' }}>Ricarica chips</div>
-          <div style={{ fontSize: '.83rem', color: 'var(--muted)', marginBottom: '16px' }}>Usa carta, PayPal o Satispay. Le chips non scadono.</div>
+        <div className="chip roomie-card-pad-20">
+          <div className="token-card-title">Ricarica chips</div>
+          <div className="token-card-copy">Usa carta, PayPal o Satispay. Le chips non scadono.</div>
           <div className="buy-amounts">
             {AMOUNTS.map(a => (
               <div
@@ -73,11 +73,11 @@ export default function TokenPage() {
                 onClick={() => { setSelected(a.chips); setCustom('') }}
               >
                 {a.chips} chips<br />
-                <small style={{ color: 'var(--muted)' }}>{a.eur} {a.bonus}</small>
+                <small className="token-pack-note">{a.eur} {a.bonus}</small>
               </div>
             ))}
           </div>
-          <div style={{ marginBottom: '12px' }}>
+          <div className="token-pack-actions">
             <label className="form-label">OPPURE IMPORTO CUSTOM</label>
             <input
               type="number"
@@ -88,8 +88,7 @@ export default function TokenPage() {
             />
           </div>
           <button
-            className="btn-neon w-full"
-            style={{ justifyContent: 'center', padding: '14px' }}
+            className="btn-neon w-full roomie-btn-primary-action"
             onClick={handleTopup}
             disabled={busy}
           >
@@ -98,8 +97,8 @@ export default function TokenPage() {
         </div>
 
         {/* A cosa servono */}
-        <div className="chip" style={{ padding: '20px', marginBottom: '20px' }}>
-          <div style={{ fontWeight: 700, color: '#fff', marginBottom: '14px' }}>A cosa servono le chips</div>
+        <div className="chip roomie-card-pad-20">
+          <div className="token-section-title">A cosa servono le chips</div>
           <div className="flex flex-col gap-12">
             {[
               { icon: '🏠', color: 'rgba(200,255,0,.1)', title: 'Prenotare la room', sub: '12 chips/ora · 60 chips giornata intera' },
@@ -113,8 +112,8 @@ export default function TokenPage() {
                   {item.fa ? <i className={`fas ${item.icon}`}></i> : item.icon}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '.9rem', color: 'var(--text)' }}>{item.title}</div>
-                  <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>{item.sub}</div>
+                  <div className="token-use-title">{item.title}</div>
+                  <div className="roomie-copy-muted-sm">{item.sub}</div>
                 </div>
               </div>
             ))}
@@ -122,7 +121,7 @@ export default function TokenPage() {
         </div>
 
         {/* Partner */}
-        <div style={{ fontWeight: 700, fontSize: '.85rem', letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '12px' }}>RISTORANTI PARTNER · 10% con codice ROOMIE</div>
+        <div className="token-partner-heading">RISTORANTI PARTNER · 10% con codice ROOMIE</div>
         <div className="flex flex-col gap-8">
           {[
             { logo: 'fa-pizza-slice', logoColor: '#E50914', logoBg: 'rgba(229,9,20,.15)', name: 'Pizzeria Da Marco', desc: '50m a piedi · Consegna in room disponibile' },

@@ -1,4 +1,0 @@
-Slide size: 1280x720.
-Palette: #050505 base, #111111 panels, #C8FF00 neon primary, #00FFD1 cyan state, #FFFFFF type, #8B8B8B muted.
-Typography: Bebas Neue for cinematic claims, Barlow/Barlow Condensed for UI labels.
-Layout: fullscreen imagery, dark overlays, asymmetric screen blocks, neon hairline cards.

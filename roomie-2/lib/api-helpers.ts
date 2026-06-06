@@ -57,28 +57,70 @@ export function csrfGuard(req: Request): Response | null {
 
 // ── Clerk auth helpers ────────────────────────────────────────────────────────
 
-async function resolveClerkUser(): Promise<DbUser | null> {
+async function resolveClerkUser(req?: Request): Promise<DbUser | null> {
   if (!hasUsableClerkConfig()) return null
 
   try {
     // Dynamic import to avoid breaking if CLERK_SECRET_KEY is a placeholder
+    const { auth, currentUser, clerkClient, verifyToken } = await import('@clerk/nextjs/server')
+    const bearer = req?.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
+    if (bearer) {
+      const claims = await verifyToken(bearer, { secretKey: process.env.CLERK_SECRET_KEY }) as { sub?: string }
+      if (!claims.sub) return null
+
+      let user = await getUserByClerkId(claims.sub)
+      if (user) return user
+
+      const client = await clerkClient()
+      const clerkUser = await client.users.getUser(claims.sub)
+      user = await getOrCreateRoomieUserFromClerk(clerkUser)
+      return user
+    }
+
+    const { userId: clerkId } = await auth()
+    if (clerkId) {
+      let user = await getUserByClerkId(clerkId)
+      if (!user) {
+        const clerkUser = await currentUser()
+        if (clerkUser) user = await getOrCreateRoomieUserFromClerk(clerkUser)
+      }
+      return user
+    }
+
+    return null
+  } catch (err) {
+    console.error('[requireAuth] Clerk/ROOMIE profile resolution failed:', err)
+    return null
+  }
+}
+
+export async function resolveRoomieUserFromRequest(req?: Request): Promise<DbUser | null> {
+  return resolveClerkUser(req)
+}
+
+export async function resolveRoomieUserFromCurrentClerk(): Promise<DbUser | null> {
+  if (!hasUsableClerkConfig()) return null
+
+  try {
     const { auth, currentUser } = await import('@clerk/nextjs/server')
     const { userId: clerkId } = await auth()
     if (!clerkId) return null
+
     let user = await getUserByClerkId(clerkId)
     if (!user) {
       const clerkUser = await currentUser()
       if (clerkUser) user = await getOrCreateRoomieUserFromClerk(clerkUser)
     }
     return user
-  } catch {
+  } catch (err) {
+    console.error('[requireAuth] Clerk/ROOMIE profile resolution failed:', err)
     return null
   }
 }
 
 /** Legge utente autenticato dal DB oppure restituisce Response 401. */
 export async function requireAuth(_req?: Request): Promise<{ user: DbUser } | Response> {
-  const clerkUser = await resolveClerkUser()
+  const clerkUser = await resolveClerkUser(_req)
   if (!clerkUser) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 })
   if (clerkUser.suspended) return Response.json({ error: 'ACCOUNT_SUSPENDED' }, { status: 403 })
   return { user: clerkUser }

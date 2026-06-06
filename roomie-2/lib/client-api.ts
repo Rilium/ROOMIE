@@ -9,14 +9,40 @@ export interface ApiResult<T = unknown> {
   status: number
 }
 
+let authTokenGetter: (() => Promise<string | null>) | null = null
+let pendingApiCalls = 0
+const pendingListeners = new Set<(pending: number) => void>()
+
+export function setAuthTokenGetter(getter: (() => Promise<string | null>) | null) {
+  authTokenGetter = getter
+}
+
+export function subscribeApiPending(listener: (pending: number) => void) {
+  pendingListeners.add(listener)
+  listener(pendingApiCalls)
+  return () => {
+    pendingListeners.delete(listener)
+  }
+}
+
+function emitApiPending(delta: 1 | -1) {
+  pendingApiCalls = Math.max(0, pendingApiCalls + delta)
+  pendingListeners.forEach(listener => listener(pendingApiCalls))
+}
+
 async function call<T = unknown>(
   path: string,
   options?: RequestInit,
 ): Promise<ApiResult<T>> {
+  emitApiPending(1)
   try {
     const method = String(options?.method || 'GET').toUpperCase()
     const headers = new Headers(options?.headers)
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    if (!headers.has('Authorization') && authTokenGetter) {
+      const token = await authTokenGetter().catch(() => null)
+      if (token) headers.set('Authorization', `Bearer ${token}`)
+    }
     if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) {
       headers.set('X-ROOMIE-CSRF', getCsrfToken())
     }
@@ -29,6 +55,8 @@ async function call<T = unknown>(
     return { data, error: null, status: res.status }
   } catch {
     return { data: null, error: 'NETWORK_ERROR', status: 0 }
+  } finally {
+    emitApiPending(-1)
   }
 }
 
@@ -59,6 +87,31 @@ export async function apiMe(token?: string) {
   return call<{ user: PublicUser }>('/api/me', token ? {
     headers: { Authorization: `Bearer ${token}` },
   } : undefined)
+}
+
+export async function apiAcceptLegal() {
+  return call<{ user: PublicUser }>('/api/onboarding', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'accept_legal' }),
+  })
+}
+
+export async function apiMockVerifyDocument(payload: {
+  documentType: 'id_card' | 'driver_license'
+  documentLast4: string
+  documentName: string
+}) {
+  return call<{ user: PublicUser }>('/api/onboarding', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'mock_verify_document', ...payload }),
+  })
+}
+
+export async function apiUpdateProfile(payload: { name?: string; username?: string }) {
+  return call<{ user: PublicUser }>('/api/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 }
 
 // ── APP ───────────────────────────────────────────────────────────────────────
@@ -105,6 +158,7 @@ export interface BookingPayload {
   start: string
   end: string
   people: number
+  friendIds?: string[]
   preset: string
   duration: number
   guests: number

@@ -61,6 +61,12 @@ export async function POST(req: Request) {
   const cfg = await getConfig()
   const people = Math.max(1, Number(body.people || 1))
   const maxPeople = Number(cfg.maxPeople || 8)
+  const friendIds = Array.isArray(body.friendIds)
+    ? body.friendIds
+      .map(id => String(id || '').trim())
+      .filter(id => id.length > 0)
+      .slice(0, maxPeople - 1)
+    : []
   if (!Number.isInteger(people) || people < 1 || people > maxPeople) {
     return Response.json({ error: 'BAD_PEOPLE', max: maxPeople }, { status: 400 })
   }
@@ -100,7 +106,7 @@ export async function POST(req: Request) {
       `booking:${preset}:${date}`,
     )
 
-    await logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration })
+    await logEvent('booking_created', user.id, { bookingId: id, totalChips, preset, duration, friendIds })
 
     const freshUser = await getUserById(user.id)
     const updatedUser = freshUser ?? { ...user, chips: newChips }

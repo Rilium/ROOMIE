@@ -91,7 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260604-auth-fix3" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260606-layout-shell" />
 
         {/* GSAP — must load before roomie.js */}
         <Script

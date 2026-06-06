@@ -1,26 +1,25 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
-import { getUserByClerkId, getOrCreateRoomieUserFromClerk, publicUser } from '@/lib/neon-db'
-import { STORAGE_OK } from '@/lib/api-helpers'
+import { publicUser } from '@/lib/neon-db'
+import { resolveRoomieUserFromRequest, STORAGE_OK } from '@/lib/api-helpers'
 import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
-export async function GET() {
-  if (!STORAGE_OK) return Response.json({ user: null })
+export async function GET(req: Request) {
   if (!hasUsableClerkConfig()) return Response.json({ user: null })
+  if (!STORAGE_OK) {
+    return Response.json({ user: null, error: 'STORAGE_NOT_CONFIGURED' }, { status: 503 })
+  }
 
   try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return Response.json({ user: null })
-
-    let user = await getUserByClerkId(clerkId)
-
+    const user = await resolveRoomieUserFromRequest(req)
     if (!user) {
-      const clerkUser = await currentUser()
-      if (clerkUser) user = await getOrCreateRoomieUserFromClerk(clerkUser)
+      console.warn('[/api/me] ROOMIE profile not resolved', {
+        hasAuthorization: Boolean(req.headers.get('authorization')),
+        hasCookie: Boolean(req.headers.get('cookie')),
+      })
+      return Response.json({ user: null })
     }
-
-    return Response.json({ user: user ? publicUser(user) : null })
+    return Response.json({ user: publicUser(user) })
   } catch (err) {
     console.error('[/api/me] error:', err)
-    return Response.json({ user: null })
+    return Response.json({ user: null, error: 'ROOMIE_PROFILE_ERROR' }, { status: 503 })
   }
 }
