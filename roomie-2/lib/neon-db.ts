@@ -1123,7 +1123,7 @@ export async function createBookingAtomic(
       slot_locks AS MATERIALIZED (
         SELECT pg_advisory_xact_lock(
           hashtextextended(
-            CONCAT(${d.room ?? 'Via Terni'}, ':', lock_date::date::text),
+            CONCAT(${d.room ?? 'Via Terni'}::text, ':', lock_date::date::text),
             0
           )
         )
@@ -1201,8 +1201,8 @@ export async function createBookingAtomic(
           ${d.date}::date, ${d.start}::time, ${d.end}::time,
           ${d.people}, ${d.preset}, ${d.durationHours}, ${d.guests}, ${d.totalChips},
           ${d.liveMode ?? false},
-          ${d.lockboxCode ?? null}, ${d.doorCode ?? null},
-          ${d.accessValidFrom ?? null}, ${d.accessValidUntil ?? null}
+          ${d.lockboxCode ?? null}::text, ${d.doorCode ?? null}::text,
+          ${d.accessValidFrom ?? null}::timestamptz, ${d.accessValidUntil ?? null}::timestamptz
         WHERE EXISTS (SELECT 1 FROM chip_deduct)
         RETURNING *
       )
