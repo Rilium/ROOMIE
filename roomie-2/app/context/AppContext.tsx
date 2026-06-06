@@ -431,17 +431,17 @@ export function AppProvider({
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const showPage = useCallback((page: string) => {
+    const path = PAGE_TO_PATH[page] || '/'
     if (PROTECTED_PAGES.includes(page) && !userRef.current) {
-      openAuth('login')
+      router.push(`/sign-in?next=${encodeURIComponent(path)}`)
       return
     }
-    const path = PAGE_TO_PATH[page] || '/'
     setActivePage(page)
     router.push(path)
     window.setTimeout(() => {
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
     }, 90)
-  }, [openAuth, router])
+  }, [router])
 
   // ── Toast ─────────────────────────────────────────────────────────────────
 

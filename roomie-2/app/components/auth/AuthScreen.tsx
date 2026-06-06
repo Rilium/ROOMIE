@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth, useClerk, useSessionList } from '@clerk/nextjs'
 import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
@@ -36,6 +37,7 @@ type PendingSignUp = {
 
 export default function AuthScreen({ presentation = 'modal' }: { presentation?: 'modal' | 'page' }) {
   const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, openLegalDoc } = useApp()
+  const searchParams = useSearchParams()
   const isPage = presentation === 'page'
   const isActive = isPage || authOpen
   const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth()
@@ -126,7 +128,7 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     if (user) {
       setUser(user)
       closeAuth()
-      showPage('dashboard')
+      goAfterAuth()
       return true
     }
     return false
@@ -137,16 +139,29 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     return new URL(path, window.location.origin).toString()
   }
 
+  const nextPath = () => {
+    const next = searchParams.get('next')
+    if (!next || !next.startsWith('/') || next.startsWith('//')) return '/dashboard'
+    return next
+  }
+
+  const goAfterAuth = () => {
+    const redirectTo = nextPath()
+    if (redirectTo === '/dashboard') showPage('dashboard')
+    else window.location.href = redirectTo
+  }
+
   const activateAndRedirect = async (sessionId: string, setActiveFn: SetActiveFn | undefined) => {
+    const redirectTo = nextPath()
     if (!setActiveFn) {
-      window.location.href = '/dashboard'
+      window.location.href = redirectTo
       return
     }
 
     await setActiveFn({
       session: sessionId,
       navigate: ({ decorateUrl }) => {
-        window.location.href = decorateUrl('/dashboard')
+        window.location.href = decorateUrl(redirectTo)
       },
     })
   }
@@ -236,7 +251,7 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
       }
       const token = await getToken().catch(() => null)
       const user = await fetchUser(token)
-      if (user) { setUser(user); closeAuth(); showPage('dashboard'); return true }
+      if (user) { setUser(user); closeAuth(); goAfterAuth(); return true }
       await signOut().catch(() => {})
       setError('Sessione precedente resettata. Riprovo il login...')
       return false

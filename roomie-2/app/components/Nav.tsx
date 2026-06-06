@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/app/context/AppContext'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
 import { isBookingLiveNow } from '@/lib/utils'
@@ -21,7 +22,8 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function Nav() {
-  const { activePage, showPage, user, openAuth, logout, openLegalDoc, activeSession } = useApp()
+  const { activePage, showPage, user, logout, openLegalDoc, activeSession } = useApp()
+  const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [bottomCompact, setBottomCompact] = useState(false)
   const lastScrollYRef = useRef(0)
@@ -57,7 +59,7 @@ export default function Nav() {
   const handleNav = (item: NavItem) => {
     if (item.requireAuth && !user) {
       setDrawerOpen(false)
-      openAuth('login')
+      router.push(`/sign-in?next=${encodeURIComponent(item.id === 'room' ? '/room' : `/${item.id}`)}`)
       return
     }
     setDrawerOpen(false)
@@ -71,7 +73,7 @@ export default function Nav() {
 
   const goBook = () => {
     setDrawerOpen(false)
-    if (!user) openAuth('login')
+    if (!user) router.push('/sign-in?next=%2Froom')
     else showPage('room')
   }
 

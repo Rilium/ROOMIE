@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useApp } from '@/app/context/AppContext'
 import { HyperText } from '@/app/components/magicui/hyper-text'
 
@@ -35,7 +36,8 @@ const INSIDE_TABS = ['gaming', 'streaming', 'games', 'vibe'] as const
 type InsideTab = typeof INSIDE_TABS[number]
 
 export default function LandingLegacy() {
-  const { showPage, openAuth, user } = useApp()
+  const { showPage, user } = useApp()
+  const router = useRouter()
   const [heroSlide, setHeroSlide] = useState(0)
   const [insideTab, setInsideTab] = useState<InsideTab>('gaming')
   const heroSwipe = useRef<{ x: number; y: number } | null>(null)
@@ -57,7 +59,7 @@ export default function LandingLegacy() {
   }, [])
 
   const requireAuthPage = (page: string) => {
-    if (user) { showPage(page) } else { openAuth('login') }
+    if (user) { showPage(page) } else { router.push(`/sign-in?next=${encodeURIComponent(`/${page}`)}`) }
   }
 
   const scrollToSection = (id: string) => {
