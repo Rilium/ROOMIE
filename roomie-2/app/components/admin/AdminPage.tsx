@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import DOMPurify from 'dompurify'
 import { useApp } from '@/app/context/AppContext'
+import SafeDocViewer from '@/app/components/ui/SafeDocViewer'
 import {
   apiAdminSummary, apiAdminPatchConfig, apiAdminPatchBookingStatus,
   apiAdminPatchUserChips, apiAdminBlockSlot, apiAdminDeleteBlockedSlot,
   apiAdminCreateAddon, apiAdminPatchAddon, apiAdminDeleteAddon,
 } from '@/lib/client-api'
-import type { Booking, AppConfig, Addon } from '@/lib/types'
+import type { Booking, AppConfig, Addon, PublicUser, AddonOrder, BlockedSlot, AuditEntry } from '@/lib/types'
 
 type Tab = 'bookings' | 'users' | 'access' | 'commerce' | 'audit' | 'docs'
 
@@ -32,13 +32,18 @@ const TAB_ICONS: Record<Tab, string> = {
 
 interface SummaryData {
   bookings: Booking[]
-  users: any[]
+  users: PublicUser[]
   addons: Addon[]
-  addonOrders: any[]
-  blockedSlots: any[]
-  auditLog: any[]
+  addonOrders: AddonOrder[]
+  blockedSlots: BlockedSlot[]
+  auditLog: AuditEntry[]
   config: AppConfig
   stats: { revenue: number; bookingsCount: number; usersCount: number; pendingCount: number; revenueRoom: number; revenueAddon: number }
+}
+
+const ADMIN_DOC = {
+  file: '/docs/ROOMIE-Documentazione.docx',
+  fallback: '<p>Documentazione tecnica ROOMIE non disponibile in anteprima.</p>',
 }
 
 function formatAuditType(type: string) {
@@ -83,9 +88,7 @@ export default function AdminPage() {
   const [data, setData] = useState<SummaryData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Documentazione tecnica (.docx renderizzato via mammoth, come i legal)
-  const [docHtml, setDocHtml] = useState('')
-  const [docState, setDocState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [docPreviewOpen, setDocPreviewOpen] = useState(false)
 
   // Config form
   const [priceHour, setPriceHour] = useState('')
@@ -125,46 +128,6 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
-
-  // Carica e renderizza il .docx della documentazione tecnica (mammoth, lazy)
-  useEffect(() => {
-    if (tab !== 'docs' || docState === 'loading') return
-    let cancelled = false
-    setDocState('loading')
-
-    const waitForMammoth = async () => {
-      if ((window as any).mammoth?.convertToHtml) return (window as any).mammoth
-      return new Promise<any>(resolve => {
-        const interval = window.setInterval(() => {
-          if ((window as any).mammoth?.convertToHtml) {
-            window.clearInterval(interval)
-            resolve((window as any).mammoth)
-          }
-        }, 80)
-        window.setTimeout(() => {
-          window.clearInterval(interval)
-          resolve(null)
-        }, 3000)
-      })
-    }
-
-    ;(async () => {
-      try {
-        const mammoth = await waitForMammoth()
-        const res = await fetch('/docs/ROOMIE-Documentazione.docx')
-        if (!res.ok) throw new Error('fetch failed')
-        const arrayBuffer = await res.arrayBuffer()
-        if (!mammoth?.convertToHtml) throw new Error('mammoth unavailable')
-        const result = await mammoth.convertToHtml({ arrayBuffer })
-        if (cancelled) return
-        setDocHtml(DOMPurify.sanitize(result.value || ''))
-        setDocState('ready')
-      } catch {
-        if (!cancelled) setDocState('error')
-      }
-    })()
-    return () => { cancelled = true }
-  }, [tab, docState])
 
   const saveConfig = async () => {
     const values = {
@@ -367,7 +330,7 @@ export default function AdminPage() {
               </div>
               {(data?.blockedSlots || []).length > 0 && (
                 <div style={{ marginTop: '12px' }}>
-                  {(data?.blockedSlots || []).map((s: any) => (
+                  {(data?.blockedSlots || []).map(s => (
                     <div key={s.id} className="admin-mini-item">
                       <span>{s.date} {s.start}→{s.end} · {s.reason}</span>
                       <button className="admin-page-btn" onClick={() => deleteBlockedSlot(s.id)}>RIMUOVI</button>
@@ -384,7 +347,7 @@ export default function AdminPage() {
           <div className="admin-panel active">
             <div className="admin-toolbar"><div style={{ fontWeight: 900, color: '#fff' }}>CLIENTI E WALLET</div></div>
             <div className="admin-mini-list">
-              {(data?.users || []).map((u: any) => (
+              {(data?.users || []).map(u => (
                 <div key={u.id} className="admin-mini-item" style={{ flexWrap: 'wrap', gap: '8px' }}>
                   <div>
                     <strong style={{ color: '#fff' }}>{u.name}</strong>
@@ -428,7 +391,7 @@ export default function AdminPage() {
                 <input className="form-input" value={addonName} onChange={e => setAddonName(e.target.value)} placeholder="Nome addon" />
                 <input className="form-input" value={addonBrand} onChange={e => setAddonBrand(e.target.value)} placeholder="Brand" />
                 <input className="form-input" type="number" value={addonPrice} onChange={e => setAddonPrice(e.target.value)} placeholder="Chips" />
-                <select className="form-input" value={addonCategory} onChange={e => setAddonCategory(e.target.value as any)}>
+                <select className="form-input" value={addonCategory} onChange={e => setAddonCategory(e.target.value as Addon['category'])}>
                   <option value="featured">Top</option>
                   <option value="modes">Mood</option>
                   <option value="snacks">Snack</option>
@@ -473,14 +436,14 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="admin-mini-list">
-              {(data?.auditLog || []).slice(0, 50).map((entry: any, i: number) => (
+              {(data?.auditLog || []).slice(0, 50).map((entry, i: number) => (
                 <div key={entry.id || i} className="admin-mini-item" style={{ fontSize: '.78rem', alignItems: 'flex-start' }}>
                   <div>
-                    <strong style={{ color: '#fff', display: 'block', marginBottom: '3px' }}>{formatAuditType(entry.type || entry.event)}</strong>
+                    <strong style={{ color: '#fff', display: 'block', marginBottom: '3px' }}>{formatAuditType(entry.type)}</strong>
                     <span style={{ color: 'var(--muted)' }}>{formatAuditDetails(entry.details)}</span>
                   </div>
                   <div style={{ textAlign: 'right', minWidth: '150px' }}>
-                    <span style={{ color: 'var(--muted)', display: 'block' }}>{new Date(entry.createdAt || entry.at).toLocaleString('it-IT')}</span>
+                    <span style={{ color: 'var(--muted)', display: 'block' }}>{new Date(entry.createdAt).toLocaleString('it-IT')}</span>
                     <span style={{ color: 'var(--muted)' }}>uid:{entry.userId?.slice(0, 8) || 'system'}</span>
                   </div>
                 </div>
@@ -505,7 +468,7 @@ export default function AdminPage() {
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 className="admin-page-btn"
-                onClick={() => setDocState('idle')}
+                onClick={() => setDocPreviewOpen(true)}
                 style={{ padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 <i className="fas fa-eye"></i> Apri anteprima
@@ -519,22 +482,15 @@ export default function AdminPage() {
               </a>
             </div>
             </div>
-            {docState === 'loading' && (
-              <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>Caricamento documento…</div>
-            )}
-            {docState === 'error' && (
-              <div style={{ color: 'var(--muted)', padding: '24px', textAlign: 'center' }}>
-                Impossibile renderizzare il documento in anteprima.{' '}
-                <button type="button" className="admin-page-btn" onClick={() => setDocState('idle')} style={{ marginRight: '10px' }}>
-                  Riprova anteprima
-                </button>
-                <a href="/docs/ROOMIE-Documentazione.docx" className="admin-page-btn" style={{ color: 'var(--neon)' }}>
-                  Scarica il .docx
-                </a>
-              </div>
-            )}
-            {docState === 'ready' && (
-              <div className="admin-doc-view" dangerouslySetInnerHTML={{ __html: docHtml }} />
+            {docPreviewOpen && (
+              <SafeDocViewer
+                active={tab === 'docs'}
+                file={ADMIN_DOC.file}
+                fallback={ADMIN_DOC.fallback}
+                className="admin-doc-view"
+                loadingLabel="Caricamento documento…"
+                errorLabel="Impossibile renderizzare il documento in anteprima."
+              />
             )}
           </div>
         )}

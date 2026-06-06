@@ -1,4 +1,7 @@
-// Apple Sign-In migrated to Clerk. Configure Apple in the Clerk dashboard.
+import { LEGACY_AUTH_DEPRECATION } from '@/lib/legacy-auth'
+
+// Deprecated compatibility shim: see LEGACY_AUTH_DEPRECATION.
 export function GET() {
+  void LEGACY_AUTH_DEPRECATION
   return Response.json({ error: 'MIGRATED_TO_CLERK' }, { status: 410 })
 }

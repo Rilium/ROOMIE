@@ -215,7 +215,7 @@ export default function BookingPage() {
     }
     // Update context with server-confirmed booking + updated user chips
     if (data.user) setUser(data.user)
-    setBookingDraft({ ...data.booking as any })
+    setBookingDraft(data.booking)
     // Inizializza la sessione attiva con la prenotazione appena creata
     setActiveSession({
       booking: data.booking,

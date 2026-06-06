@@ -77,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Google Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap"
           rel="stylesheet"
@@ -91,6 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         {/* ROOMIE custom CSS */}
+        {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260606-layout-shell" />
 
         {/* GSAP — must load before roomie.js */}
@@ -104,12 +106,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <Script
           src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"
-          strategy="beforeInteractive"
-        />
-
-        {/* Mammoth (docx reader for legal docs) */}
-        <Script
-          src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"
           strategy="beforeInteractive"
         />
       </head>

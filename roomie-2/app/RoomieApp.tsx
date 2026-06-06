@@ -17,11 +17,9 @@ import SessionPage from '@/app/components/session/SessionPage'
 import AdminPage from '@/app/components/admin/AdminPage'
 import LandingLegacy from '@/app/components/landing/LandingLegacy'
 import Modals from '@/app/components/modals/Modals'
+import { PROTECTED_PAGES, type RoomiePage } from '@/lib/routing'
 
-export type RoomiePage = 'home' | 'room' | 'token' | 'confirm' | 'session' | 'shop' | 'dashboard' | 'admin'
 type InitialAuthMode = 'login' | 'register'
-
-const PROTECTED_PAGES: RoomiePage[] = ['token', 'confirm', 'session', 'shop', 'dashboard', 'admin']
 
 function renderRoutePage(page: RoomiePage) {
   if (page === 'home') return <LandingLegacy />

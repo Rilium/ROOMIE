@@ -3,7 +3,6 @@ import {
   getBookingsByUser,
   listBookings,
   createBookingAtomic,
-  hasBookingConflictNeon,
   logEvent,
   getConfig,
   publicUser,
@@ -77,12 +76,7 @@ export async function POST(req: Request) {
   const guests = Math.max(0, Number(body.guests || 0))
   const totalChips = calcBookingPrice(preset, duration, guests, cfg)
 
-  // ── Conflict check ────────────────────────────────────────────────────────
-  if (await hasBookingConflictNeon(date, start, end)) {
-    return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
-  }
-
-  // ── Atomic: debit chips + record tx + insert booking in one transaction ────
+  // ── Atomic: conflict check + debit chips + record tx + insert booking ──────
   const id = randomUUID()
   try {
     const { booking, newChips } = await createBookingAtomic(
@@ -121,6 +115,9 @@ export async function POST(req: Request) {
         { error: 'INSUFFICIENT_CHIPS', required: totalChips },
         { status: 402 },
       )
+    }
+    if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
+      return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
     }
     throw err
   }

@@ -247,11 +247,15 @@ export default function AuthScreen() {
   useEffect(() => {
     if (!authOpen || !authLoaded || !isSignedIn) return
     void handleSessionExists()
+    // handleSessionExists closes over transient Clerk/session objects; this effect is keyed to auth state transitions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authOpen, authLoaded, isSignedIn, sessionList.isLoaded])
 
   useEffect(() => {
     if (!authOpen || authMode !== 'register' || !signUpLoaded) return
     void recoverPendingSignUp()
+    // recoverPendingSignUp intentionally runs only when Clerk exposes/changes pending sign-up status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authOpen, authMode, signUpLoaded, signUp?.status])
 
   useEffect(() => {
@@ -671,7 +675,7 @@ export default function AuthScreen() {
                   <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Accesso...' : 'ENTRA IN ROOMIE'}
                   </button>
-                  <div className="auth-footnote">Se hai gia' una sessione attiva, la recuperiamo senza farti rifare il giro.</div>
+                  <div className="auth-footnote">Se hai gia&apos; una sessione attiva, la recuperiamo senza farti rifare il giro.</div>
                 </form>
               )}
 

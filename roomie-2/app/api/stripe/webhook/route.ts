@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET,
     )
-  } catch (_err) {
+  } catch {
     return new Response('Invalid Stripe signature', { status: 400 })
   }
 

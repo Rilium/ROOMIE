@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       bookings: Number(bookingsRow[0]?.count ?? 0),
       updatedAt: new Date().toISOString(),
     })
-  } catch (_err) {
+  } catch {
     return Response.json(
       {
         driver: 'postgres',

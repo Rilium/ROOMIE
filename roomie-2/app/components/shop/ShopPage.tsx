@@ -141,7 +141,7 @@ export default function ShopPage() {
 
         {!isLive && (
           <div className="shop-locked-banner">
-            <strong>Shop in anteprima.</strong> Puoi esplorare pack e prezzi, ma il pagamento si sblocca solo quando sei fisicamente dentro la sessione. Appena la room e' live, carrello e addon diventano attivabili.
+            <strong>Shop in anteprima.</strong> Puoi esplorare pack e prezzi, ma il pagamento si sblocca solo quando sei fisicamente dentro la sessione. Appena la room e&apos; live, carrello e addon diventano attivabili.
             <button type="button" className="shop-lock-cta" onClick={() => showPage(activeSession?.booking ? 'session' : 'dashboard')}>
               {activeSession?.booking ? 'VAI ALLA SESSIONE' : 'VEDI PROSSIMA PRENOTAZIONE'}
             </button>

@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       amountEur: amount,
     })
     return Response.json({ url: checkout.url })
-  } catch (_err) {
+  } catch {
     return Response.json({ error: 'STRIPE_CHECKOUT_ERROR' }, { status: 500 })
   }
 }

@@ -1,4 +1,5 @@
-/* ROOMIE design tokens and Bootstrap theme variables. */
+/* ROOMIE design tokens and Bootstrap-compatible theme variables.
+   The --bs-* names are compatibility tokens only; Bootstrap is not installed. */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --neon:#C8FF00;

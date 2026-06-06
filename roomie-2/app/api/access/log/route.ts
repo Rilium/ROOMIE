@@ -1,8 +1,9 @@
 import { getBookingById, logAccess } from '@/lib/neon-db'
+import type { AccessEvent } from '@/lib/neon-db'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
 import { isBookingLiveNow } from '@/lib/utils'
 
-const ACCESS_EVENTS = new Set([
+const ACCESS_EVENTS = new Set<AccessEvent>([
   'lockbox_viewed',
   'lockbox_copied',
   'shutter_done',
@@ -31,7 +32,8 @@ export async function POST(req: Request) {
   const method = String(body.method || '').trim().slice(0, 40)
 
   if (!bookingId) return Response.json({ error: 'BOOKING_REQUIRED' }, { status: 400 })
-  if (!ACCESS_EVENTS.has(event)) return Response.json({ error: 'BAD_ACCESS_EVENT' }, { status: 400 })
+  if (!ACCESS_EVENTS.has(event as AccessEvent)) return Response.json({ error: 'BAD_ACCESS_EVENT' }, { status: 400 })
+  const accessEvent = event as AccessEvent
 
   const booking = await getBookingById(bookingId)
   if (!booking) return Response.json({ error: 'BOOKING_NOT_FOUND' }, { status: 404 })
@@ -45,8 +47,7 @@ export async function POST(req: Request) {
   await logAccess({
     bookingId,
     userId: user.id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    event: event as any,
+    event: accessEvent,
     method: method || undefined,
     ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
     userAgent: req.headers.get('user-agent') || undefined,

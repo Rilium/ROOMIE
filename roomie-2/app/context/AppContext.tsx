@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth, useClerk } from '@clerk/nextjs'
 import type { PublicUser, AppConfig, Booking } from '@/lib/types'
 import { apiMe, apiAppConfig, apiDashboard, apiLogout, setAuthTokenGetter } from '@/lib/client-api'
+import { PAGE_TO_PATH, PATH_TO_PAGE, PROTECTED_PAGES } from '@/lib/routing'
 import { isBookingLiveNow } from '@/lib/utils'
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
@@ -147,25 +148,46 @@ const defaultBooking: BookingDraft = {
 const AppContext = createContext<AppContextValue | null>(null)
 const CART_STORAGE_KEY = 'roomie.cart.v1'
 const CART_TTL_MS = 1000 * 60 * 60 * 4
-const PAGE_TO_PATH: Record<string, string> = {
-  home: '/',
-  room: '/room',
-  token: '/token',
-  confirm: '/confirm',
-  session: '/session',
-  shop: '/shop',
-  dashboard: '/dashboard',
-  admin: '/admin',
-}
-const PATH_TO_PAGE: Record<string, string> = Object.fromEntries(
-  Object.entries(PAGE_TO_PATH).map(([page, path]) => [path, page])
-)
-const PROTECTED_PAGES = ['checkout', 'confirm', 'session', 'dashboard', 'token', 'shop', 'admin']
 
 export function useApp() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useApp must be used inside AppProvider')
   return ctx
+}
+
+export function useAppAuth() {
+  const { user, authMode, authOpen, loading, authTransition, setUser, logout, openAuth, closeAuth, setAuthMode } = useApp()
+  return { user, authMode, authOpen, loading, authTransition, setUser, logout, openAuth, closeAuth, setAuthMode }
+}
+
+export function useAppBooking() {
+  const { booking, invitedFriends, setBookingDraft, addInvitedFriends, removeInvitedFriend, clearBookingDraft } = useApp()
+  return { booking, invitedFriends, setBookingDraft, addInvitedFriends, removeInvitedFriend, clearBookingDraft }
+}
+
+export function useAppCart() {
+  const { cart, addToCart, updateCartItem, removeCartItem, clearCart } = useApp()
+  return { cart, addToCart, updateCartItem, removeCartItem, clearCart }
+}
+
+export function useAppUi() {
+  const {
+    activePage, toast,
+    modalNfc, modalCodeUnlock, modalTokenBuy, modalLegalDoc, modalInvite,
+    showPage, showToast,
+    openModalNfc, openModalCodeUnlock, openModalTokenBuy, openLegalDoc, openModalInvite, closeModal,
+  } = useApp()
+  return {
+    activePage, toast,
+    modalNfc, modalCodeUnlock, modalTokenBuy, modalLegalDoc, modalInvite,
+    showPage, showToast,
+    openModalNfc, openModalCodeUnlock, openModalTokenBuy, openLegalDoc, openModalInvite, closeModal,
+  }
+}
+
+export function useAppSession() {
+  const { activeSession, setActiveSession } = useApp()
+  return { activeSession, setActiveSession }
 }
 
 // ── PROVIDER ──────────────────────────────────────────────────────────────────

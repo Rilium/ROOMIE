@@ -7,6 +7,11 @@ import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 import { apiLogAccess } from '@/lib/client-api'
 
+type ConfirmBooking = Partial<Booking> & {
+  id?: string
+  people?: number
+}
+
 export default function ConfirmPage() {
   const { booking, activeSession, setActiveSession, showPage, showToast } = useApp()
   const [accessStep, setAccessStep] = useState(0)
@@ -20,10 +25,10 @@ export default function ConfirmPage() {
   useEffect(() => { setMounted(true) }, [])
 
   // L'accesso fisico deve usare solo booking reali, mai draft client.
-  const b = activeSession?.booking ?? booking
+  const b = (activeSession?.booking ?? booking) as ConfirmBooking
   const bookingForAccess: Booking | null = activeSession?.booking ?? null
-  const lockboxCode = String((activeSession?.booking as any)?.lockboxCode || (b as any)?.lockboxCode || '')
-  const bookingId = activeSession?.booking?.id || (b as any)?.id as string | undefined
+  const lockboxCode = String(activeSession?.booking?.lockboxCode || b.lockboxCode || '')
+  const bookingId = activeSession?.booking?.id || b.id
   const accessLive = bookingForAccess ? isBookingLiveNow(bookingForAccess) : false
   const startsAt = bookingForAccess ? bookingStartDate(bookingForAccess) : null
   const accessDateLabel = startsAt
@@ -323,7 +328,7 @@ export default function ConfirmPage() {
         <div className="detail-grid mb-20">
           <div className="detail-item"><div className="detail-label">Data</div><div className="detail-val">{b?.date || '—'}</div></div>
           <div className="detail-item"><div className="detail-label">Orario</div><div className="detail-val">{b?.start || '—'} → {b?.end || '—'}</div></div>
-          <div className="detail-item"><div className="detail-label">Persone</div><div className="detail-val">{(b as any)?.people || 1}</div></div>
+          <div className="detail-item"><div className="detail-label">Persone</div><div className="detail-val">{b.people || 1}</div></div>
           <div className="detail-item"><div className="detail-label">Pagato</div><div className="detail-val roomie-strong-neon">{b?.totalChips || 0} chips</div></div>
         </div>
 

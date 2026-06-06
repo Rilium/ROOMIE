@@ -1,5 +1,5 @@
 import { getOrCreateRoomieUserFromClerk, getUserByClerkId } from '@/lib/neon-db'
-import { STORAGE_OK } from '@/lib/api-helpers'
+import { requireAdmin, storageGuard, STORAGE_OK } from '@/lib/api-helpers'
 import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
 export const runtime = 'nodejs'
@@ -62,6 +62,12 @@ function decodeJwtPayload(token: string) {
 }
 
 export async function GET(req: Request) {
+  const guard = storageGuard()
+  if (guard) return guard
+
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
+
   const authorization = req.headers.get('authorization') || ''
   const bearer = authorization.replace(/^Bearer\s+/i, '').trim()
   const cookieNames = (req.headers.get('cookie') || '')

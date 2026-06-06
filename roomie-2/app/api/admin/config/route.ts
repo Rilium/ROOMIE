@@ -1,5 +1,6 @@
 import { patchConfig, logEvent } from '@/lib/neon-db'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
+import type { AppConfig } from '@/lib/types'
 
 export async function PATCH(req: Request) {
   const csrf = csrfGuard(req)
@@ -13,7 +14,7 @@ export async function PATCH(req: Request) {
   const { user } = auth
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const patch: Record<string, unknown> = {}
+  const patch: Partial<AppConfig> = {}
 
   const ranges = {
     hourlyPrice: { min: 1, max: 250 },
@@ -39,8 +40,7 @@ export async function PATCH(req: Request) {
     patch.lockboxCode = code
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const config = await patchConfig(patch as any)
+  const config = await patchConfig(patch)
   const auditPatch = { ...patch }
   if ('lockboxCode' in auditPatch) auditPatch.lockboxCode = '[redacted]'
   await logEvent('admin_config_update', user.id, auditPatch)

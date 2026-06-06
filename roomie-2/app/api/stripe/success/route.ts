@@ -30,7 +30,7 @@ export async function GET(req: Request) {
         ? 'already'
         : 'pending'
     return Response.redirect(`${base}/${returnPage === 'home' ? '' : returnPage}?stripe=${status}`, 302)
-  } catch (_err) {
+  } catch {
     return Response.redirect(`${base}/${returnPage === 'home' ? '' : returnPage}?stripe=error`, 302)
   }
 }

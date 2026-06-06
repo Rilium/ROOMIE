@@ -3,8 +3,8 @@
 // Single source of truth for users, bookings, wallet, addons, access and admin.
 // Run db/001_initial_schema.sql against Neon before first production use.
 
-import { neon } from '@neondatabase/serverless'
 import bcrypt from 'bcryptjs'
+import { sqlClient } from './db/client'
 import type {
   DbUser,
   PublicUser,
@@ -20,12 +20,7 @@ import { bookingAccessUntilIso, isValidEmailString, normalizeEmail } from './uti
 // ── CONNECTION ────────────────────────────────────────────────────────────────
 
 function getDb() {
-  const url =
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL
-  if (!url) throw new Error('DATABASE_URL is not set')
-  return neon(url)
+  return sqlClient()
 }
 
 const DEFAULT_ADDONS: Addon[] = [
@@ -757,7 +752,7 @@ export async function deleteBlockedSlot(id: string): Promise<void> {
 
 // ── ACCESS LOGS ───────────────────────────────────────────────────────────────
 
-type AccessEvent =
+export type AccessEvent =
   | 'lockbox_viewed' | 'lockbox_copied'
   | 'shutter_done'   | 'key_replaced'
   | 'door_nfc'       | 'door_code'    | 'door_opened'
@@ -1125,10 +1120,69 @@ export async function createBookingAtomic(
   const d = bookingData
   const rows = await sql`
     WITH
+      slot_locks AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(
+            CONCAT(${d.room ?? 'Via Terni'}, ':', lock_date::date::text),
+            0
+          )
+        )
+        FROM generate_series(
+          ${d.date}::date - INTERVAL '1 day',
+          ${d.date}::date + INTERVAL '1 day',
+          INTERVAL '1 day'
+        ) AS dates(lock_date)
+        ORDER BY lock_date
+      ),
+      candidate AS (
+        SELECT
+          (${d.date}::date + ${d.start}::time) AS start_ts,
+          CASE
+            WHEN ${d.end}::time <= ${d.start}::time
+              THEN (${d.date}::date + ${d.end}::time + INTERVAL '1 day')
+            ELSE (${d.date}::date + ${d.end}::time)
+          END AS end_ts
+      ),
+      booking_conflict AS (
+        SELECT b.id
+        FROM bookings b
+        CROSS JOIN candidate c
+        WHERE b.date BETWEEN (${d.date}::date - INTERVAL '1 day') AND (${d.date}::date + INTERVAL '1 day')
+          AND b.status NOT IN ('cancelled')
+          AND c.start_ts < CASE
+            WHEN b.end_time <= b.start_time
+              THEN (b.date + b.end_time + INTERVAL '1 day')
+            ELSE (b.date + b.end_time)
+          END
+          AND c.end_ts > (b.date + b.start_time)
+        LIMIT 1
+      ),
+      blocked_conflict AS (
+        SELECT s.id
+        FROM blocked_slots s
+        CROSS JOIN candidate c
+        WHERE s.date BETWEEN (${d.date}::date - INTERVAL '1 day') AND (${d.date}::date + INTERVAL '1 day')
+          AND c.start_ts < CASE
+            WHEN s.end_time <= s.start_time
+              THEN (s.date + s.end_time + INTERVAL '1 day')
+            ELSE (s.date + s.end_time)
+          END
+          AND c.end_ts > (s.date + s.start_time)
+        LIMIT 1
+      ),
+      availability AS (
+        SELECT
+          NOT EXISTS (SELECT 1 FROM booking_conflict)
+          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
+        FROM slot_locks
+        LIMIT 1
+      ),
       chip_deduct AS (
         UPDATE users
         SET chips = chips - ${totalChips}
-        WHERE id = ${userId} AND chips >= ${totalChips}
+        WHERE id = ${userId}
+          AND chips >= ${totalChips}
+          AND (SELECT slot_ok FROM availability)
         RETURNING chips
       ),
       _tx AS (
@@ -1155,7 +1209,10 @@ export async function createBookingAtomic(
     SELECT (SELECT chips FROM chip_deduct) AS new_chips, bk.*
     FROM bk
   `
-  if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
+  if (!rows[0]) {
+    if (await hasBookingConflictNeon(d.date, d.start, d.end)) throw new Error('SLOT_BLOCKED')
+    throw new Error('INSUFFICIENT_CHIPS')
+  }
   return {
     booking: rowToBooking(rows[0]),
     newChips: Number(rows[0].new_chips),

@@ -75,7 +75,7 @@ const heroSlides = [
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
-  initHeroCarousel();
+  // Hero carousel state is now owned by React (LandingLegacy).
   initAuthBackground();
   initAnimatedFavicon();
   initPremiumMotion();

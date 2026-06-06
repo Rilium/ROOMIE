@@ -14,7 +14,7 @@ export default function SessionPage() {
   const booking = activeSession?.booking
   const sessionFriends = activeSession?.friends?.length ? activeSession.friends : invitedFriends
   const isLive = booking ? isBookingLiveNow(booking) : false
-  const liveMode = Boolean((booking as any)?.liveMode)
+  const liveMode = Boolean(booking?.liveMode)
   const cashback = Math.max(0, Math.round(Number(booking?.totalChips || 24) / 2))
   const startLabel = booking
     ? bookingStartDate(booking).toLocaleString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -172,7 +172,7 @@ export default function SessionPage() {
               </button>
             )}
             <div className="presence-alert">
-              Se manca qualcuno puoi entrare, ma esperienze, luci e Live Mode restano in standby finche' il gruppo non e' completo.
+              Se manca qualcuno puoi entrare, ma esperienze, luci e Live Mode restano in standby finche&apos; il gruppo non e&apos; completo.
             </div>
           </section>
         )}
