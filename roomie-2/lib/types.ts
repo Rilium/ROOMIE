@@ -9,6 +9,7 @@ export interface PublicUser {
   role: 'user' | 'admin'
   chips: number
   suspended: boolean
+  avatar?: string | null
   termsAcceptedAt?: string | null
   privacyAcceptedAt?: string | null
   documentVerificationStatus?: 'missing' | 'pending' | 'mock_verified' | 'verified' | 'rejected'

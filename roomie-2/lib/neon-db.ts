@@ -141,6 +141,7 @@ export function publicUser(u: DbUser): PublicUser {
     role: u.role,
     chips: u.chips,
     suspended: u.suspended ?? false,
+    avatar: u.avatar ?? null,
     termsAcceptedAt: u.termsAcceptedAt ?? null,
     privacyAcceptedAt: u.privacyAcceptedAt ?? null,
     documentVerificationStatus: u.documentVerificationStatus ?? 'missing',
@@ -351,6 +352,20 @@ export async function acceptUserLegal(userId: string): Promise<DbUser | null> {
     UPDATE users SET
       terms_accepted_at = COALESCE(terms_accepted_at, NOW()),
       privacy_accepted_at = COALESCE(privacy_accepted_at, NOW()),
+      updated_at = NOW()
+    WHERE id = ${userId}
+    RETURNING *
+  `
+  return rows[0] ? rowToDbUser(rows[0]) : null
+}
+
+export async function revokeUserLegal(userId: string): Promise<DbUser | null> {
+  await ensureBootstrapData()
+  const sql = getDb()
+  const rows = await sql`
+    UPDATE users SET
+      terms_accepted_at = NULL,
+      privacy_accepted_at = NULL,
       updated_at = NOW()
     WHERE id = ${userId}
     RETURNING *

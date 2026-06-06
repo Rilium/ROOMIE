@@ -1,4 +1,4 @@
-import { acceptUserLegal, mockVerifyUserDocument, publicUser } from '@/lib/neon-db'
+import { acceptUserLegal, mockVerifyUserDocument, publicUser, revokeUserLegal } from '@/lib/neon-db'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
 
 function cleanLast4(value: unknown): string {
@@ -23,6 +23,11 @@ export async function POST(req: Request) {
 
   if (body.action === 'accept_legal') {
     const user = await acceptUserLegal(auth.user.id)
+    return Response.json({ user: user ? publicUser(user) : publicUser(auth.user) })
+  }
+
+  if (body.action === 'revoke_legal') {
+    const user = await revokeUserLegal(auth.user.id)
     return Response.json({ user: user ? publicUser(user) : publicUser(auth.user) })
   }
 

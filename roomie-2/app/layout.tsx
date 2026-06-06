@@ -93,7 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* ROOMIE custom CSS */}
         {/* eslint-disable-next-line @next/next/no-css-tags */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260606-image-paths" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260607-profile-css" />
 
         {/* GSAP — must load before roomie.js */}
         <Script

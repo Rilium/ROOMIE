@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useClerk } from '@clerk/nextjs'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useClerk, useUser } from '@clerk/nextjs'
 import { useApp } from '@/app/context/AppContext'
-import { apiDashboard, apiExtendBooking, apiRoomWifi, apiUpdateProfile } from '@/lib/client-api'
+import { apiDashboard, apiExtendBooking, apiRevokeLegal, apiRoomWifi, apiUpdateProfile } from '@/lib/client-api'
 import type { Booking } from '@/lib/types'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 
@@ -29,8 +29,10 @@ function statusClass(s: string) {
 }
 
 export default function DashboardPage() {
-  const { user, setUser, showPage, showToast, setActiveSession } = useApp()
+  const { user, setUser, showPage, showToast, setActiveSession, openLegalDoc, logout } = useApp()
   const clerk = useClerk()
+  const { user: clerkUser } = useUser()
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [sessionCount, setSessionCount] = useState(0)
   const [chipsSpent, setChipsSpent] = useState(0)
@@ -40,6 +42,9 @@ export default function DashboardPage() {
   const [profileName, setProfileName] = useState('')
   const [profileUsername, setProfileUsername] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [accountBusy, setAccountBusy] = useState(false)
+  const [legalExitOpen, setLegalExitOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,6 +100,16 @@ export default function DashboardPage() {
   const history = bookings.filter(b => ['completed', 'cancelled'].includes(b.status))
 
   const buyingPower = user ? Math.floor(user.chips / 12) : 0
+  const avatarUrl = clerkUser?.imageUrl || user?.avatar || ''
+  const profileInitials = (user?.name || user?.username || 'R')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('') || 'R'
+  const legalAccepted = Boolean(user?.termsAcceptedAt && user?.privacyAcceptedAt)
+  const documentStatus = user?.documentVerificationStatus || 'missing'
+  const documentLabel = user?.documentType === 'driver_license' ? 'Patente' : 'Carta identita'
 
   const copyPartnerCode = () => {
     const code = `ROOMIE-${user?.username?.toUpperCase().slice(0, 6) || 'MB'}7724`
@@ -114,6 +129,18 @@ export default function DashboardPage() {
   const saveProfile = async () => {
     setProfileBusy(true)
     const { data, error } = await apiUpdateProfile({ name: profileName, username: profileUsername })
+    if (!error && data?.user && clerkUser) {
+      await (clerkUser as unknown as { update?: (params: Record<string, unknown>) => Promise<unknown> }).update?.({
+        firstName: profileName.trim().split(/\s+/)[0] || undefined,
+        lastName: profileName.trim().split(/\s+/).slice(1).join(' ') || undefined,
+        username: profileUsername.trim() || undefined,
+        unsafeMetadata: {
+          ...(clerkUser.unsafeMetadata || {}),
+          roomieDisplayName: profileName.trim(),
+          roomieUsername: profileUsername.trim(),
+        },
+      }).catch(() => null)
+    }
     setProfileBusy(false)
     if (error || !data?.user) {
       const msgs: Record<string, string> = {
@@ -126,6 +153,54 @@ export default function DashboardPage() {
     }
     setUser(data.user)
     showToast({ title: 'Profilo aggiornato' })
+  }
+
+  const updateAvatar = async (file: File | null) => {
+    if (!file || !clerkUser) return
+    setAvatarBusy(true)
+    try {
+      await (clerkUser as unknown as { setProfileImage?: (params: { file: File }) => Promise<unknown> }).setProfileImage?.({ file })
+      await clerkUser.reload?.()
+      showToast({ title: 'Immagine profilo aggiornata' })
+    } catch {
+      showToast({ title: 'Impossibile aggiornare immagine profilo', type: 'warn' })
+    } finally {
+      setAvatarBusy(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
+  const deleteAccount = async () => {
+    if (!window.confirm('Eliminare definitivamente il tuo account Clerk? Questa azione non si puo annullare.')) return
+    setAccountBusy(true)
+    try {
+      const deletable = clerkUser as unknown as { delete?: () => Promise<unknown> }
+      if (deletable.delete) {
+        await deletable.delete()
+        await logout()
+      } else {
+        clerk.openUserProfile?.()
+      }
+    } catch {
+      showToast({ title: 'Eliminazione account non disponibile ora', copy: 'Apri Account Clerk e riprova dalla sezione sicurezza.', type: 'warn' })
+      clerk.openUserProfile?.()
+    } finally {
+      setAccountBusy(false)
+    }
+  }
+
+  const revokeLegalAndExit = async () => {
+    setAccountBusy(true)
+    const { data, error } = await apiRevokeLegal()
+    if (data?.user) setUser(data.user)
+    setLegalExitOpen(false)
+    setAccountBusy(false)
+    if (error) {
+      showToast({ title: 'Non riesco a revocare i consensi ora', type: 'warn' })
+      return
+    }
+    showToast({ title: 'Consensi revocati', copy: 'Esci ora. Al prossimo ingresso Roomie li richiedera di nuovo.' })
+    await logout()
   }
 
   if (!user) {
@@ -238,47 +313,143 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <section className="profile-data-card">
-          <div className="profile-data-head">
-            <div>
-              <div className="dash-section-label">Dati profilo</div>
-              <div className="profile-data-title">Account, sicurezza e documenti</div>
+        <section className="profile-revolut-card">
+          <div className="profile-hero-row">
+            <div className="profile-avatar-wrap">
+              <button className="profile-avatar" type="button" onClick={() => avatarInputRef.current?.click()} aria-label="Cambia immagine profilo">
+                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{profileInitials}</span>}
+                <i className={`fas ${avatarBusy ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="profile-avatar-input"
+                onChange={event => updateAvatar(event.target.files?.[0] || null)}
+              />
             </div>
-            <span className={`status-badge ${user.role === 'admin' ? 's-live' : 's-paid'}`}>{user.role}</span>
-          </div>
-          <div className="profile-edit-grid">
-            <label>
-              <span>Nome visualizzato</span>
-              <input className="form-input" value={profileName} onChange={e => setProfileName(e.target.value)} />
-            </label>
-            <label>
-              <span>Username</span>
-              <input className="form-input" value={profileUsername} onChange={e => setProfileUsername(e.target.value)} />
-            </label>
-          </div>
-          <div className="profile-data-actions">
-            <button className="btn-neon" type="button" onClick={saveProfile} disabled={profileBusy}>
-              {profileBusy ? 'SALVO...' : 'SALVA DATI'}
+            <div className="profile-identity">
+              <div className="dash-section-label">Profilo Roomie</div>
+              <h2>{user.name}</h2>
+              <div className="profile-handle">@{user.username}</div>
+              <div className="profile-pill-row">
+                <span className={`profile-pill ${user.role === 'admin' ? 'hot' : ''}`}>{user.role}</span>
+                <span className="profile-pill">{user.chips} chips</span>
+                <span className={`profile-pill ${legalAccepted ? 'ok' : 'warn'}`}>{legalAccepted ? 'consensi ok' : 'consensi richiesti'}</span>
+              </div>
+            </div>
+            <button className="profile-upgrade" type="button" onClick={() => showPage('token')}>
+              <i className="fas fa-gem"></i> Ricarica
             </button>
-            <button className="quiet-action" type="button" onClick={() => clerk.openUserProfile?.()}>
-              RESET PASSWORD / ACCOUNT CLERK
+          </div>
+
+          <div className="profile-action-grid">
+            <button type="button" className="profile-action-tile" onClick={() => clerk.openUserProfile?.()}>
+              <i className="fas fa-user-shield"></i>
+              <strong>Account Clerk</strong>
+              <span>Email, password, MFA</span>
+            </button>
+            <button type="button" className="profile-action-tile" onClick={() => showPage('token')}>
+              <i className="fas fa-wallet"></i>
+              <strong>Wallet</strong>
+              <span>{user.chips} chips disponibili</span>
             </button>
           </div>
-          <div className="profile-doc-row">
-            <div>
-              <strong>Documento</strong>
-              <span>
-                {user.documentVerificationStatus === 'mock_verified'
-                  ? `${user.documentType === 'driver_license' ? 'Patente' : 'Carta identita'} · ${user.documentName || 'Documento'} · ${user.documentLast4 || '--'}`
-                  : 'Non ancora caricato'}
-              </span>
+
+          <div className="profile-panel">
+            <div className="profile-panel-title">
+              <i className="fas fa-id-badge"></i>
+              <span>Dati Roomie</span>
             </div>
-            <div>
-              <strong>Consensi</strong>
-              <span>{user.termsAcceptedAt && user.privacyAcceptedAt ? 'Termini e Privacy accettati' : 'Da completare'}</span>
+            <div className="profile-edit-grid">
+              <label className="profile-field">
+                <span>Nome visualizzato</span>
+                <input className="form-input" value={profileName} onChange={e => setProfileName(e.target.value)} />
+              </label>
+              <label className="profile-field">
+                <span>Username</span>
+                <input className="form-input" value={profileUsername} onChange={e => setProfileUsername(e.target.value)} />
+              </label>
             </div>
+            <div className="profile-data-actions">
+              <button className="btn-neon" type="button" onClick={saveProfile} disabled={profileBusy}>
+                {profileBusy ? 'SALVO...' : 'SALVA DATI'}
+              </button>
+              <button className="quiet-action" type="button" onClick={() => clerk.openUserProfile?.()}>
+                MODIFICA DATI CLERK
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-menu-list">
+            <div className="profile-menu-row">
+              <i className="fas fa-address-card"></i>
+              <div>
+                <strong>Documento identita</strong>
+                <span>
+                  {documentStatus === 'mock_verified' || documentStatus === 'verified'
+                    ? `${documentLabel} · ${user.documentName || user.name} · ${user.documentLast4 || '----'}`
+                    : 'Documento non verificato'}
+                </span>
+              </div>
+              <em className={`profile-status ${documentStatus === 'mock_verified' || documentStatus === 'verified' ? 'ok' : 'warn'}`}>
+                {documentStatus === 'mock_verified' ? 'verificato demo' : documentStatus}
+              </em>
+            </div>
+
+            <button className="profile-menu-row as-button" type="button" onClick={() => user.termsAcceptedAt ? setLegalExitOpen(true) : openLegalDoc('terms')}>
+              <i className="fas fa-file-signature"></i>
+              <div>
+                <strong>Termini e condizioni</strong>
+                <span>{user.termsAcceptedAt ? `Attivi dal ${new Date(user.termsAcceptedAt).toLocaleDateString('it-IT')} · tocca per revocare` : 'Da accettare'}</span>
+              </div>
+              <span className={`profile-switch ${user.termsAcceptedAt ? 'on' : ''}`} aria-hidden="true"></span>
+            </button>
+
+            <button className="profile-menu-row as-button" type="button" onClick={() => user.privacyAcceptedAt ? setLegalExitOpen(true) : openLegalDoc('privacy')}>
+              <i className="fas fa-shield-halved"></i>
+              <div>
+                <strong>Privacy policy</strong>
+                <span>{user.privacyAcceptedAt ? `Attiva dal ${new Date(user.privacyAcceptedAt).toLocaleDateString('it-IT')} · tocca per revocare` : 'Da accettare'}</span>
+              </div>
+              <span className={`profile-switch ${user.privacyAcceptedAt ? 'on' : ''}`} aria-hidden="true"></span>
+            </button>
+
+            <button className="profile-menu-row as-button danger-lite" type="button" onClick={() => setLegalExitOpen(true)}>
+              <i className="fas fa-toggle-off"></i>
+              <div>
+                <strong>Revoca consensi</strong>
+                <span>Esci dal sito e li richiediamo al prossimo accesso</span>
+              </div>
+              <i className="fas fa-chevron-right"></i>
+            </button>
+
+            <button className="profile-menu-row as-button danger" type="button" onClick={deleteAccount} disabled={accountBusy}>
+              <i className="fas fa-user-xmark"></i>
+              <div>
+                <strong>Elimina account</strong>
+                <span>Cancella l'account Clerk quando disponibile</span>
+              </div>
+              <i className="fas fa-chevron-right"></i>
+            </button>
           </div>
         </section>
+
+        {legalExitOpen && (
+          <div className="profile-consent-modal" role="dialog" aria-modal="true" aria-label="Revoca consensi">
+            <div className="profile-consent-box">
+              <div className="profile-consent-icon"><i className="fas fa-door-open"></i></div>
+              <h3>Se togli i consensi esci da Roomie.</h3>
+              <p>Senza Termini e Privacy attivi non puoi restare nel sito. Ti faccio uscire ora; al prossimo ingresso Roomie te li richiedera prima di usare prenotazioni, shop e accesso.</p>
+              <div className="profile-consent-actions">
+                <button type="button" className="quiet-action" onClick={() => setLegalExitOpen(false)}>ANNULLA</button>
+                <button type="button" className="btn-neon" onClick={revokeLegalAndExit} disabled={accountBusy}>
+                  {accountBusy ? 'ESCO...' : 'REVOCA ED ESCI'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tools */}
         <div className="profile-tools-grid">

@@ -96,6 +96,13 @@ export async function apiAcceptLegal() {
   })
 }
 
+export async function apiRevokeLegal() {
+  return call<{ user: PublicUser }>('/api/onboarding', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'revoke_legal' }),
+  })
+}
+
 export async function apiMockVerifyDocument(payload: {
   documentType: 'id_card' | 'driver_license'
   documentLast4: string
