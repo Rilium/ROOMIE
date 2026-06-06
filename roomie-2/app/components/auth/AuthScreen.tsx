@@ -34,8 +34,10 @@ type PendingSignUp = {
   authenticateWithRedirect?: (params: Record<string, unknown>) => Promise<void>
 }
 
-export default function AuthScreen() {
+export default function AuthScreen({ presentation = 'modal' }: { presentation?: 'modal' | 'page' }) {
   const { authOpen, authMode, setAuthMode, closeAuth, setUser, showPage, openLegalDoc } = useApp()
+  const isPage = presentation === 'page'
+  const isActive = isPage || authOpen
   const { getToken, isLoaded: authLoaded, isSignedIn } = useAuth()
   const { signOut } = useClerk()
   const sessionList = useSessionList() as {
@@ -245,23 +247,27 @@ export default function AuthScreen() {
   }
 
   useEffect(() => {
-    if (!authOpen || !authLoaded || !isSignedIn) return
+    if (!isActive || !authLoaded || !isSignedIn) return
     void handleSessionExists()
     // handleSessionExists closes over transient Clerk/session objects; this effect is keyed to auth state transitions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authOpen, authLoaded, isSignedIn, sessionList.isLoaded])
+  }, [isActive, authLoaded, isSignedIn, sessionList.isLoaded])
 
   useEffect(() => {
-    if (!authOpen || authMode !== 'register' || !signUpLoaded) return
+    if (!isActive || authMode !== 'register' || !signUpLoaded) return
     void recoverPendingSignUp()
     // recoverPendingSignUp intentionally runs only when Clerk exposes/changes pending sign-up status.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authOpen, authMode, signUpLoaded, signUp?.status])
+  }, [isActive, authMode, signUpLoaded, signUp?.status])
 
   useEffect(() => {
-    document.body.classList.toggle('auth-modal-open', authOpen)
-    return () => document.body.classList.remove('auth-modal-open')
-  }, [authOpen])
+    document.body.classList.toggle('auth-modal-open', !isPage && authOpen)
+    document.body.classList.toggle('auth-page-open', isPage)
+    return () => {
+      document.body.classList.remove('auth-modal-open')
+      document.body.classList.remove('auth-page-open')
+    }
+  }, [authOpen, isPage])
 
   // ── LOGIN ───────────────────────────────────────────────────────────────────
 
@@ -461,41 +467,43 @@ export default function AuthScreen() {
 
   const exitForgot = () => { setForgotStep(null); setError('') }
 
-  if (!authOpen) return null
+  if (!isActive) return null
 
   return (
-    <div className="login-page" id="auth-screen">
+    <div className={`login-page${isPage ? ' is-route' : ''}`} id="auth-screen">
       <div className="login-shell container py-4">
 
         {/* ── AUTH LANDING (sinistra) ── */}
         <section className="auth-landing" aria-label="Roomie accesso">
           <div>
-            <div className="auth-kicker"><i className="fas fa-lock-open"></i> Clubhouse privata · Torino</div>
+            <div className="auth-kicker"><i className="fas fa-lock-open"></i> Accesso Roomie · Torino</div>
             <div className="login-brand">ROOMIE</div>
-            <div className="login-title">LA TUA SERATA, GIA&apos; PRONTA.</div>
-            <div className="login-sub">Prenoti a ore, inviti chi vuoi, entri con chip fisica o codice. Gaming, film, partite e addon senza dover organizzare mezzo mondo.</div>
+            <div className="login-title">ENTRA, PRENOTA, GIOCA.</div>
+            <div className="login-sub">Un solo accesso per prenotazioni, chips, inviti e codici room. Meno passaggi, piu&apos; controllo prima di arrivare.</div>
             <div className="auth-proof-grid">
-              <div className="auth-proof"><strong>40 m2</strong><span>Via Terni, setup privato per il tuo gruppo.</span></div>
-              <div className="auth-proof"><strong>8 max</strong><span>Amici, split e guest pass nello stesso flusso.</span></div>
-              <div className="auth-proof"><strong>Live</strong><span>Disponibilita&apos;, accesso e saldo sempre chiari.</span></div>
+              <div className="auth-proof"><strong>40 m2</strong><span>Room privata in Via Terni.</span></div>
+              <div className="auth-proof"><strong>8 max</strong><span>Gruppo, inviti e guest pass.</span></div>
+              <div className="auth-proof"><strong>Live</strong><span>Saldo, codici e slot in tempo reale.</span></div>
             </div>
           </div>
           <div className="auth-live-card">
             <div className="auth-live-row">
               <div>
-                <div className="auth-live-title">Prossimo slot consigliato</div>
-                <div className="auth-live-meta">Stasera · 20:00-22:00 · Ranked Session</div>
+                <div className="auth-live-title">Prima cosa utile dopo il login</div>
+                <div className="auth-live-meta">Dashboard, chips e prenotazione nello stesso flusso</div>
               </div>
-              <span className="auth-live-status">Libero</span>
+              <span className="auth-live-status">Ready</span>
             </div>
           </div>
         </section>
 
         {/* ── AUTH PANEL (destra) ── */}
         <section className="auth-panel" aria-label="Accesso account">
-          <button className="modal-close auth-modal-close" onClick={closeAuth} aria-label="Chiudi login">
-            <i className="fas fa-times"></i>
-          </button>
+          {!isPage && (
+            <button className="modal-close auth-modal-close" onClick={closeAuth} aria-label="Chiudi login">
+              <i className="fas fa-times"></i>
+            </button>
+          )}
 
           {/* ── FORGOT PASSWORD ── */}
           {forgotStep !== null ? (
@@ -638,8 +646,8 @@ export default function AuthScreen() {
               {authMode === 'login' && (
                 <form className="auth-form active" onSubmit={handleLogin}>
                   <div className="auth-benefit-strip">
-                    <span><i className="fas fa-shield-alt"></i> Sessione sicura</span>
-                    <span><i className="fas fa-bolt"></i> Dashboard immediata</span>
+                    <span><i className="fab fa-google"></i> Google o email</span>
+                    <span><i className="fas fa-rotate-right"></i> Recupero sessione</span>
                   </div>
                   <div className="social-auth">
                     <button className="social-btn google" type="button" onClick={handleGoogle} disabled={busy}>
@@ -675,7 +683,7 @@ export default function AuthScreen() {
                   <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
                     {busy ? 'Accesso...' : 'ENTRA IN ROOMIE'}
                   </button>
-                  <div className="auth-footnote">Se hai gia&apos; una sessione attiva, la recuperiamo senza farti rifare il giro.</div>
+                  <div className="auth-footnote">Se hai gia&apos; una sessione attiva, ti riportiamo direttamente in dashboard.</div>
                 </form>
               )}
 
@@ -683,8 +691,8 @@ export default function AuthScreen() {
               {authMode === 'register' && (
                 <form className="auth-form active" onSubmit={handleRegister}>
                   <div className="auth-benefit-strip">
-                    <span><i className="fas fa-gift"></i> Chips benvenuto</span>
-                    <span><i className="fas fa-calendar-check"></i> Prenoti subito</span>
+                    <span><i className="fas fa-id-card"></i> Profilo Roomie</span>
+                    <span><i className="fas fa-calendar-check"></i> Prenotazione pronta</span>
                   </div>
                   <div className="social-auth">
                     <button className="social-btn google" type="button" onClick={handleGoogle} disabled={busy}>

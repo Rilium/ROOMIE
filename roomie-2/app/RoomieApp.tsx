@@ -33,7 +33,7 @@ function renderRoutePage(page: RoomiePage) {
   return <LandingLegacy />
 }
 
-function AppRouter({ page }: { page: RoomiePage }) {
+function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: boolean }) {
   const { activePage, loading, user, authTransition } = useApp()
   const [bootExpired, setBootExpired] = useState(false)
   const routePage = PROTECTED_PAGES.includes(page) && !user ? 'home' : page
@@ -73,6 +73,16 @@ function AppRouter({ page }: { page: RoomiePage }) {
 
   if (loading && !bootExpired) return null
 
+  if (authOnly) {
+    return (
+      <>
+        <AuthScreen presentation="page" />
+        <Toast />
+        <Modals />
+      </>
+    )
+  }
+
   return (
     <>
       <AuthScreen />
@@ -102,14 +112,16 @@ function AppRouter({ page }: { page: RoomiePage }) {
 export default function RoomieApp({
   page = 'home',
   initialAuthMode,
+  authOnly = false,
 }: {
   page?: RoomiePage
   initialAuthMode?: InitialAuthMode
+  authOnly?: boolean
 }) {
   return (
     <AppProvider initialAuthMode={initialAuthMode} initialAuthOpen={Boolean(initialAuthMode)}>
       <BootLoader />
-      <AppRouter page={page} />
+      <AppRouter page={page} authOnly={authOnly} />
     </AppProvider>
   )
 }
