@@ -1,7 +1,4 @@
-import { LEGACY_AUTH_DEPRECATION } from '@/lib/legacy-auth'
-
-// Deprecated compatibility shim: see LEGACY_AUTH_DEPRECATION.
+// Deprecated compatibility shim: auth is handled by Clerk.
 export async function GET() {
-  void LEGACY_AUTH_DEPRECATION
   return Response.json({ error: 'MIGRATED_TO_CLERK' }, { status: 410 })
 }
