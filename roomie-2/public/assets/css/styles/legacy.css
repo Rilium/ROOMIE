@@ -201,11 +201,11 @@ body.page-home .page.active{padding-top:0!important}
   .hero{
     min-height:100svh!important;
     height:auto!important;
-    padding:calc(var(--nav-safe) + 10px) 16px calc(var(--mobile-nav-space) + 24px)!important;
+    padding:calc(var(--nav-safe) + 28px) 22px calc(var(--mobile-nav-space) + 36px)!important;
     justify-content:flex-end!important;
   }
   .hero-content{max-height:none!important}
-  .hero-title{font-size:clamp(5.5rem,24vw,8rem)!important;line-height:.84!important;letter-spacing:-.01em!important}
+  .hero-title{font-size:clamp(2.65rem,min(43vw,14.2vh),10.25rem)!important;line-height:.84!important;letter-spacing:-.01em!important}
   .hero-addr{font-size:.86rem!important;line-height:1.34!important}
   .hero-dots{right:12px!important;left:auto!important;top:50%!important;bottom:auto!important}
 }
@@ -362,7 +362,7 @@ body.page-home.fullpage-enabled .hero{
     padding-bottom:calc(var(--mobile-nav-space) + 24px)!important;
   }
   .hero-title{
-    font-size:clamp(2.65rem,min(13vw,9.2vh),4.25rem)!important;
+    font-size:clamp(2.65rem,min(43vw,14.2vh),10.25rem)!important;
   }
 }
 

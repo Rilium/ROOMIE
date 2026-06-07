@@ -160,7 +160,7 @@
   --bs-offcanvas-bg:var(--dark2);
   --bs-offcanvas-color:var(--text);
   --bs-offcanvas-border-color:var(--border);
-  --mobile-nav-space:calc(78px + env(safe-area-inset-bottom));
+  --mobile-nav-space:calc(62px + env(safe-area-inset-bottom));
   --mobile-fixed-bottom:calc(var(--mobile-nav-space) + 16px);
   --top-safe:calc(var(--nav-h) + env(safe-area-inset-top) + 16px);
   --hero-top-safe:calc(var(--nav-h) + env(safe-area-inset-top) + 40px);
