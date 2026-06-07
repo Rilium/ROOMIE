@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/app/context/AppContext'
-import { HyperText } from '@/app/components/magicui/hyper-text'
+import { DiaTextReveal } from '@/app/components/magicui/dia-text-reveal'
 
 const HERO_SLIDES = [
   {
@@ -119,9 +119,9 @@ export default function LandingLegacy() {
               <span className="hero-badge-dot"></span>
               LIVE · VIA TERNI
             </div>
-            <HyperText as="h1" className="hero-title" duration={900} delay={120}>
+            <DiaTextReveal as="h1" className="hero-title" duration={900} delay={120}>
               {`${currentHero.title}\n${currentHero.neon}`}
-            </HyperText>
+            </DiaTextReveal>
             <p className="hero-addr">{currentHero.addr}</p>
             <p className="hero-sub">{currentHero.sub}</p>
           </div>

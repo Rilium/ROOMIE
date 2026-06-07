@@ -2,7 +2,7 @@
 
 import { useApp } from '@/app/context/AppContext'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
-import { HyperText } from '@/app/components/magicui/hyper-text'
+import { DiaTextReveal } from '@/app/components/magicui/dia-text-reveal'
 import { apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import { useEffect, useState } from 'react'
@@ -77,9 +77,9 @@ export default function SessionPage() {
             <div className="roomie-kicker-neon">
               <i className={`fas ${isLive ? 'fa-unlock' : 'fa-lock'}`}></i> {isLive ? 'ACCESSO RIUSCITO' : 'IN ATTESA SLOT'}
             </div>
-            <HyperText className="roomie-title-condensed roomie-title-session">
+            <DiaTextReveal className="roomie-title-condensed roomie-title-session">
               {isLive ? 'SEI DENTRO.' : 'NON ANCORA.'}
-            </HyperText>
+            </DiaTextReveal>
             <div className="roomie-copy-session">
               Room tua fino alle <strong className="roomie-strong-neon">{booking?.end || '22:00'}</strong>
             </div>

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
-import { HyperText } from '@/app/components/magicui/hyper-text'
+import { DiaTextReveal } from '@/app/components/magicui/dia-text-reveal'
 
 export interface BookingStepItem {
   label: string
@@ -130,7 +130,7 @@ export function CompactRoomSummary({
       <div className="compact-room-media" style={{ backgroundImage: `url('${image}')` }} aria-hidden="true" />
       <div className="compact-room-main">
         <div className="compact-room-kicker">Room selezionata</div>
-        <HyperText className="compact-room-title" duration={620}>{title}</HyperText>
+        <DiaTextReveal className="compact-room-title" duration={620}>{title}</DiaTextReveal>
         <div className="compact-room-location">{location}</div>
         <div className="compact-room-meta">
           {stats.map(stat => (
