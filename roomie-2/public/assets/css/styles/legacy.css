@@ -385,16 +385,15 @@ body .booking-sticky{
   }
 }
 
-.session-sticky,
-.cart-panel{
-  z-index:4100!important;
-}
+.session-sticky,.cart-panel{z-index:4100!important}
 
 @media (max-width:600px){
-  .session-sticky,
-  .cart-panel{
-    bottom:calc(var(--mobile-nav-space) + 16px)!important;
+  .session-sticky{
+    bottom:calc(var(--mobile-nav-space) + 10px)!important;
+    width:calc(100vw - 20px)!important;
+    left:50%!important;transform:translateX(-50%)!important;
   }
+  .cart-panel{bottom:calc(var(--mobile-nav-space) + 10px)!important}
 }
 
 .btn-neon::after,

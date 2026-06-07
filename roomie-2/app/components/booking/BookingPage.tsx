@@ -2,6 +2,17 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+
+function spawnConfetti() {
+  const colors = ['#C8FF00', '#00FFD1', '#FF5A1F', '#fff', '#FFD700', '#FF3DCE']
+  for (let i = 0; i < 72; i++) {
+    const el = document.createElement('div')
+    el.className = 'confetti-piece'
+    el.style.cssText = `left:${Math.random() * 100}vw;top:${-8 - Math.random() * 24}px;background:${colors[i % colors.length]};transform:rotate(${Math.random() * 360}deg) scaleX(${0.4 + Math.random() * 0.6});animation-delay:${(Math.random() * 0.7).toFixed(2)}s;animation-duration:${(1 + Math.random() * 0.7).toFixed(2)}s`
+    document.body.appendChild(el)
+    el.addEventListener('animationend', () => el.remove(), { once: true })
+  }
+}
 import { useApp } from '@/app/context/AppContext'
 import { apiCreateBooking, apiBookingPrice } from '@/lib/client-api'
 import {
@@ -225,6 +236,7 @@ export default function BookingPage() {
       keyDone: false,
       doorDone: false,
     })
+    spawnConfetti()
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
   }, [priceLoading, serverPrice, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
