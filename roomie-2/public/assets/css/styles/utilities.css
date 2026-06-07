@@ -47,7 +47,7 @@
   .page{padding-bottom:var(--mobile-nav-space)}
   .mobile-bottom-nav{display:grid}
   .hero-copy{min-height:0;margin-bottom:12px}
-  .hero-title{font-size:clamp(2.65rem,min(43vw,14.2vh),10.25rem);line-height:.84;letter-spacing:-.01em;margin-bottom:12px;text-shadow:0 0 120px rgba(200,255,0,.18)}
+  .hero-title{font-size:clamp(1.99rem,min(32.25vw,10.65vh),7.69rem);line-height:.84;letter-spacing:-.01em;margin-bottom:12px;text-shadow:0 0 120px rgba(200,255,0,.18)}
   .hero-title .neon-line{text-shadow:0 0 30px var(--neon),0 0 70px rgba(200,255,0,.5),0 0 120px rgba(200,255,0,.25)}
   .hero-addr{font-size:.86rem;letter-spacing:.055em;line-height:1.35;max-width:330px;margin-bottom:0}
   .section{padding:48px 16px}
