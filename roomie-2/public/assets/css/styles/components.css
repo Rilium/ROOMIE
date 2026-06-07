@@ -482,6 +482,7 @@ body.page-home.fullpage-enabled #inside-section .inside-tabs{
   color:#fff;
   text-shadow:0 0 80px rgba(200,255,0,.15);
   margin-bottom:8px;
+  word-break:keep-all;overflow-wrap:normal;hyphens:none;
 }
 .hero-title .neon-line{
   color:var(--neon);
