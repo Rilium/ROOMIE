@@ -318,8 +318,8 @@ export default function DashboardPage() {
             <div className="profile-avatar-wrap">
               <button className="profile-avatar" type="button" onClick={() => avatarInputRef.current?.click()} aria-label="Cambia immagine profilo">
                 {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{profileInitials}</span>}
-                <i className={`fas ${avatarBusy ? 'fa-spinner fa-spin' : 'fa-camera'}`}></i>
               </button>
+              <i className={`fas ${avatarBusy ? 'fa-spinner fa-spin' : 'fa-camera'} profile-avatar-badge`} aria-hidden="true"></i>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -407,7 +407,7 @@ export default function DashboardPage() {
             </button>
 
             <button className="profile-menu-row as-button" type="button" onClick={() => user.privacyAcceptedAt ? setLegalExitOpen(true) : openLegalDoc('privacy')}>
-              <i className="fas fa-shield-halved"></i>
+              <i className="fas fa-shield-alt"></i>
               <div>
                 <strong>Privacy policy</strong>
                 <span>{user.privacyAcceptedAt ? `Attiva dal ${new Date(user.privacyAcceptedAt).toLocaleDateString('it-IT')} · tocca per revocare` : 'Da accettare'}</span>
@@ -425,7 +425,7 @@ export default function DashboardPage() {
             </button>
 
             <button className="profile-menu-row as-button danger" type="button" onClick={deleteAccount} disabled={accountBusy}>
-              <i className="fas fa-user-xmark"></i>
+              <i className="fas fa-user-times"></i>
               <div>
                 <strong>Elimina account</strong>
                 <span>Cancella l'account Clerk quando disponibile</span>

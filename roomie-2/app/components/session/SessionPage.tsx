@@ -298,8 +298,16 @@ export default function SessionPage() {
 
       <div className="session-sticky">
         <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
-        <button className="btn-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}>ADDON</button>
-        <button className="session-extend-btn" disabled={!isLive} onClick={handleExtend}>+1H</button>
+        <div className="session-sticky-info">
+          <span className={`session-sticky-status${isLive ? ' is-live' : ''}`}>
+            <span className="live-dot"></span>{isLive ? 'LIVE' : 'IN ATTESA'}
+          </span>
+          <span className="session-sticky-end">fine <strong>{booking?.end || '—'}</strong></span>
+        </div>
+        <div className="session-sticky-actions">
+          <button className="btn-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}><i className="fas fa-layer-group"></i> ADDON</button>
+          <button className="session-extend-btn" disabled={!isLive} onClick={handleExtend}><i className="fas fa-clock"></i> +1H</button>
+        </div>
       </div>
     </div>
   )

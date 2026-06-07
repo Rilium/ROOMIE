@@ -57,7 +57,12 @@ export async function POST(req: Request) {
   }
 
   // ── Validate people ────────────────────────────────────────────────────────
-  const cfg = await getConfig()
+  let cfg
+  try {
+    cfg = await getConfig()
+  } catch {
+    return Response.json({ error: 'DB_UNAVAILABLE' }, { status: 503 })
+  }
   const people = Math.max(1, Number(body.people || 1))
   const maxPeople = Number(cfg.maxPeople || 8)
   const friendIds = Array.isArray(body.friendIds)
@@ -119,6 +124,7 @@ export async function POST(req: Request) {
     if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
       return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
     }
-    throw err
+    console.error('[POST /api/bookings] unexpected error:', err)
+    return Response.json({ error: 'BOOKING_FAILED' }, { status: 500 })
   }
 }

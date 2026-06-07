@@ -170,7 +170,7 @@ export default function BookingPage() {
   }, [step, showPage])
 
   const handleConfirm = useCallback(async () => {
-    if (priceLoading || serverPrice == null) {
+    if (priceLoading) {
       showToast({ title: 'Prezzo in verifica', copy: 'Aspetta un secondo: stiamo confermando il totale server.', type: 'warn' })
       return
     }
