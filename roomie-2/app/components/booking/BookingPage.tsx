@@ -15,6 +15,7 @@ function spawnConfetti() {
 }
 import { useApp } from '@/app/context/AppContext'
 import { apiCreateBooking, apiBookingPrice, invalidateDashboardCache } from '@/lib/client-api'
+import BookingCalendar from './BookingCalendar'
 import {
   BookingFlowLayout,
   BookingStepper,
@@ -312,35 +313,30 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* STEP 1: Data/ora */}
+            {/* STEP 1: Data/ora — BookingCalendar */}
             {step === 1 && (
               <div className="booking-step active">
                 <div className="booking-step-title">Quando venite?</div>
                 <div className="booking-step-sub">Adesso per entrare subito, oppure pianifica la serata.</div>
-                <div className="booking-mode">
-                  <button className={mode === 'now' ? 'active' : ''} onClick={handleNowMode}>Adesso</button>
-                  <button className={mode === 'plan' ? 'active' : ''} onClick={() => { setMode('plan'); setSlotConflict(null) }}>Pianifica</button>
-                </div>
-                <div className="event-chip">
-                  <div className="event-row">
-                    <div>
-                      <label className="form-label">DATA</label>
-                      <input type="date" className="form-input" value={date} disabled={mode === 'now'} onChange={e => { setDate(e.target.value); setSlotConflict(null) }} />
-                    </div>
-                    <div>
-                      <label className="form-label">INIZIO</label>
-                      <input type="time" className="form-input" value={start} step="900" disabled={mode === 'now'} onChange={e => { setStart(e.target.value); setSlotConflict(null) }} />
-                    </div>
+                <BookingCalendar
+                  date={date}
+                  start={start}
+                  end={end}
+                  duration={duration}
+                  mode={mode}
+                  onDateChange={d => { setDate(d); setSlotConflict(null) }}
+                  onStartChange={t => { setStart(t); setSlotConflict(null) }}
+                  onModeChange={m => {
+                    if (m === 'now') { handleNowMode() }
+                    else { setMode('plan'); setSlotConflict(null) }
+                  }}
+                />
+                {slotConflict && (
+                  <div className="slot-availability blocked" role="alert" style={{ marginTop: 12 }}>
+                    <strong>Slot non disponibile</strong>
+                    <span>{slotConflict} è già occupato o bloccato. Scegli un altro orario.</span>
                   </div>
-                  <div className={`slot-availability${slotConflict ? ' blocked' : ''}`} role={slotConflict ? 'alert' : undefined}>
-                    <strong>{slotConflict ? 'Slot non disponibile' : 'Orario selezionato'}</strong>
-                    <span>
-                      {slotConflict
-                        ? `${slotConflict} e' gia occupato o bloccato. Scegli un altro inizio.`
-                        : `${date} · ${start}→${end}`}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
