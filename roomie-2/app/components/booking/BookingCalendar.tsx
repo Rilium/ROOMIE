@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 interface BookingCalendarProps {
   date: string          // 'YYYY-MM-DD'
@@ -84,6 +84,20 @@ export default function BookingCalendar({
   const isToday  = date === todayYmd()
   const planMode = mode === 'plan'
 
+  // Live clock for "Adesso" pill
+  const [nowTime, setNowTime] = useState(() => {
+    const n = new Date()
+    return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`
+  })
+  useEffect(() => {
+    if (mode !== 'now') return
+    const id = setInterval(() => {
+      const n = new Date()
+      setNowTime(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`)
+    }, 10000)
+    return () => clearInterval(id)
+  }, [mode])
+
   return (
     <div className="bc-wrap">
 
@@ -105,8 +119,18 @@ export default function BookingCalendar({
         </button>
       </div>
 
-      {/* ── Mini calendar ───────────────────────────────────────── */}
-      <div className={`bc-calendar${!planMode ? ' bc-dim' : ''}`}>
+      {/* ── Adesso pill (solo in modalità now) ──────────────────── */}
+      {mode === 'now' && (
+        <div className="bc-now-pill">
+          <span className="bc-now-dot" />
+          <span className="bc-now-label">Entrata</span>
+          <span className="bc-now-time">{nowTime}</span>
+        </div>
+      )}
+
+      {/* ── Mini calendar (solo Pianifica) ──────────────────────── */}
+      {planMode && (
+      <div className="bc-calendar">
         {/* Month nav */}
         <div className="bc-month-nav">
           <button
@@ -166,51 +190,54 @@ export default function BookingCalendar({
           })}
         </div>
       </div>
+      )}
 
-      {/* ── Time slot grid ──────────────────────────────────────── */}
-      <div className={`bc-time-section${!planMode ? ' bc-dim' : ''}`}>
-        <div className="bc-time-label">
-          <i className="fas fa-clock" />
-          INIZIO SESSIONE
+      {/* ── Time slot grid (solo Pianifica) ─────────────────────── */}
+      {planMode && (
+        <div className="bc-time-section">
+          <div className="bc-time-label">
+            <i className="fas fa-clock" />
+            INIZIO SESSIONE
+          </div>
+          <div className="bc-slots" role="group" aria-label="Seleziona orario di inizio">
+            {HOUR_SLOTS.map(hour => {
+              const h        = parseInt(hour)
+              const pastHour = isToday && h <= nowHour
+              const sel      = start === hour
+              return (
+                <button
+                  key={hour}
+                  type="button"
+                  aria-pressed={sel}
+                  className={[
+                    'bc-slot',
+                    sel      ? 'bc-slot-selected' : '',
+                    pastHour ? 'bc-slot-past'     : '',
+                  ].filter(Boolean).join(' ')}
+                  disabled={pastHour}
+                  onClick={() => onStartChange(hour)}
+                >
+                  {hour}
+                </button>
+              )
+            })}
+          </div>
         </div>
-        <div className="bc-slots" role="group" aria-label="Seleziona orario di inizio">
-          {HOUR_SLOTS.map(hour => {
-            const h        = parseInt(hour)
-            const pastHour = isToday && h <= nowHour
-            const sel      = start === hour
-            return (
-              <button
-                key={hour}
-                type="button"
-                aria-pressed={sel}
-                className={[
-                  'bc-slot',
-                  sel      ? 'bc-slot-selected' : '',
-                  pastHour ? 'bc-slot-past'     : '',
-                ].filter(Boolean).join(' ')}
-                disabled={pastHour || !planMode}
-                onClick={() => onStartChange(hour)}
-              >
-                {hour}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      )}
 
-      {/* ── Summary pill ────────────────────────────────────────── */}
-      <div className="bc-summary">
-        <i className="fas fa-check-circle bc-summary-icon" />
-        <div className="bc-summary-body">
-          <span className="bc-summary-date">
-            {mode === 'now' ? 'Adesso' : displayDate(date)}
-          </span>
-          <span className="bc-summary-time">
-            {start} <span className="bc-arrow">→</span> {end}
-          </span>
+      {/* ── Summary pill (solo Pianifica) ───────────────────────── */}
+      {planMode && (
+        <div className="bc-summary">
+          <i className="fas fa-check-circle bc-summary-icon" />
+          <div className="bc-summary-body">
+            <span className="bc-summary-date">{displayDate(date)}</span>
+            <span className="bc-summary-time">
+              {start} <span className="bc-arrow">→</span> {end}
+            </span>
+          </div>
+          <span className="bc-dur-badge">{duration}h</span>
         </div>
-        <span className="bc-dur-badge">{duration}h</span>
-      </div>
+      )}
 
     </div>
   )
