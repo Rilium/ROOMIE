@@ -149,8 +149,20 @@ export interface DashboardData {
   }
 }
 
-export async function apiDashboard() {
-  return call<DashboardData>('/api/dashboard')
+// Cache per deduplicare chiamate parallele (AppContext + DashboardPage le fanno entrambe al mount)
+let _dashCache: { ts: number; p: Promise<ApiResult<DashboardData>> } | null = null
+const DASH_TTL = 4000 // ms — abbastanza per coprire il doppio mount iniziale
+
+export async function apiDashboard(force = false) {
+  const now = Date.now()
+  if (!force && _dashCache && now - _dashCache.ts < DASH_TTL) return _dashCache.p
+  const p = call<DashboardData>('/api/dashboard')
+  _dashCache = { ts: now, p }
+  return p
+}
+
+export function invalidateDashboardCache() {
+  _dashCache = null
 }
 
 // ── BOOKING ───────────────────────────────────────────────────────────────────

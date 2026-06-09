@@ -95,7 +95,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260607-profile-css" />
 
-        {/* GSAP — must load before roomie.js */}
+        {/* GSAP + Lenis — beforeInteractive: roomie.js usa gsap.registerPlugin() al DOMContentLoaded
+            quindi GSAP deve essere disponibile prima. Il boot-loader statico già elimina il blackscreen. */}
         <Script
           src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"
           strategy="beforeInteractive"
@@ -116,6 +117,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <span className="glow glow-2"></span>
           <span className="glow glow-3"></span>
         </div>
+
+        {/* Boot-loader statico — visibile dal primo byte HTML, prima che React hydrati.
+            React BootLoader prende il controllo e lo fa scomparire con fade-out. */}
+        <div id="static-boot-loader" className="boot-loader" aria-hidden="true">
+          <div className="boot-card">
+            <div className="boot-shell">
+              <div className="roomie-loader-brand">ROOMIE</div>
+              <span className="roomie-chip" aria-hidden="true"></span>
+              <div className="boot-status-dots" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <div className="boot-copy">Prepariamo la room</div>
+            </div>
+          </div>
+        </div>
+
         {children}
 
         {/* ROOMIE app logic — must run after DOM */}

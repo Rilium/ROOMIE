@@ -14,7 +14,7 @@ function spawnConfetti() {
   }
 }
 import { useApp } from '@/app/context/AppContext'
-import { apiCreateBooking, apiBookingPrice } from '@/lib/client-api'
+import { apiCreateBooking, apiBookingPrice, invalidateDashboardCache } from '@/lib/client-api'
 import {
   BookingFlowLayout,
   BookingStepper,
@@ -237,6 +237,7 @@ export default function BookingPage() {
       doorDone: false,
     })
     spawnConfetti()
+    invalidateDashboardCache()
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
   }, [priceLoading, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
