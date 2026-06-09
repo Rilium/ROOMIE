@@ -16,8 +16,8 @@
   --border:#333;
   --token:var(--neon);
   --r:8px;
-  --roomie-shell-max:43.75rem;
-  --roomie-shell-gutter:16px;
+  --roomie-shell-max:1100px;
+  --roomie-shell-gutter:24px;
 
   /* ── Bootstrap variable overrides — keep ROOMIE look on BS components ── */
   --bs-body-bg:var(--dark);
