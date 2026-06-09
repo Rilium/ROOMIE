@@ -1778,8 +1778,6 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .camera-title{font-family:'Barlow Condensed',sans-serif;font-size:2.2rem;font-weight:900;line-height:.95;color:#fff;max-width:360px}
 .camera-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .camera-pill{border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.42);border-radius:999px;padding:7px 10px;color:rgba(255,255,255,.82);font-size:.72rem;font-weight:900}
-.camera-ticker{margin-top:14px;overflow:hidden;border:1px solid rgba(200,255,0,.24);background:rgba(200,255,0,.07);border-radius:999px;color:var(--neon);font-size:.7rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
-.camera-ticker span{display:inline-block;padding:8px 0;animation:cameraTicker 18s linear infinite}
 .camera-card.is-locked .camera-feed{filter:saturate(.42) contrast(.9) blur(2px)}
 .camera-card.is-locked .camera-live{
   background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.16);color:rgba(255,255,255,.66);
@@ -1970,7 +1968,7 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .inside-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
 .inside-actions button{min-height:44px}
 .session-hero{
-  min-height:250px;border-radius:16px;overflow:hidden;position:relative;margin-bottom:18px;
+  min-height:180px;border-radius:16px;overflow:hidden;position:relative;margin-bottom:18px;
   background:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.88)),url('/assets/images/roomie-real-2.webp') center/cover;
   border:1px solid rgba(200,255,0,.28);
 }
@@ -2024,6 +2022,7 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
 .in-room-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2rem;line-height:.96;color:#fff}
 .room-status-pill{border:1px solid rgba(200,255,0,.34);background:rgba(200,255,0,.1);color:var(--neon);border-radius:999px;padding:7px 10px;font-size:.72rem;font-weight:900;white-space:nowrap}
 .quick-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.quick-controls-2col{grid-template-columns:repeat(2,minmax(0,1fr))}
 .quick-control{min-height:68px;border-radius:13px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.045);color:#fff;padding:10px;text-align:left;font-weight:900}
 .quick-control i{display:block;color:var(--neon);font-size:1.05rem;margin-bottom:6px}
 .quick-control span{display:block;color:var(--muted);font-size:.68rem;font-weight:800;margin-top:2px}
@@ -2071,6 +2070,57 @@ input[type=range].form-input::-moz-range-thumb{width:22px;height:22px;border-rad
   font-size:.65rem;font-weight:950;letter-spacing:.06em;white-space:nowrap;
 }
 .control-room-action.is-urgent .control-room-meta{background:rgba(255,90,31,.18);color:#ffad7e}
+.control-room-booking-link{
+  display:flex;align-items:center;gap:8px;width:100%;padding:10px 4px;margin-top:10px;
+  background:none;border:none;color:rgba(255,255,255,.44);font-size:.76rem;font-weight:800;
+  border-top:1px solid rgba(255,255,255,.07);
+  transition:color .18s ease;
+}
+.control-room-booking-link:hover,.control-room-booking-link:focus-visible{color:rgba(255,255,255,.72)}
+.control-room-booking-link i:first-child{color:var(--neon);font-size:.8rem}
+.control-room-booking-link i:last-child{margin-left:auto;font-size:.68rem}
+
+/* access alert banner */
+.session-access-alert{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;
+  background:rgba(255,160,0,.1);border:1px solid rgba(255,160,0,.38);border-radius:14px;
+  padding:12px 14px;margin-bottom:16px;
+}
+.session-access-alert-icon{color:#ffb347;font-size:1.1rem;width:28px;text-align:center}
+.session-access-alert-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.session-access-alert-copy strong{font-size:.86rem;font-weight:950;color:#fff}
+.session-access-alert-copy span{font-size:.74rem;color:rgba(255,255,255,.56)}
+.session-access-alert-btn{
+  flex:none;border:1px solid rgba(255,160,0,.5);border-radius:999px;
+  background:rgba(255,160,0,.14);color:#ffb347;
+  font-size:.68rem;font-weight:950;letter-spacing:.08em;padding:7px 10px;white-space:nowrap;
+  transition:background .18s ease,border-color .18s ease;
+}
+.session-access-alert-btn:hover{background:rgba(255,160,0,.22);border-color:rgba(255,160,0,.7)}
+
+/* camera status chips replacing ticker */
+.camera-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}
+.camera-chip{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  background:rgba(200,255,0,.1);border:1px solid rgba(200,255,0,.22);
+  border-radius:999px;padding:5px 8px;
+  font-size:.66rem;font-weight:900;color:var(--neon);letter-spacing:.04em;white-space:nowrap;
+}
+.camera-chip i{font-size:.6rem}
+
+/* session progress bar in sticky */
+.session-progress-bar{
+  height:3px;border-radius:0;margin-bottom:8px;
+  background:rgba(255,255,255,.1);position:relative;overflow:hidden;
+}
+.session-progress-bar::after{
+  content:'';position:absolute;left:0;top:0;height:100%;
+  width:var(--session-progress,0%);
+  background:linear-gradient(90deg,var(--neon),rgba(0,255,209,.8));
+  border-radius:0 999px 999px 0;
+  transition:width 30s linear;
+}
+
 .drawer-panel{position:fixed;inset:0;z-index:4200;background:rgba(0,0,0,.62);display:flex;justify-content:flex-start;backdrop-filter:blur(6px)}
 .drawer-box{width:min(336px,84vw);height:100%;background:linear-gradient(180deg,rgba(18,18,18,.985),rgba(11,11,11,.995));border-right:1px solid rgba(255,255,255,.09);padding:14px 14px 16px;box-shadow:24px 0 70px rgba(0,0,0,.55);overflow-y:auto}
 .drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
