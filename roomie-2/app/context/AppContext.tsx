@@ -10,6 +10,7 @@ import { isBookingLiveNow } from '@/lib/utils'
 import { useCartState } from '@/app/context/state/useCartState'
 import { useUiState } from '@/app/context/state/useUiState'
 import { useBookingDraftState } from '@/app/context/state/useBookingDraftState'
+import { useLegacyRoomieBridge } from '@/app/context/state/useLegacyRoomieBridge'
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
 
@@ -359,37 +360,16 @@ export function AppProvider({
     router.push(path)
   }, [router])
 
-  // ── Bridge legacy roomie.js → React ────────────────────────────────────────
-  // ATTENZIONE: questi bridge sono ancora necessari perché public/assets/js/roomie.js
-  // chiama window.__roomie_showPage, window.__roomie_showToast, openInviteModal ecc.
-  // Non rimuovere finché roomie.js non è completamente migrato a React.
-  // TODO: dopo migrazione roomie.js → eliminare questo blocco intero.
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>
-    w.__roomie_showPage = navigateToPage
-    w.__roomie_showToast = showToast
-    w.__roomie_openLegalDoc = openLegalDoc
-    w.__roomie_getUser = () => userRef.current
-    // Modal bridges (chiamati da roomie.js: openLegalDoc, openInviteModal)
-    w.openLegalDoc = (type: string) => openLegalDoc(type as LegalDocType)
-    w.openNfcModal = openModalNfc
-    w.openCodeUnlockModal = openModalCodeUnlock
-    w.openInviteModal = openModalInvite
-    w.openTokenBuyModal = (amount?: number) => openModalTokenBuy(amount ?? 20)
-    return () => {
-      ;[
-        '__roomie_showPage',
-        '__roomie_showToast',
-        '__roomie_openLegalDoc',
-        '__roomie_getUser',
-        'openLegalDoc',
-        'openNfcModal',
-        'openCodeUnlockModal',
-        'openInviteModal',
-        'openTokenBuyModal',
-      ].forEach(key => { w[key] = undefined })
-    }
-  }, [navigateToPage, showToast, openLegalDoc, openModalNfc, openModalCodeUnlock, openModalInvite, openModalTokenBuy])
+  useLegacyRoomieBridge({
+    navigateToPage,
+    showToast,
+    openLegalDoc,
+    openModalNfc,
+    openModalCodeUnlock,
+    openModalInvite,
+    openModalTokenBuy,
+    userRef,
+  })
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 

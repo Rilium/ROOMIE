@@ -3,132 +3,27 @@
 // Single source of truth for users, bookings, wallet, addons, access and admin.
 // Run db/001_initial_schema.sql against Neon before first production use.
 
-import bcrypt from 'bcryptjs'
 import { sqlClient } from './db/client'
+import { ensureBootstrapData, resetAddonCountersIfNeeded } from './db/bootstrap'
 import { rowToAddon, rowToBlockedSlot, rowToBooking, rowToDbUser } from './db/mappers'
+import { getConfig } from './repositories/config'
 import type {
   DbUser,
   PublicUser,
   Booking,
   Addon,
   AddonOrder,
-  AppConfig,
-  BlockedSlot,
   AuditEntry,
 } from './types'
 import { bookingAccessUntilIso, isValidEmailString, normalizeEmail } from './utils'
+export { ensureBootstrapData, resetAddonCountersIfNeeded } from './db/bootstrap'
+export { getConfig, patchConfig } from './repositories/config'
+export { createBlockedSlot, deleteBlockedSlot, listBlockedSlots } from './repositories/blocked-slots'
 
 // ── CONNECTION ────────────────────────────────────────────────────────────────
 
 function getDb() {
   return sqlClient()
-}
-
-const DEFAULT_ADDONS: Addon[] = [
-  { id: 'dazn',       category: 'featured', brand: 'DAZN',    name: 'DAZN Partita',        description: 'Champions League, Serie A e big match dentro la sessione.', price: 5,  status: 'active', soldToday: 3 },
-  { id: 'cinema',     category: 'featured', brand: 'NETFLIX',  name: 'Cinema Mode',         description: 'Audio ottimizzato, streaming fullscreen e luci basse.',      price: 3,  status: 'active', soldToday: 2 },
-  { id: 'horror',     category: 'modes',    brand: 'ROOMIE',   name: 'Mood Horror',         description: 'Luci rosse, atmosfera dark e setup da film.',                price: 4,  status: 'active', soldToday: 0 },
-  { id: 'gaming-pro', category: 'modes',    brand: 'PS5',      name: 'Gaming Pro Setup',    description: 'Monitor extra, headset premium e setup competitivo.',        price: 8,  status: 'active', soldToday: 1 },
-  { id: 'neon-party', category: 'modes',    brand: 'SPOTIFY',  name: 'Neon Party',          description: 'Luci dinamiche e playlist pronta per la serata.',            price: 5,  status: 'active', soldToday: 0 },
-  { id: 'pizza',      category: 'snacks',   brand: 'PARTNER',  name: 'Pizza Margherita',    description: 'Delivery partner locale, pronta durante la sessione.',       price: 9,  status: 'active', soldToday: 2 },
-  { id: 'beer',       category: 'snacks',   brand: 'LOCAL',    name: 'Birra Artigianale x4', description: 'Quattro birre locali fredde.',                              price: 12, status: 'active', soldToday: 1 },
-  { id: 'snack',      category: 'snacks',   brand: 'MOVIE',    name: 'Snack Box',           description: 'Popcorn, patatine, nachos e mix dolce/salato.',              price: 7,  status: 'active', soldToday: 4 },
-]
-
-let bootstrapPromise: Promise<void> | null = null
-
-export async function ensureBootstrapData(): Promise<void> {
-  if (!bootstrapPromise) {
-    bootstrapPromise = (async () => {
-      const sql = getDb()
-
-      await sql`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`
-
-      await sql`ALTER TABLE addons ADD COLUMN IF NOT EXISTS sold_today_date DATE NOT NULL DEFAULT CURRENT_DATE`
-
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS clerk_id TEXT UNIQUE`
-      await sql`CREATE INDEX IF NOT EXISTS idx_users_clerk_id ON users (clerk_id)`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_accepted_at TIMESTAMPTZ`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_verification_status TEXT NOT NULL DEFAULT 'missing'`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_type TEXT`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_last4 TEXT`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_name TEXT`
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS document_verified_at TIMESTAMPTZ`
-
-      await sql`
-        CREATE TABLE IF NOT EXISTS rate_limits (
-          key TEXT PRIMARY KEY,
-          count INT NOT NULL DEFAULT 0,
-          expires_at TIMESTAMPTZ NOT NULL,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `
-
-      await sql`
-        CREATE TABLE IF NOT EXISTS audit_log (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          type TEXT NOT NULL,
-          user_id TEXT,
-          details JSONB NOT NULL DEFAULT '{}',
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `
-
-      await sql`
-        INSERT INTO config (id)
-        VALUES (1)
-        ON CONFLICT (id) DO NOTHING
-      `
-
-      for (const [index, addon] of DEFAULT_ADDONS.entries()) {
-        await sql`
-          INSERT INTO addons (id, category, brand, name, description, price, status, sold_today, sort_order)
-          VALUES (
-            ${addon.id},
-            ${addon.category},
-            ${addon.brand},
-            ${addon.name},
-            ${addon.description},
-            ${addon.price},
-            ${addon.status},
-            ${addon.soldToday},
-            ${(index + 1) * 10}
-          )
-          ON CONFLICT (id) DO NOTHING
-        `
-      }
-
-      await resetAddonCountersIfNeeded()
-
-      const adminPassword = process.env.ADMIN_PASSWORD || ''
-      const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || ''
-      if (adminPassword || adminPasswordHash) {
-        const username = String(process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase()
-        const email = String(process.env.ADMIN_EMAIL || 'admin@roomie.local').trim().toLowerCase()
-        const name = String(process.env.ADMIN_NAME || 'ROOMIE Admin').trim()
-        const passwordHash = adminPasswordHash || bcrypt.hashSync(adminPassword, 10)
-
-        await sql`
-          INSERT INTO users (id, username, email, name, role, chips, password_hash, suspended)
-          VALUES ('usr_admin', ${username}, ${email}, ${name}, 'admin', 999, ${passwordHash}, FALSE)
-          ON CONFLICT (id) DO UPDATE SET
-            username = EXCLUDED.username,
-            email = EXCLUDED.email,
-            name = EXCLUDED.name,
-            role = 'admin',
-            chips = GREATEST(users.chips, 999),
-            password_hash = EXCLUDED.password_hash,
-            suspended = FALSE,
-            updated_at = NOW()
-        `
-      }
-    })().catch(err => {
-      bootstrapPromise = null
-      throw err
-    })
-  }
-  return bootstrapPromise
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -151,39 +46,6 @@ export function publicUser(u: DbUser): PublicUser {
     documentName: u.documentName ?? null,
     documentVerifiedAt: u.documentVerifiedAt ?? null,
   }
-}
-
-// ── CONFIG ────────────────────────────────────────────────────────────────────
-
-export async function getConfig(): Promise<AppConfig> {
-  await ensureBootstrapData()
-  const sql = getDb()
-  const rows = await sql`SELECT * FROM config WHERE id = 1`
-  const row = rows[0]
-  if (!row) return { hourlyPrice: 12, dayPrice: 60, guestPassPrice: 2, maxPeople: 8, lockboxCode: '' }
-  return {
-    hourlyPrice:    Number(row.hourly_price),
-    dayPrice:       Number(row.day_price),
-    guestPassPrice: Number(row.guest_pass_price),
-    maxPeople:      Number(row.max_people),
-    lockboxCode:    String(row.lockbox_code),
-  }
-}
-
-export async function patchConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
-  await ensureBootstrapData()
-  const sql = getDb()
-  await sql`
-    UPDATE config SET
-      hourly_price     = COALESCE(${patch.hourlyPrice    ?? null}, hourly_price),
-      day_price        = COALESCE(${patch.dayPrice       ?? null}, day_price),
-      guest_pass_price = COALESCE(${patch.guestPassPrice ?? null}, guest_pass_price),
-      max_people       = COALESCE(${patch.maxPeople      ?? null}, max_people),
-      lockbox_code     = COALESCE(${patch.lockboxCode    ?? null}, lockbox_code),
-      updated_at       = NOW()
-    WHERE id = 1
-  `
-  return getConfig()
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
@@ -727,17 +589,6 @@ export async function hasBookingConflictNeon(
 
 // ── ADDONS ────────────────────────────────────────────────────────────────────
 
-export async function resetAddonCountersIfNeeded(): Promise<void> {
-  const sql = getDb()
-  await sql`
-    UPDATE addons
-    SET sold_today = 0,
-        sold_today_date = CURRENT_DATE,
-        updated_at = NOW()
-    WHERE sold_today_date < CURRENT_DATE
-  `
-}
-
 export async function listAddons(includeHidden = false): Promise<Addon[]> {
   await ensureBootstrapData()
   await resetAddonCountersIfNeeded()
@@ -814,99 +665,6 @@ export async function createAddonOrder(data: {
       WHERE id = ${item.id}
     `
   }
-}
-
-// ── BLOCKED SLOTS ─────────────────────────────────────────────────────────────
-
-export async function listBlockedSlots(): Promise<BlockedSlot[]> {
-  const sql = getDb()
-  const rows = await sql`SELECT * FROM blocked_slots ORDER BY date, start_time`
-  return rows.map(rowToBlockedSlot)
-}
-
-export async function createBlockedSlot(data: {
-  id: string
-  date: string
-  start: string
-  end: string
-  reason: string
-  createdBy?: string
-}): Promise<BlockedSlot> {
-  const sql = getDb()
-  const rows = await sql`
-    WITH
-      slot_locks AS MATERIALIZED (
-        SELECT pg_advisory_xact_lock(
-          hashtextextended(CONCAT('Via Terni', ':', lock_date::date::text), 0)
-        )
-        FROM generate_series(
-          ${data.date}::date - INTERVAL '1 day',
-          ${data.date}::date + INTERVAL '1 day',
-          INTERVAL '1 day'
-        ) AS dates(lock_date)
-        ORDER BY lock_date
-      ),
-      candidate AS (
-        SELECT
-          (${data.date}::date + ${data.start}::time) AS start_ts,
-          CASE
-            WHEN ${data.end}::time <= ${data.start}::time
-              THEN (${data.date}::date + ${data.end}::time + INTERVAL '1 day')
-            ELSE (${data.date}::date + ${data.end}::time)
-          END AS end_ts
-      ),
-      booking_conflict AS (
-        SELECT b.id
-        FROM bookings b
-        CROSS JOIN candidate c
-        WHERE b.date BETWEEN (${data.date}::date - INTERVAL '1 day') AND (${data.date}::date + INTERVAL '1 day')
-          AND b.status NOT IN ('cancelled')
-          AND c.start_ts < CASE
-            WHEN b.end_time <= b.start_time
-              THEN (b.date + b.end_time + INTERVAL '1 day')
-            ELSE (b.date + b.end_time)
-          END
-          AND c.end_ts > (b.date + b.start_time)
-        LIMIT 1
-      ),
-      blocked_conflict AS (
-        SELECT s.id
-        FROM blocked_slots s
-        CROSS JOIN candidate c
-        WHERE s.date BETWEEN (${data.date}::date - INTERVAL '1 day') AND (${data.date}::date + INTERVAL '1 day')
-          AND c.start_ts < CASE
-            WHEN s.end_time <= s.start_time
-              THEN (s.date + s.end_time + INTERVAL '1 day')
-            ELSE (s.date + s.end_time)
-          END
-          AND c.end_ts > (s.date + s.start_time)
-        LIMIT 1
-      ),
-      availability AS (
-        SELECT
-          NOT EXISTS (SELECT 1 FROM booking_conflict)
-          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
-        FROM slot_locks
-        LIMIT 1
-      )
-    INSERT INTO blocked_slots (id, date, start_time, end_time, reason, created_by)
-    SELECT
-      ${data.id},
-      ${data.date}::date,
-      ${data.start}::time,
-      ${data.end}::time,
-      ${data.reason},
-      ${data.createdBy ?? null}
-    WHERE (SELECT slot_ok FROM availability)
-    RETURNING *
-  `
-  if (!rows[0]) throw new Error('SLOT_BLOCKED')
-  return rowToBlockedSlot(rows[0])
-}
-
-export async function deleteBlockedSlot(id: string): Promise<void> {
-  const sql = getDb()
-  await sql`DELETE FROM blocked_slots WHERE id = ${id}`
 }
 
 // ── ACCESS LOGS ───────────────────────────────────────────────────────────────
