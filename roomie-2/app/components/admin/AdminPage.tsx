@@ -154,9 +154,9 @@ export default function AdminPage() {
       maxPeople: values.maxPeople,
       lockboxCode: values.lockboxCode,
     }
-    const { error } = await apiAdminPatchConfig(cfg)
+    const { data: saved, error } = await apiAdminPatchConfig(cfg)
     if (error) { showToast({ title: error, type: 'warn' }); return }
-    setConfig(cfg as AppConfig)
+    if (saved?.config) setConfig(saved.config)
     showToast({ title: 'Config salvata' })
   }
 

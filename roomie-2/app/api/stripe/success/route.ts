@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { creditStripeCheckoutSession } from '@/lib/neon-db'
+import { creditStripeCheckoutSession } from '@/lib/services/stripe'
 import { requireAuth, appBaseUrl } from '@/lib/api-helpers'
 
 export async function GET(req: Request) {

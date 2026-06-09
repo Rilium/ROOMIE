@@ -1,4 +1,5 @@
-import { deleteBlockedSlot, logEvent } from '@/lib/neon-db'
+import { deleteBlockedSlot } from '@/lib/repositories/blocked-slots'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {

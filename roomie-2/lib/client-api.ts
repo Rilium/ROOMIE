@@ -127,7 +127,7 @@ export async function apiAppConfig() {
   return call<{
     config: AppConfig
     blockedSlots: BlockedSlot[]
-    bookedSlots: Array<{ id: string; date: string; start: string; end: string; status: string }>
+    bookedSlots: Array<{ date: string; start: string; end: string; status: string }>
   }>('/api/app/config')
 }
 
@@ -236,7 +236,7 @@ export async function apiAdminSummary() {
 }
 
 export async function apiAdminPatchConfig(config: Partial<AppConfig>) {
-  return call('/api/admin/config', {
+  return call<{ config: AppConfig }>('/api/admin/config', {
     method: 'PATCH',
     body: JSON.stringify(config),
   })

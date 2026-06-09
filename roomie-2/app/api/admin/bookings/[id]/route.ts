@@ -1,4 +1,6 @@
-import { getBookingById, getConfig, hasBookingConflictNeon, logEvent, patchBookingAdmin } from '@/lib/neon-db'
+import { getBookingById, hasBookingConflictNeon, patchBookingAdmin } from '@/lib/services/booking'
+import { getConfig } from '@/lib/repositories/config'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { bookingAccessUntilIso, isValidDateString, isValidTimeString, serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
 import type { Booking } from '@/lib/types'

@@ -1,4 +1,5 @@
-import { getBookingById, updateBookingStatus, hasBookingConflictNeon, logEvent } from '@/lib/neon-db'
+import { getBookingById, hasBookingConflictNeon, updateBookingStatus } from '@/lib/services/booking'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { ACTIVE_STATUSES } from '@/lib/utils'
 import type { Booking } from '@/lib/types'

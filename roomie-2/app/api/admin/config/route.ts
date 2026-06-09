@@ -1,4 +1,5 @@
-import { patchConfig, logEvent } from '@/lib/neon-db'
+import { patchConfig } from '@/lib/repositories/config'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import type { AppConfig } from '@/lib/types'
 

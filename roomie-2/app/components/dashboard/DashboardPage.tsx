@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { useApp } from '@/app/context/AppContext'
@@ -317,7 +318,7 @@ export default function DashboardPage() {
           <div className="profile-hero-row">
             <div className="profile-avatar-wrap">
               <button className="profile-avatar" type="button" onClick={() => avatarInputRef.current?.click()} aria-label="Cambia immagine profilo">
-                {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{profileInitials}</span>}
+                {avatarUrl ? <Image src={avatarUrl} alt="" width={96} height={96} unoptimized /> : <span>{profileInitials}</span>}
               </button>
               <i className={`fas ${avatarBusy ? 'fa-spinner fa-spin' : 'fa-camera'} profile-avatar-badge`} aria-hidden="true"></i>
               <input

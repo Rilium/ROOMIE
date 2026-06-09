@@ -1,4 +1,4 @@
-import { publicUser } from '@/lib/neon-db'
+import { publicUser } from '@/lib/repositories/users'
 import { resolveRoomieUserFromRequest, STORAGE_OK } from '@/lib/api-helpers'
 import { hasUsableClerkConfig } from '@/lib/clerk-config'
 

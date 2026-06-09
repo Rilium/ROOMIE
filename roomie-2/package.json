@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "check": "tsc --noEmit",
     "db:migrate": "tsx db/migrate.ts"
   },
@@ -29,6 +29,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.18",
     "tsx": "^4.20.6",
     "typescript": "^5"
   },

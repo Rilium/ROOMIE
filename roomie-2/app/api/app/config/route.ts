@@ -1,4 +1,6 @@
-import { getConfig, listBlockedSlots, listBookings } from '@/lib/neon-db'
+import { getConfig } from '@/lib/repositories/config'
+import { listBlockedSlots } from '@/lib/repositories/blocked-slots'
+import { listBookings } from '@/lib/services/booking'
 import { STORAGE_OK } from '@/lib/api-helpers'
 import { ACTIVE_STATUSES } from '@/lib/utils'
 
@@ -19,7 +21,7 @@ export async function GET() {
 
     const bookedSlots = allBookings
       .filter(b => (ACTIVE_STATUSES as string[]).includes(b.status))
-      .map(b => ({ id: b.id, date: b.date, start: b.start, end: b.end, status: b.status }))
+      .map(b => ({ date: b.date, start: b.start, end: b.end, status: b.status }))
 
     return Response.json({ config: publicConfig(config), blockedSlots, bookedSlots })
   } catch {

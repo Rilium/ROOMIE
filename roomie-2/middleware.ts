@@ -1,11 +1,28 @@
-import { clerkMiddleware } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
-import { hasUsableClerkPublishableKey } from '@/lib/clerk-config'
+import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
-const handler = clerkMiddleware()
+const isProtectedPage = createRouteMatcher([
+  '/admin(.*)',
+  '/confirm(.*)',
+  '/dashboard(.*)',
+  '/session(.*)',
+  '/shop(.*)',
+  '/token(.*)',
+])
+
+const handler = clerkMiddleware(async (auth, request) => {
+  if (isProtectedPage(request)) {
+    const signInUrl = new URL('/sign-in', request.url)
+    signInUrl.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`)
+    await auth.protect({ unauthenticatedUrl: signInUrl.toString() })
+  }
+
+  return NextResponse.next()
+})
 
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
-  if (!hasUsableClerkPublishableKey()) return NextResponse.next()
+  if (!hasUsableClerkConfig()) return NextResponse.next()
 
   try {
     return await handler(request, event)

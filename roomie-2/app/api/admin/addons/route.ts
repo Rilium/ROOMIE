@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
-import { createAddon, logEvent } from '@/lib/neon-db'
+import { createAddon } from '@/lib/repositories/addons'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { serializeAddon } from '@/lib/utils'
 import type { Addon } from '@/lib/types'

@@ -967,6 +967,10 @@ function waitForMammoth(timeout=2600) {
 }
 
 async function openLegalDoc(type) {
+  if(typeof window.__roomie_openLegalDoc === 'function') {
+    window.__roomie_openLegalDoc(type);
+    return;
+  }
   const doc = legalDocs[type];
   if(!doc) return;
   closeMenu?.();

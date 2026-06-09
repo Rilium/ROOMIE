@@ -1,4 +1,5 @@
-// Deprecated compatibility shim: auth is handled by Clerk.
+import { LEGACY_AUTH_DEPRECATION } from '@/lib/legacy-auth'
+
 export function GET() {
-  return Response.json({ error: 'MIGRATED_TO_CLERK' }, { status: 410 })
+  return Response.json({ error: LEGACY_AUTH_DEPRECATION }, { status: 410 })
 }

@@ -1,4 +1,5 @@
-import { getUserByEmail, getUserById, logEvent, patchUserAdmin, publicUser } from '@/lib/neon-db'
+import { getUserByEmail, getUserById, patchUserAdmin, publicUser } from '@/lib/repositories/users'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { isValidEmailString, normalizeEmail } from '@/lib/utils'
 

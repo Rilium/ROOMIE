@@ -1,4 +1,6 @@
-import { adjustUserChipsWithTransaction, getUserById, logEvent, publicUser } from '@/lib/neon-db'
+import { adjustUserChipsWithTransaction } from '@/lib/services/wallet'
+import { getUserById, publicUser } from '@/lib/repositories/users'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {

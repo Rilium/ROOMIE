@@ -1,4 +1,4 @@
-import { getUserByUsername, patchOwnUserProfile, publicUser } from '@/lib/neon-db'
+import { getUserByUsername, patchOwnUserProfile, publicUser } from '@/lib/repositories/users'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
 import { normalizeUsername } from '@/lib/utils'
 

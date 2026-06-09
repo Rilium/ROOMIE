@@ -3,11 +3,10 @@ import {
   getBookingsByUser,
   listBookings,
   createBookingAtomic,
-  logEvent,
-  getConfig,
-  publicUser,
-  getUserById,
-} from '@/lib/neon-db'
+} from '@/lib/services/booking'
+import { getConfig } from '@/lib/repositories/config'
+import { publicUser, getUserById } from '@/lib/repositories/users'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { bookingAccessUntilIso, calcBookingPrice, isValidDateString, isValidTimeString, serializeBookingForUser } from '@/lib/utils'
 

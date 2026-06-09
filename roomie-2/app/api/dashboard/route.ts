@@ -1,4 +1,6 @@
-import { getBookingsByUser, listAddons, getConfig } from '@/lib/neon-db'
+import { getBookingsByUser } from '@/lib/services/booking'
+import { listAddons } from '@/lib/repositories/addons'
+import { getConfig } from '@/lib/repositories/config'
 import { requireAuth, storageGuard } from '@/lib/api-helpers'
 import { buildDashboardSummary } from '@/lib/utils'
 

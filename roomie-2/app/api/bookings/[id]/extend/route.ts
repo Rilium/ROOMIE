@@ -1,13 +1,10 @@
 import {
   getBookingById,
-  extendBooking,
   extendBookingAtomic,
-  hasBookingConflictNeon,
-  logEvent,
-  getConfig,
-  publicUser,
-  getUserById,
-} from '@/lib/neon-db'
+} from '@/lib/services/booking'
+import { getConfig } from '@/lib/repositories/config'
+import { publicUser, getUserById } from '@/lib/repositories/users'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { addHoursToTime, bookingAccessUntilIso, serializeBooking } from '@/lib/utils'
 
@@ -37,34 +34,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const price = Number(cfg.hourlyPrice) * hours
   const newEnd = addHoursToTime(booking.end, hours)
 
-  if (await hasBookingConflictNeon(booking.date, booking.end, newEnd, booking.id)) {
-    return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
-  }
-
-  // ── Admin extends free — no atomic needed ──────────────────────────────────
-  if (user.role === 'admin') {
-    const updated = await extendBooking(booking.id, newEnd, 0)
-    await logEvent('booking_extended_admin', user.id, { bookingId: booking.id, hours })
-    return Response.json({
-      booking: serializeBooking(updated ?? { ...booking, end: newEnd }),
-      user: publicUser(user),
-      charged: 0,
-    })
-  }
-
-  // ── Atomic: debit chips + record tx + extend booking ──────────────────────
+  // ── Atomic: availability check + optional debit + extend booking ──────────
   try {
     const accessValidUntil = bookingAccessUntilIso(booking.date, booking.start, newEnd)
+    const charged = user.role === 'admin' ? 0 : price
     const { booking: updated, newChips } = await extendBookingAtomic(
       user.id,
       booking.id,
       booking.end,
       newEnd,
-      price,
+      charged,
       accessValidUntil,
     )
 
-    await logEvent('booking_extended', user.id, { bookingId: booking.id, hours, price })
+    await logEvent(user.role === 'admin' ? 'booking_extended_admin' : 'booking_extended', user.id, {
+      bookingId: booking.id,
+      hours,
+      price: charged,
+    })
 
     const freshUser = await getUserById(user.id)
     const updatedUser = freshUser ?? { ...user, chips: newChips }
@@ -72,9 +59,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json({
       booking: serializeBooking(updated),
       user: publicUser(updatedUser),
-      charged: price,
+      charged,
     })
   } catch (err) {
+    if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
+      return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
+    }
     if (err instanceof Error && err.message === 'INSUFFICIENT_CHIPS') {
       return Response.json(
         { error: 'INSUFFICIENT_CHIPS', required: price },

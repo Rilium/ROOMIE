@@ -1,4 +1,4 @@
-import { listAddons } from '@/lib/neon-db'
+import { listAddons } from '@/lib/repositories/addons'
 import { storageGuard } from '@/lib/api-helpers'
 import { serializeAddon } from '@/lib/utils'
 

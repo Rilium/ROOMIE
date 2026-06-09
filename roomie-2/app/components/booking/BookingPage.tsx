@@ -239,7 +239,7 @@ export default function BookingPage() {
     spawnConfetti()
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [priceLoading, serverPrice, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
+  }, [priceLoading, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
 
   const handleNowMode = useCallback(() => {
     const current = nowDateTime()

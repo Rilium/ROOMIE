@@ -1,8 +1,9 @@
-import { getOrCreateRoomieUserFromClerk, getUserByClerkId } from '@/lib/neon-db'
+import { getOrCreateRoomieUserFromClerk, getUserByClerkId } from '@/lib/repositories/users'
 import { requireAdmin, storageGuard, STORAGE_OK } from '@/lib/api-helpers'
 import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
 export const runtime = 'nodejs'
+const DEBUG_ROUTES_ENABLED = process.env.NODE_ENV !== 'production' || process.env.ROOMIE_ENABLE_DEBUG_ROUTES === 'true'
 
 function cleanError(err: unknown) {
   if (!err || typeof err !== 'object') return String(err)
@@ -62,6 +63,10 @@ function decodeJwtPayload(token: string) {
 }
 
 export async function GET(req: Request) {
+  if (!DEBUG_ROUTES_ENABLED) {
+    return Response.json({ error: 'NOT_FOUND' }, { status: 404 })
+  }
+
   const guard = storageGuard()
   if (guard) return guard
 

@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { creditStripeCheckoutSession } from '@/lib/neon-db'
+import { creditStripeCheckoutSession } from '@/lib/services/stripe'
 import { STORAGE_OK } from '@/lib/api-helpers'
 
 // Next.js App Router: disable body parsing — Stripe needs raw bytes

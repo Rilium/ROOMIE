@@ -1,5 +1,6 @@
-import { getBookingById, logAccess } from '@/lib/neon-db'
-import type { AccessEvent } from '@/lib/neon-db'
+import { getBookingById } from '@/lib/services/booking'
+import { logAccess } from '@/lib/repositories/audit'
+import type { AccessEvent } from '@/lib/repositories/audit'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
 import { isBookingLiveNow } from '@/lib/utils'
 

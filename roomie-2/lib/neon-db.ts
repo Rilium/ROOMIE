@@ -746,17 +746,73 @@ export async function createBlockedSlot(data: {
 }): Promise<BlockedSlot> {
   const sql = getDb()
   const rows = await sql`
+    WITH
+      slot_locks AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(CONCAT('Via Terni', ':', lock_date::date::text), 0)
+        )
+        FROM generate_series(
+          ${data.date}::date - INTERVAL '1 day',
+          ${data.date}::date + INTERVAL '1 day',
+          INTERVAL '1 day'
+        ) AS dates(lock_date)
+        ORDER BY lock_date
+      ),
+      candidate AS (
+        SELECT
+          (${data.date}::date + ${data.start}::time) AS start_ts,
+          CASE
+            WHEN ${data.end}::time <= ${data.start}::time
+              THEN (${data.date}::date + ${data.end}::time + INTERVAL '1 day')
+            ELSE (${data.date}::date + ${data.end}::time)
+          END AS end_ts
+      ),
+      booking_conflict AS (
+        SELECT b.id
+        FROM bookings b
+        CROSS JOIN candidate c
+        WHERE b.date BETWEEN (${data.date}::date - INTERVAL '1 day') AND (${data.date}::date + INTERVAL '1 day')
+          AND b.status NOT IN ('cancelled')
+          AND c.start_ts < CASE
+            WHEN b.end_time <= b.start_time
+              THEN (b.date + b.end_time + INTERVAL '1 day')
+            ELSE (b.date + b.end_time)
+          END
+          AND c.end_ts > (b.date + b.start_time)
+        LIMIT 1
+      ),
+      blocked_conflict AS (
+        SELECT s.id
+        FROM blocked_slots s
+        CROSS JOIN candidate c
+        WHERE s.date BETWEEN (${data.date}::date - INTERVAL '1 day') AND (${data.date}::date + INTERVAL '1 day')
+          AND c.start_ts < CASE
+            WHEN s.end_time <= s.start_time
+              THEN (s.date + s.end_time + INTERVAL '1 day')
+            ELSE (s.date + s.end_time)
+          END
+          AND c.end_ts > (s.date + s.start_time)
+        LIMIT 1
+      ),
+      availability AS (
+        SELECT
+          NOT EXISTS (SELECT 1 FROM booking_conflict)
+          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
+        FROM slot_locks
+        LIMIT 1
+      )
     INSERT INTO blocked_slots (id, date, start_time, end_time, reason, created_by)
-    VALUES (
+    SELECT
       ${data.id},
       ${data.date}::date,
       ${data.start}::time,
       ${data.end}::time,
       ${data.reason},
       ${data.createdBy ?? null}
-    )
+    WHERE (SELECT slot_ok FROM availability)
     RETURNING *
   `
+  if (!rows[0]) throw new Error('SLOT_BLOCKED')
   return rowToBlockedSlot(rows[0])
 }
 
@@ -1354,16 +1410,87 @@ export async function extendBookingAtomic(
   const extNote = `extend:${oldEnd}->${newEnd}`
   const rows = await sql`
     WITH
+      current_booking AS (
+        SELECT *
+        FROM bookings
+        WHERE id = ${bookingId}
+        LIMIT 1
+      ),
+      slot_locks AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(
+            CONCAT((SELECT room FROM current_booking), ':', lock_date::date::text),
+            0
+          )
+        )
+        FROM generate_series(
+          (SELECT date FROM current_booking) - INTERVAL '1 day',
+          (SELECT date FROM current_booking) + INTERVAL '1 day',
+          INTERVAL '1 day'
+        ) AS dates(lock_date)
+        ORDER BY lock_date
+      ),
+      candidate AS (
+        SELECT
+          (date + ${oldEnd}::time) AS start_ts,
+          CASE
+            WHEN ${newEnd}::time <= ${oldEnd}::time
+              THEN (date + ${newEnd}::time + INTERVAL '1 day')
+            ELSE (date + ${newEnd}::time)
+          END AS end_ts
+        FROM current_booking
+      ),
+      booking_conflict AS (
+        SELECT b.id
+        FROM bookings b
+        CROSS JOIN current_booking current
+        CROSS JOIN candidate c
+        WHERE b.date BETWEEN (current.date - INTERVAL '1 day') AND (current.date + INTERVAL '1 day')
+          AND b.status NOT IN ('cancelled')
+          AND b.id != ${bookingId}
+          AND c.start_ts < CASE
+            WHEN b.end_time <= b.start_time
+              THEN (b.date + b.end_time + INTERVAL '1 day')
+            ELSE (b.date + b.end_time)
+          END
+          AND c.end_ts > (b.date + b.start_time)
+        LIMIT 1
+      ),
+      blocked_conflict AS (
+        SELECT s.id
+        FROM blocked_slots s
+        CROSS JOIN current_booking current
+        CROSS JOIN candidate c
+        WHERE s.date BETWEEN (current.date - INTERVAL '1 day') AND (current.date + INTERVAL '1 day')
+          AND c.start_ts < CASE
+            WHEN s.end_time <= s.start_time
+              THEN (s.date + s.end_time + INTERVAL '1 day')
+            ELSE (s.date + s.end_time)
+          END
+          AND c.end_ts > (s.date + s.start_time)
+        LIMIT 1
+      ),
+      availability AS (
+        SELECT
+          EXISTS (SELECT 1 FROM current_booking)
+          AND NOT EXISTS (SELECT 1 FROM booking_conflict)
+          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
+        FROM slot_locks
+        LIMIT 1
+      ),
       chip_deduct AS (
         UPDATE users
         SET chips = chips - ${price}
-        WHERE id = ${userId} AND chips >= ${price}
+        WHERE id = ${userId}
+          AND chips >= ${price}
+          AND (SELECT slot_ok FROM availability)
         RETURNING chips
       ),
       _tx AS (
         INSERT INTO wallet_transactions (user_id, type, chips_delta, chips_after, ref_id, note)
         SELECT ${userId}, 'booking_debit', ${-price}, c.chips, ${bookingId}, ${extNote}
         FROM chip_deduct c
+        WHERE ${price} > 0
       ),
       bk AS (
         UPDATE bookings
@@ -1376,7 +1503,13 @@ export async function extendBookingAtomic(
     SELECT (SELECT chips FROM chip_deduct) AS new_chips, bk.*
     FROM bk
   `
-  if (!rows[0]) throw new Error('INSUFFICIENT_CHIPS')
+  if (!rows[0]) {
+    const current = await getBookingById(bookingId)
+    if (current && await hasBookingConflictNeon(current.date, oldEnd, newEnd, bookingId)) {
+      throw new Error('SLOT_BLOCKED')
+    }
+    throw new Error('INSUFFICIENT_CHIPS')
+  }
   return {
     booking: rowToBooking(rows[0]),
     newChips: Number(rows[0].new_chips),

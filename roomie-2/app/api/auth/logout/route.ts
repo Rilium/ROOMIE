@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
-import { logEvent } from '@/lib/neon-db'
+import { logEvent } from '@/lib/repositories/audit'
 import { clearSessionCookie } from '@/lib/session'
-import { getUserByClerkId } from '@/lib/neon-db'
+import { getUserByClerkId } from '@/lib/repositories/users'
 import { hasUsableClerkConfig } from '@/lib/clerk-config'
 
 export async function POST() {

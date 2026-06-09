@@ -1,12 +1,8 @@
 import { randomUUID } from 'crypto'
-import {
-  getBookingById,
-  listAddons,
-  createAddonOrderAtomic,
-  logEvent,
-  publicUser,
-  getUserById,
-} from '@/lib/neon-db'
+import { getBookingById } from '@/lib/services/booking'
+import { listAddons, createAddonOrderAtomic } from '@/lib/repositories/addons'
+import { publicUser, getUserById } from '@/lib/repositories/users'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAuth, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { isBookingLiveNow } from '@/lib/utils'
 

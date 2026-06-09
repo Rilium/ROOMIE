@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AppProvider, useApp } from '@/app/context/AppContext'
 import BootLoader from '@/app/components/BootLoader'
 import GlobalRoomieLoader from '@/app/components/GlobalRoomieLoader'
@@ -8,35 +8,23 @@ import AuthScreen from '@/app/components/auth/AuthScreen'
 import OnboardingGate from '@/app/components/onboarding/OnboardingGate'
 import Nav from '@/app/components/Nav'
 import Toast from '@/app/components/ui/Toast'
-import BookingPage from '@/app/components/booking/BookingPage'
-import DashboardPage from '@/app/components/dashboard/DashboardPage'
-import TokenPage from '@/app/components/token/TokenPage'
-import ShopPage from '@/app/components/shop/ShopPage'
-import ConfirmPage from '@/app/components/confirm/ConfirmPage'
-import SessionPage from '@/app/components/session/SessionPage'
-import AdminPage from '@/app/components/admin/AdminPage'
-import LandingLegacy from '@/app/components/landing/LandingLegacy'
 import Modals from '@/app/components/modals/Modals'
 import { PROTECTED_PAGES, type RoomiePage } from '@/lib/routing'
 
 type InitialAuthMode = 'login' | 'register'
 
-function renderRoutePage(page: RoomiePage) {
-  if (page === 'home') return <LandingLegacy />
-  if (page === 'room') return <BookingPage />
-  if (page === 'token') return <TokenPage />
-  if (page === 'confirm') return <ConfirmPage />
-  if (page === 'session') return <SessionPage />
-  if (page === 'shop') return <ShopPage />
-  if (page === 'dashboard') return <DashboardPage />
-  if (page === 'admin') return <AdminPage />
-  return <LandingLegacy />
-}
-
-function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: boolean }) {
-  const { activePage, loading, user, authTransition } = useApp()
+function AppShellContent({
+  currentPage,
+  authOnly = false,
+  children,
+}: {
+  currentPage: RoomiePage
+  authOnly?: boolean
+  children?: ReactNode
+}) {
+  const { loading, user, authTransition } = useApp()
   const [bootExpired, setBootExpired] = useState(false)
-  const routePage = PROTECTED_PAGES.includes(page) && !user ? 'home' : page
+  const isProtectedRoute = PROTECTED_PAGES.includes(currentPage)
 
   useEffect(() => {
     if (!loading) {
@@ -64,12 +52,12 @@ function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: bo
     document.body.classList.forEach(className => {
       if (className.startsWith('page-')) document.body.classList.remove(className)
     })
-    document.body.classList.add(`page-${routePage}`)
+    document.body.classList.add(`page-${currentPage}`)
     document.querySelectorAll('.page').forEach(el => {
-      const shouldBeActive = el.id === `page-${routePage}`
+      const shouldBeActive = el.id === `page-${currentPage}`
       el.classList.toggle('active', shouldBeActive)
     })
-  }, [routePage, activePage])
+  }, [currentPage])
 
   if (loading && !bootExpired) return null
 
@@ -82,6 +70,8 @@ function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: bo
       </>
     )
   }
+
+  if (isProtectedRoute && !user) return null
 
   return (
     <>
@@ -100,7 +90,7 @@ function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: bo
         </div>
       )}
 
-      {renderRoutePage(routePage)}
+      {children}
 
       <Nav />
       <Toast />
@@ -110,18 +100,22 @@ function AppRouter({ page, authOnly = false }: { page: RoomiePage; authOnly?: bo
 }
 
 export default function RoomieApp({
-  page = 'home',
+  page,
   initialAuthMode,
   authOnly = false,
+  children,
 }: {
-  page?: RoomiePage
+  page: RoomiePage
   initialAuthMode?: InitialAuthMode
   authOnly?: boolean
+  children?: ReactNode
 }) {
   return (
     <AppProvider initialAuthMode={initialAuthMode} initialAuthOpen={Boolean(initialAuthMode)}>
       <BootLoader />
-      <AppRouter page={page} authOnly={authOnly} />
+      <AppShellContent currentPage={page} authOnly={authOnly}>
+        {children}
+      </AppShellContent>
     </AppProvider>
   )
 }

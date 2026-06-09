@@ -1,4 +1,4 @@
-import { acceptUserLegal, mockVerifyUserDocument, publicUser, revokeUserLegal } from '@/lib/neon-db'
+import { acceptUserLegal, mockVerifyUserDocument, publicUser, revokeUserLegal } from '@/lib/repositories/users'
 import { csrfGuard, requireAuth, storageGuard } from '@/lib/api-helpers'
 
 function cleanLast4(value: unknown): string {

@@ -2,7 +2,7 @@
 // Returns the canonical server-side price for a booking configuration.
 // Used by BookingPage to show accurate prices without trusting the client.
 
-import { getConfig } from '@/lib/neon-db'
+import { getConfig } from '@/lib/repositories/config'
 import { storageGuard } from '@/lib/api-helpers'
 import { calcBookingPrice } from '@/lib/utils'
 

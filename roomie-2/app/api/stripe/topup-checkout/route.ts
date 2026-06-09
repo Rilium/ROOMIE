@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 import { requireAuth, storageGuard, appBaseUrl, csrfGuard } from '@/lib/api-helpers'
-import { createStripeSession } from '@/lib/neon-db'
+import { createStripeSession } from '@/lib/services/stripe'
 
 export async function POST(req: Request) {
   const csrf = csrfGuard(req)

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
-import { createBlockedSlot, logEvent } from '@/lib/neon-db'
+import { createBlockedSlot } from '@/lib/repositories/blocked-slots'
+import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
 import { isValidDateString, isValidTimeString } from '@/lib/utils'
 
@@ -23,14 +24,22 @@ export async function POST(req: Request) {
     return Response.json({ error: 'BAD_SLOT' }, { status: 400 })
   }
 
-  const slot = await createBlockedSlot({
-    id: randomUUID(),
-    date,
-    start,
-    end,
-    reason: String(body.reason || 'Blocco admin').trim(),
-    createdBy: user.id,
-  })
+  let slot
+  try {
+    slot = await createBlockedSlot({
+      id: randomUUID(),
+      date,
+      start,
+      end,
+      reason: String(body.reason || 'Blocco admin').trim(),
+      createdBy: user.id,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
+      return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
+    }
+    throw err
+  }
 
   await logEvent('admin_block_slot', user.id, { slotId: slot.id, date, start, end })
   return Response.json({ slot }, { status: 201 })

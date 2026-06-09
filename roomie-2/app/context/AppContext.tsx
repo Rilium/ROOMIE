@@ -7,6 +7,9 @@ import type { PublicUser, AppConfig, Booking } from '@/lib/types'
 import { apiMe, apiAppConfig, apiDashboard, apiLogout, setAuthTokenGetter } from '@/lib/client-api'
 import { PAGE_TO_PATH, PATH_TO_PAGE, PROTECTED_PAGES } from '@/lib/routing'
 import { isBookingLiveNow } from '@/lib/utils'
+import { useCartState } from '@/app/context/state/useCartState'
+import { useUiState } from '@/app/context/state/useUiState'
+import { useBookingDraftState } from '@/app/context/state/useBookingDraftState'
 
 // ── TYPES ─────────────────────────────────────────────────────────────────────
 
@@ -146,8 +149,6 @@ const defaultBooking: BookingDraft = {
 // ── CONTEXT ───────────────────────────────────────────────────────────────────
 
 const AppContext = createContext<AppContextValue | null>(null)
-const CART_STORAGE_KEY = 'roomie.cart.v1'
-const CART_TTL_MS = 1000 * 60 * 60 * 4
 
 export function useApp() {
   const ctx = useContext(AppContext)
@@ -213,19 +214,31 @@ export function AppProvider({
   const [authOpen, setAuthOpen] = useState(initialAuthOpen)
   const [loading, setLoading] = useState(true)
   const [authTransition, setAuthTransition] = useState<'logout' | null>(null)
-  const [toast, setToast] = useState<ToastPayload | null>(null)
-  const [booking, setBookingState] = useState<BookingDraft>(defaultBooking)
-  const [cart, setCart] = useState<CartItem[]>([])
+  const { cart, setCart, addToCart, updateCartItem, removeCartItem, clearCart } = useCartState()
   const [activeSession, setActiveSessionState] = useState<ActiveSession | null>(null)
-  const [invitedFriends, setInvitedFriends] = useState<InvitedFriend[]>([])
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Modal state
-  const [modalNfc, setModalNfc] = useState(false)
-  const [modalCodeUnlock, setModalCodeUnlock] = useState(false)
-  const [modalTokenBuy, setModalTokenBuy] = useState<{ open: boolean; amount: number }>({ open: false, amount: 20 })
-  const [modalLegalDoc, setModalLegalDoc] = useState<{ open: boolean; type: LegalDocType | null }>({ open: false, type: null })
-  const [modalInvite, setModalInvite] = useState(false)
+  const {
+    booking,
+    invitedFriends,
+    setBookingDraft,
+    addInvitedFriends,
+    removeInvitedFriend,
+    clearBookingDraft,
+  } = useBookingDraftState(defaultBooking, setActiveSessionState)
+  const {
+    toast,
+    modalNfc,
+    modalCodeUnlock,
+    modalTokenBuy,
+    modalLegalDoc,
+    modalInvite,
+    showToast,
+    openModalNfc,
+    openModalCodeUnlock,
+    openModalTokenBuy,
+    openLegalDoc,
+    openModalInvite,
+    closeModal,
+  } = useUiState()
 
   useEffect(() => {
     if (!clerkLoaded || !isSignedIn) {
@@ -280,16 +293,13 @@ export function AppProvider({
           router.replace(PAGE_TO_PATH[legacyPage] + (params.toString().replace(/^page=[^&]*&?/, '') ? `?${params.toString().replace(/^page=[^&]*&?/, '')}` : ''))
         }
         if (routePage) {
+          setActivePage(routePage)
           if (PROTECTED_PAGES.includes(routePage) && !roomieUser) {
+            setAuthOpen(false)
             if (!isSignedIn) {
-              setAuthModeState('login')
-              setAuthOpen(true)
-            } else {
-              setAuthOpen(false)
+              const next = PAGE_TO_PATH[routePage] || window.location.pathname
+              router.replace(`/sign-in?next=${encodeURIComponent(next)}`)
             }
-            setActivePage('home')
-          } else {
-            setActivePage(routePage)
           }
         }
         setLoading(false)
@@ -303,14 +313,14 @@ export function AppProvider({
     if (!clerkLoaded) return
 
     const page = PATH_TO_PAGE[pathname || '/'] || 'home'
+    setActivePage(page)
     if (PROTECTED_PAGES.includes(page) && !userRef.current && !loading && !isSignedIn) {
-      setAuthModeState('login')
-      setAuthOpen(true)
-      setActivePage('home')
+      setAuthOpen(false)
+      const path = PAGE_TO_PATH[page] || pathname || '/'
+      router.replace(`/sign-in?next=${encodeURIComponent(path)}`)
       return
     }
-    setActivePage(page)
-  }, [pathname, loading, clerkLoaded, isSignedIn])
+  }, [pathname, loading, clerkLoaded, isSignedIn, router])
 
   useEffect(() => {
     if (!user) {
@@ -340,19 +350,14 @@ export function AppProvider({
     return () => { mounted = false }
   }, [user, invitedFriends])
 
-  // Modal handlers
-  const openModalNfc = useCallback(() => setModalNfc(true), [])
-  const openModalCodeUnlock = useCallback(() => setModalCodeUnlock(true), [])
-  const openModalTokenBuy = useCallback((amount: number) => setModalTokenBuy({ open: true, amount }), [])
-  const openLegalDoc = useCallback((type: LegalDocType) => setModalLegalDoc({ open: true, type }), [])
-  const openModalInvite = useCallback(() => setModalInvite(true), [])
-  const closeModal = useCallback((name: 'nfc' | 'codeUnlock' | 'tokenBuy' | 'legalDoc' | 'invite') => {
-    if (name === 'nfc') setModalNfc(false)
-    else if (name === 'codeUnlock') setModalCodeUnlock(false)
-    else if (name === 'tokenBuy') setModalTokenBuy(p => ({ ...p, open: false }))
-    else if (name === 'legalDoc') setModalLegalDoc(p => ({ ...p, open: false }))
-    else if (name === 'invite') setModalInvite(false)
-  }, [])
+  const navigateToPage = useCallback((page: string) => {
+    const path = PAGE_TO_PATH[page] || '/'
+    if (PROTECTED_PAGES.includes(page) && !userRef.current) {
+      router.push(`/sign-in?next=${encodeURIComponent(path)}`)
+      return
+    }
+    router.push(path)
+  }, [router])
 
   // ── Bridge legacy roomie.js → React ────────────────────────────────────────
   // ATTENZIONE: questi bridge sono ancora necessari perché public/assets/js/roomie.js
@@ -361,25 +366,21 @@ export function AppProvider({
   // TODO: dopo migrazione roomie.js → eliminare questo blocco intero.
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>
-    w.__roomie_showPage = (page: string) => {
-      if (PAGE_TO_PATH[page]) router.push(PAGE_TO_PATH[page])
-      else setActivePage(page)
-    }
-    w.__roomie_showToast = (msg: string | ToastPayload) => {
-      const payload = typeof msg === 'string' ? { title: msg } : msg
-      setToast(payload)
-    }
+    w.__roomie_showPage = navigateToPage
+    w.__roomie_showToast = showToast
+    w.__roomie_openLegalDoc = openLegalDoc
     w.__roomie_getUser = () => userRef.current
     // Modal bridges (chiamati da roomie.js: openLegalDoc, openInviteModal)
-    w.openLegalDoc = (type: string) => setModalLegalDoc({ open: true, type: type as LegalDocType })
-    w.openNfcModal = () => setModalNfc(true)
-    w.openCodeUnlockModal = () => setModalCodeUnlock(true)
-    w.openInviteModal = () => setModalInvite(true)
-    w.openTokenBuyModal = (amount?: number) => setModalTokenBuy({ open: true, amount: amount ?? 20 })
+    w.openLegalDoc = (type: string) => openLegalDoc(type as LegalDocType)
+    w.openNfcModal = openModalNfc
+    w.openCodeUnlockModal = openModalCodeUnlock
+    w.openInviteModal = openModalInvite
+    w.openTokenBuyModal = (amount?: number) => openModalTokenBuy(amount ?? 20)
     return () => {
       ;[
         '__roomie_showPage',
         '__roomie_showToast',
+        '__roomie_openLegalDoc',
         '__roomie_getUser',
         'openLegalDoc',
         'openNfcModal',
@@ -388,7 +389,7 @@ export function AppProvider({
         'openTokenBuyModal',
       ].forEach(key => { w[key] = undefined })
     }
-  }, [router])
+  }, [navigateToPage, showToast, openLegalDoc, openModalNfc, openModalCodeUnlock, openModalInvite, openModalTokenBuy])
 
   // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -412,7 +413,7 @@ export function AppProvider({
       setAuthTransition(null)
       router.push('/')
     }
-  }, [clerkSignOut, router])
+  }, [clerkSignOut, router, setCart])
 
   const openAuth = useCallback((mode: 'login' | 'register' = 'login') => {
     setAuthModeState(mode)
@@ -431,123 +432,11 @@ export function AppProvider({
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   const showPage = useCallback((page: string) => {
-    const path = PAGE_TO_PATH[page] || '/'
-    if (PROTECTED_PAGES.includes(page) && !userRef.current) {
-      router.push(`/sign-in?next=${encodeURIComponent(path)}`)
-      return
-    }
-    setActivePage(page)
-    router.push(path)
+    navigateToPage(page)
     window.setTimeout(() => {
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
     }, 90)
-  }, [router])
-
-  // ── Toast ─────────────────────────────────────────────────────────────────
-
-  const showToast = useCallback((msg: string | ToastPayload) => {
-    const payload = typeof msg === 'string' ? { title: msg } : msg
-    setToast(payload)
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToast(null), 3200)
-  }, [])
-
-  // ── Booking ───────────────────────────────────────────────────────────────
-
-  const setBookingDraft = useCallback((updates: Partial<BookingDraft>) => {
-    setBookingState(prev => ({ ...prev, ...updates }))
-  }, [])
-
-  const addInvitedFriends = useCallback((friends: InvitedFriend[]) => {
-    setInvitedFriends(prev => {
-      const byId = new Map(prev.map(friend => [friend.id, friend]))
-      friends.forEach(friend => byId.set(friend.id, friend))
-      const next = Array.from(byId.values()).slice(0, 7)
-      setBookingState(current => ({ ...current, friends: next.map(friend => friend.id) }))
-      return next
-    })
-    setActiveSessionState(current => {
-      if (!current) return current
-      const byId = new Map((current.friends ?? []).map(friend => [friend.id, friend]))
-      friends.forEach(friend => byId.set(friend.id, friend))
-      return { ...current, friends: Array.from(byId.values()).slice(0, 7) }
-    })
-  }, [])
-
-  const removeInvitedFriend = useCallback((id: string) => {
-    setInvitedFriends(prev => {
-      const next = prev.filter(friend => friend.id !== id)
-      setBookingState(current => ({ ...current, friends: next.map(friend => friend.id) }))
-      return next
-    })
-    setActiveSessionState(current => current ? {
-      ...current,
-      friends: (current.friends ?? []).filter(friend => friend.id !== id),
-    } : current)
-  }, [])
-
-  const clearBookingDraft = useCallback(() => {
-    setBookingState(defaultBooking)
-    setInvitedFriends([])
-  }, [])
-
-  // ── Cart ──────────────────────────────────────────────────────────────────
-
-  const addToCart = useCallback((item: CartItem) => {
-    setCart(prev => {
-      const idx = prev.findIndex(i => i.name === item.name)
-      if (idx >= 0) {
-        const next = [...prev]
-        next[idx] = { ...next[idx], qty: next[idx].qty + (item.qty || 1) }
-        return next
-      }
-      return [...prev, { ...item, qty: item.qty || 1 }]
-    })
-  }, [])
-
-  const updateCartItem = useCallback((name: string, delta: number) => {
-    setCart(prev => prev.flatMap(item => {
-      if (item.name !== name) return [item]
-      const qty = Math.max(0, item.qty + delta)
-      return qty > 0 ? [{ ...item, qty }] : []
-    }))
-  }, [])
-
-  const removeCartItem = useCallback((name: string) => {
-    setCart(prev => prev.filter(item => item.name !== name))
-  }, [])
-
-  const clearCart = useCallback(() => setCart([]), [])
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(CART_STORAGE_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw) as { expiresAt?: number; items?: CartItem[] }
-      if (!parsed.expiresAt || parsed.expiresAt < Date.now()) {
-        localStorage.removeItem(CART_STORAGE_KEY)
-        return
-      }
-      if (Array.isArray(parsed.items)) setCart(parsed.items)
-    } catch {
-      localStorage.removeItem(CART_STORAGE_KEY)
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
-      if (!cart.length) {
-        localStorage.removeItem(CART_STORAGE_KEY)
-        return
-      }
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify({
-        expiresAt: Date.now() + CART_TTL_MS,
-        items: cart,
-      }))
-    } catch {
-      // localStorage is best-effort only.
-    }
-  }, [cart])
+  }, [navigateToPage])
 
   // ── Session ───────────────────────────────────────────────────────────────
 

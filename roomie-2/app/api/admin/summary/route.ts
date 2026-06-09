@@ -1,4 +1,5 @@
-import { adminSummary, publicUser } from '@/lib/neon-db'
+import { adminSummary } from '@/lib/services/admin'
+import { publicUser } from '@/lib/repositories/users'
 import { requireAdmin, storageGuard } from '@/lib/api-helpers'
 import { serializeBooking, serializeAddon } from '@/lib/utils'
 
