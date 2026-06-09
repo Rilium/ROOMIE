@@ -128,100 +128,72 @@ export default function BookingCalendar({
         </div>
       )}
 
-      {/* ── Mini calendar (solo Pianifica) ──────────────────────── */}
+      {/* ── Calendar + slots affiancati (solo Pianifica) ─────────── */}
       {planMode && (
-      <div className="bc-calendar">
-        {/* Month nav */}
-        <div className="bc-month-nav">
-          <button
-            type="button"
-            className="bc-nav-btn"
-            onClick={prevMonth}
-            aria-label="Mese precedente"
-          >
-            <i className="fas fa-chevron-left" />
-          </button>
-          <span className="bc-month-label">
-            {MONTHS_IT[viewMonth]} {viewYear}
-          </span>
-          <button
-            type="button"
-            className="bc-nav-btn"
-            onClick={nextMonth}
-            aria-label="Mese successivo"
-          >
-            <i className="fas fa-chevron-right" />
-          </button>
-        </div>
+        <div className="bc-plan-row">
 
-        {/* Day grid */}
-        <div className="bc-grid" role="grid" aria-label="Seleziona giorno">
-          {/* Weekday headers */}
-          {WEEKDAYS.map(wd => (
-            <span key={wd} className="bc-weekday" role="columnheader">{wd}</span>
-          ))}
-
-          {/* Day cells */}
-          {days.map((day, i) => {
-            if (!day) return <span key={`e-${i}`} className="bc-day-empty" aria-hidden="true" />
-            const d    = new Date(viewYear, viewMonth, day)
-            const past = d < todayDate
-            const sel  = ymd(d) === date
-            const tod  = ymd(d) === todayYmd()
-            return (
-              <button
-                key={day}
-                type="button"
-                role="gridcell"
-                aria-selected={sel}
-                aria-label={`${day} ${MONTHS_IT[viewMonth]}`}
-                className={[
-                  'bc-day',
-                  past ? 'bc-past'     : '',
-                  sel  ? 'bc-selected' : '',
-                  tod  ? 'bc-today'    : '',
-                ].filter(Boolean).join(' ')}
-                disabled={past || !planMode}
-                onClick={() => handleDay(day)}
-              >
-                {day}
+          {/* Mini calendar */}
+          <div className="bc-calendar">
+            <div className="bc-month-nav">
+              <button type="button" className="bc-nav-btn" onClick={prevMonth} aria-label="Mese precedente">
+                <i className="fas fa-chevron-left" />
               </button>
-            )
-          })}
-        </div>
-      </div>
-      )}
+              <span className="bc-month-label">{MONTHS_IT[viewMonth]} {viewYear}</span>
+              <button type="button" className="bc-nav-btn" onClick={nextMonth} aria-label="Mese successivo">
+                <i className="fas fa-chevron-right" />
+              </button>
+            </div>
+            <div className="bc-grid" role="grid" aria-label="Seleziona giorno">
+              {WEEKDAYS.map(wd => (
+                <span key={wd} className="bc-weekday" role="columnheader">{wd}</span>
+              ))}
+              {days.map((day, i) => {
+                if (!day) return <span key={`e-${i}`} className="bc-day-empty" aria-hidden="true" />
+                const d   = new Date(viewYear, viewMonth, day)
+                const past = d < todayDate
+                const sel  = ymd(d) === date
+                const tod  = ymd(d) === todayYmd()
+                return (
+                  <button
+                    key={day} type="button" role="gridcell"
+                    aria-selected={sel}
+                    aria-label={`${day} ${MONTHS_IT[viewMonth]}`}
+                    className={['bc-day', past ? 'bc-past' : '', sel ? 'bc-selected' : '', tod ? 'bc-today' : ''].filter(Boolean).join(' ')}
+                    disabled={past}
+                    onClick={() => handleDay(day)}
+                  >
+                    {day}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-      {/* ── Time slot grid (solo Pianifica) ─────────────────────── */}
-      {planMode && (
-        <div className="bc-time-section">
-          <div className="bc-time-label">
-            <i className="fas fa-clock" />
-            INIZIO SESSIONE
+          {/* Time slots */}
+          <div className="bc-time-section">
+            <div className="bc-time-label">
+              <i className="fas fa-clock" />
+              INIZIO
+            </div>
+            <div className="bc-slots" role="group" aria-label="Seleziona orario di inizio">
+              {HOUR_SLOTS.map(hour => {
+                const h        = parseInt(hour)
+                const pastHour = isToday && h <= nowHour
+                const sel      = start === hour
+                return (
+                  <button
+                    key={hour} type="button" aria-pressed={sel}
+                    className={['bc-slot', sel ? 'bc-slot-selected' : '', pastHour ? 'bc-slot-past' : ''].filter(Boolean).join(' ')}
+                    disabled={pastHour}
+                    onClick={() => onStartChange(hour)}
+                  >
+                    {hour}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div className="bc-slots" role="group" aria-label="Seleziona orario di inizio">
-            {HOUR_SLOTS.map(hour => {
-              const h        = parseInt(hour)
-              const pastHour = isToday && h <= nowHour
-              const sel      = start === hour
-              return (
-                <button
-                  key={hour}
-                  type="button"
-                  aria-pressed={sel}
-                  className={[
-                    'bc-slot',
-                    sel      ? 'bc-slot-selected' : '',
-                    pastHour ? 'bc-slot-past'     : '',
-                  ].filter(Boolean).join(' ')}
-                  disabled={pastHour}
-                  onClick={() => onStartChange(hour)}
-                >
-                  {hour}
-                </button>
-              )
-            })}
-          </div>
+
         </div>
       )}
 
