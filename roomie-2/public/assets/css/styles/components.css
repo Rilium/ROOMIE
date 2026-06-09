@@ -462,6 +462,9 @@ body.page-home.fullpage-enabled #inside-section .inside-tabs{
 }
 .hero-copy{
   min-height:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
   transition:opacity .22s ease;
 }
 .hero-copy.is-changing{opacity:.35}
@@ -472,11 +475,17 @@ body.page-home.fullpage-enabled #inside-section .inside-tabs{
   border-radius:50px;padding:6px 12px;
   font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   color:var(--neon);margin-bottom:20px;
+  max-width:100%;
+  width:max-content;
+  flex:0 0 auto;
+  white-space:nowrap;
 }
 .hero-badge-dot{width:8px;height:8px;background:var(--neon);border-radius:50%;animation:blink 1.5s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .hero-title{
   font-family:'Bebas Neue',sans-serif;
+  display:block!important;
+  width:100%;
   font-size:clamp(3.6rem,9.2vw,8.4rem);
   line-height:.9;letter-spacing:0;
   color:#fff;
