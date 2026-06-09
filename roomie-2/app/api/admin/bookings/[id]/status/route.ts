@@ -1,7 +1,6 @@
-import { getBookingById, hasBookingConflictNeon, updateBookingStatus } from '@/lib/services/booking'
+import { getBookingById, updateBookingStatus } from '@/lib/services/booking'
 import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
-import { ACTIVE_STATUSES } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -25,14 +24,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return Response.json({ error: 'BAD_STATUS' }, { status: 400 })
   }
 
-  if (
-    (ACTIVE_STATUSES as string[]).includes(status) &&
-    await hasBookingConflictNeon(booking.date, booking.start, booking.end, booking.id)
-  ) {
-    return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
+  try {
+    await updateBookingStatus(id, status)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
+      return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
+    }
+    throw err
   }
-
-  await updateBookingStatus(id, status)
   await logEvent('admin_booking_status', user.id, { bookingId: id, status })
 
   return Response.json({ booking: { ...booking, status } })

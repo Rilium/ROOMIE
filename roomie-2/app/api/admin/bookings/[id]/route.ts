@@ -1,8 +1,8 @@
-import { getBookingById, hasBookingConflictNeon, patchBookingAdmin } from '@/lib/services/booking'
+import { getBookingById, patchBookingAdmin } from '@/lib/services/booking'
 import { getConfig } from '@/lib/repositories/config'
 import { logEvent } from '@/lib/repositories/audit'
 import { requireAdmin, storageGuard, csrfGuard } from '@/lib/api-helpers'
-import { bookingAccessUntilIso, isValidDateString, isValidTimeString, serializeBooking, ACTIVE_STATUSES } from '@/lib/utils'
+import { bookingAccessUntilIso, isValidDateString, isValidTimeString, serializeBooking } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -79,15 +79,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return Response.json({ booking: serializeBooking(booking) })
   }
 
-  if (
-    (ACTIVE_STATUSES as string[]).includes(next.status) &&
-    await hasBookingConflictNeon(next.date, next.start, next.end, booking.id)
-  ) {
-    return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
-  }
-
   const accessValidUntil = bookingAccessUntilIso(next.date, next.start, next.end)
-  const updated = await patchBookingAdmin(id, next, accessValidUntil)
+  let updated
+  try {
+    updated = await patchBookingAdmin(id, next, accessValidUntil)
+  } catch (err) {
+    if (err instanceof Error && err.message === 'SLOT_BLOCKED') {
+      return Response.json({ error: 'SLOT_BLOCKED' }, { status: 409 })
+    }
+    throw err
+  }
 
   await logEvent('admin_booking_update', admin.id, {
     bookingId: id,

@@ -5,6 +5,7 @@
 
 import bcrypt from 'bcryptjs'
 import { sqlClient } from './db/client'
+import { rowToAddon, rowToBlockedSlot, rowToBooking, rowToDbUser } from './db/mappers'
 import type {
   DbUser,
   PublicUser,
@@ -186,30 +187,6 @@ export async function patchConfig(patch: Partial<AppConfig>): Promise<AppConfig>
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
-
-function rowToDbUser(r: Record<string, unknown>): DbUser {
-  return {
-    id:           String(r.id),
-    username:     String(r.username),
-    email:        r.email ? String(r.email) : undefined,
-    name:         String(r.name),
-    role:         (r.role as 'user' | 'admin') ?? 'user',
-    chips:        Number(r.chips ?? 0),
-    passwordHash: String(r.password_hash ?? ''),
-    suspended:    Boolean(r.suspended ?? false),
-    provider:     r.provider ? String(r.provider) : undefined,
-    providerId:   r.provider_id ? String(r.provider_id) : undefined,
-    avatar:       r.avatar ? String(r.avatar) : undefined,
-    termsAcceptedAt: r.terms_accepted_at ? new Date(r.terms_accepted_at as string).toISOString() : null,
-    privacyAcceptedAt: r.privacy_accepted_at ? new Date(r.privacy_accepted_at as string).toISOString() : null,
-    documentVerificationStatus: (r.document_verification_status as DbUser['documentVerificationStatus']) ?? 'missing',
-    documentType: r.document_type ? (String(r.document_type) as DbUser['documentType']) : null,
-    documentLast4: r.document_last4 ? String(r.document_last4) : null,
-    documentName: r.document_name ? String(r.document_name) : null,
-    documentVerifiedAt: r.document_verified_at ? new Date(r.document_verified_at as string).toISOString() : null,
-    createdAt:    r.created_at ? new Date(r.created_at as string).toISOString() : new Date().toISOString(),
-  }
-}
 
 export async function getUserById(id: string): Promise<DbUser | null> {
   await ensureBootstrapData()
@@ -422,25 +399,6 @@ export async function recordTransaction(data: {
 
 // ── BOOKINGS ──────────────────────────────────────────────────────────────────
 
-function rowToBooking(r: Record<string, unknown>): Booking {
-  return {
-    id:               String(r.id),
-    userId:           String(r.user_id),
-    room:             String(r.room ?? 'Via Terni'),
-    date:             r.date ? new Date(r.date as string).toISOString().slice(0, 10) : '',
-    start:            String(r.start_time ?? '').slice(0, 5),
-    end:              String(r.end_time ?? '').slice(0, 5),
-    people:           Number(r.people ?? 1),
-    totalChips:       Number(r.total_chips ?? 0),
-    status:           (r.status as Booking['status']) ?? 'confirmed',
-    lockboxCode:      r.lockbox_code ? String(r.lockbox_code) : undefined,
-    doorCode:         r.door_code ? String(r.door_code) : undefined,
-    accessValidUntil: r.access_valid_until ? new Date(r.access_valid_until as string).toISOString() : undefined,
-    liveMode:         Boolean(r.live_mode ?? false),
-    createdAt:        r.created_at ? new Date(r.created_at as string).toISOString() : new Date().toISOString(),
-  }
-}
-
 export async function createBooking(data: {
   id: string
   userId: string
@@ -508,7 +466,89 @@ export async function listBookings(): Promise<Booking[]> {
 
 export async function updateBookingStatus(id: string, status: Booking['status']): Promise<void> {
   const sql = getDb()
-  await sql`UPDATE bookings SET status = ${status} WHERE id = ${id}`
+  const isActiveStatus = status === 'confirmed' || status === 'pending'
+  if (!isActiveStatus) {
+    await sql`UPDATE bookings SET status = ${status} WHERE id = ${id}`
+    return
+  }
+
+  const rows = await sql`
+    WITH
+      current_booking AS (
+        SELECT *
+        FROM bookings
+        WHERE id = ${id}
+        LIMIT 1
+      ),
+      slot_locks AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(
+            CONCAT(COALESCE((SELECT room FROM current_booking), 'Via Terni'), ':', lock_date::date::text),
+            0
+          )
+        )
+        FROM generate_series(
+          (SELECT date FROM current_booking) - INTERVAL '1 day',
+          (SELECT date FROM current_booking) + INTERVAL '1 day',
+          INTERVAL '1 day'
+        ) AS dates(lock_date)
+        ORDER BY lock_date
+      ),
+      candidate AS (
+        SELECT
+          (date + start_time) AS start_ts,
+          CASE
+            WHEN end_time <= start_time
+              THEN (date + end_time + INTERVAL '1 day')
+            ELSE (date + end_time)
+          END AS end_ts
+        FROM current_booking
+      ),
+      booking_conflict AS (
+        SELECT b.id
+        FROM bookings b
+        CROSS JOIN current_booking current
+        CROSS JOIN candidate c
+        WHERE b.date BETWEEN (current.date - INTERVAL '1 day') AND (current.date + INTERVAL '1 day')
+          AND b.status IN ('confirmed', 'pending')
+          AND b.id != ${id}
+          AND c.start_ts < CASE
+            WHEN b.end_time <= b.start_time
+              THEN (b.date + b.end_time + INTERVAL '1 day')
+            ELSE (b.date + b.end_time)
+          END
+          AND c.end_ts > (b.date + b.start_time)
+        LIMIT 1
+      ),
+      blocked_conflict AS (
+        SELECT s.id
+        FROM blocked_slots s
+        CROSS JOIN current_booking current
+        CROSS JOIN candidate c
+        WHERE s.date BETWEEN (current.date - INTERVAL '1 day') AND (current.date + INTERVAL '1 day')
+          AND c.start_ts < CASE
+            WHEN s.end_time <= s.start_time
+              THEN (s.date + s.end_time + INTERVAL '1 day')
+            ELSE (s.date + s.end_time)
+          END
+          AND c.end_ts > (s.date + s.start_time)
+        LIMIT 1
+      ),
+      availability AS (
+        SELECT
+          EXISTS (SELECT 1 FROM current_booking)
+          AND NOT EXISTS (SELECT 1 FROM booking_conflict)
+          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
+        FROM slot_locks
+        LIMIT 1
+      )
+    UPDATE bookings
+    SET status = ${status}
+    WHERE id = ${id}
+      AND (SELECT slot_ok FROM availability)
+    RETURNING id
+  `
+  if (!rows[0]) throw new Error('SLOT_BLOCKED')
 }
 
 export async function patchBookingAdmin(
@@ -517,7 +557,81 @@ export async function patchBookingAdmin(
   accessValidUntil: string,
 ): Promise<Booking | null> {
   const sql = getDb()
+  const isActiveStatus = next.status === 'confirmed' || next.status === 'pending'
+  if (!isActiveStatus) {
+    const rows = await sql`
+      UPDATE bookings SET
+        date         = ${next.date}::date,
+        start_time   = ${next.start}::time,
+        end_time     = ${next.end}::time,
+        room         = ${next.room},
+        people       = ${next.people},
+        total_chips  = ${next.totalChips},
+        status       = ${next.status},
+        access_valid_until = ${accessValidUntil}
+      WHERE id = ${id}
+      RETURNING *
+    `
+    return rows[0] ? rowToBooking(rows[0]) : null
+  }
+
   const rows = await sql`
+    WITH
+      slot_locks AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(CONCAT(${next.room || 'Via Terni'}::text, ':', lock_date::date::text), 0)
+        )
+        FROM generate_series(
+          ${next.date}::date - INTERVAL '1 day',
+          ${next.date}::date + INTERVAL '1 day',
+          INTERVAL '1 day'
+        ) AS dates(lock_date)
+        ORDER BY lock_date
+      ),
+      candidate AS (
+        SELECT
+          (${next.date}::date + ${next.start}::time) AS start_ts,
+          CASE
+            WHEN ${next.end}::time <= ${next.start}::time
+              THEN (${next.date}::date + ${next.end}::time + INTERVAL '1 day')
+            ELSE (${next.date}::date + ${next.end}::time)
+          END AS end_ts
+      ),
+      booking_conflict AS (
+        SELECT b.id
+        FROM bookings b
+        CROSS JOIN candidate c
+        WHERE b.date BETWEEN (${next.date}::date - INTERVAL '1 day') AND (${next.date}::date + INTERVAL '1 day')
+          AND b.status IN ('confirmed', 'pending')
+          AND b.id != ${id}
+          AND c.start_ts < CASE
+            WHEN b.end_time <= b.start_time
+              THEN (b.date + b.end_time + INTERVAL '1 day')
+            ELSE (b.date + b.end_time)
+          END
+          AND c.end_ts > (b.date + b.start_time)
+        LIMIT 1
+      ),
+      blocked_conflict AS (
+        SELECT s.id
+        FROM blocked_slots s
+        CROSS JOIN candidate c
+        WHERE s.date BETWEEN (${next.date}::date - INTERVAL '1 day') AND (${next.date}::date + INTERVAL '1 day')
+          AND c.start_ts < CASE
+            WHEN s.end_time <= s.start_time
+              THEN (s.date + s.end_time + INTERVAL '1 day')
+            ELSE (s.date + s.end_time)
+          END
+          AND c.end_ts > (s.date + s.start_time)
+        LIMIT 1
+      ),
+      availability AS (
+        SELECT
+          NOT EXISTS (SELECT 1 FROM booking_conflict)
+          AND NOT EXISTS (SELECT 1 FROM blocked_conflict) AS slot_ok
+        FROM slot_locks
+        LIMIT 1
+      )
     UPDATE bookings SET
       date         = ${next.date}::date,
       start_time   = ${next.start}::time,
@@ -528,8 +642,10 @@ export async function patchBookingAdmin(
       status       = ${next.status},
       access_valid_until = ${accessValidUntil}
     WHERE id = ${id}
+      AND (SELECT slot_ok FROM availability)
     RETURNING *
   `
+  if (!rows[0]) throw new Error('SLOT_BLOCKED')
   return rows[0] ? rowToBooking(rows[0]) : null
 }
 
@@ -610,23 +726,6 @@ export async function hasBookingConflictNeon(
 }
 
 // ── ADDONS ────────────────────────────────────────────────────────────────────
-
-function rowToAddon(r: Record<string, unknown>): Addon {
-  const soldDate = r.sold_today_date
-    ? new Date(r.sold_today_date as string).toISOString().slice(0, 10)
-    : ''
-  const today = new Date().toISOString().slice(0, 10)
-  return {
-    id:          String(r.id),
-    category:    (r.category as Addon['category']) ?? 'modes',
-    brand:       String(r.brand ?? 'ROOMIE'),
-    name:        String(r.name ?? ''),
-    description: String(r.description ?? ''),
-    price:       Number(r.price ?? 0),
-    status:      (r.status as Addon['status']) ?? 'active',
-    soldToday:   soldDate && soldDate !== today ? 0 : Number(r.sold_today ?? 0),
-  }
-}
 
 export async function resetAddonCountersIfNeeded(): Promise<void> {
   const sql = getDb()
@@ -718,17 +817,6 @@ export async function createAddonOrder(data: {
 }
 
 // ── BLOCKED SLOTS ─────────────────────────────────────────────────────────────
-
-function rowToBlockedSlot(r: Record<string, unknown>): BlockedSlot {
-  return {
-    id:        String(r.id),
-    date:      r.date ? new Date(r.date as string).toISOString().slice(0, 10) : '',
-    start:     String(r.start_time ?? '').slice(0, 5),
-    end:       String(r.end_time ?? '').slice(0, 5),
-    reason:    String(r.reason ?? ''),
-    createdAt: r.created_at ? new Date(r.created_at as string).toISOString() : new Date().toISOString(),
-  }
-}
 
 export async function listBlockedSlots(): Promise<BlockedSlot[]> {
   const sql = getDb()

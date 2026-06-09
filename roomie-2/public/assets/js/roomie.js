@@ -706,6 +706,10 @@ function scrollShopSection(btn, id) {
 
 // ── NFC ──
 function openNFC() {
+  if(typeof window.openNfcModal === 'function') {
+    window.openNfcModal();
+    return;
+  }
   const m = document.getElementById('modal-nfc');
   m.classList.remove('hidden');
   document.getElementById('nfc-success').classList.add('hidden');
@@ -731,6 +735,10 @@ function simulateNFC() {
 
 // ── CODE UNLOCK ──
 function openCodeUnlock() {
+  if(typeof window.openCodeUnlockModal === 'function') {
+    window.openCodeUnlockModal();
+    return;
+  }
   document.getElementById('modal-code-unlock').classList.remove('hidden');
   document.getElementById('code-error').classList.add('hidden');
   ['cd1','cd2','cd3','cd4'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
