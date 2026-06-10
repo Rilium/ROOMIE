@@ -96,6 +96,7 @@ export default function SessionPage() {
   }
 
   return (
+    <>
     <div className="page active" id="page-session">
       <div className="session-shell roomie-shell">
 
@@ -370,8 +371,9 @@ export default function SessionPage() {
           </button>
         </section>
       </div>
+    </div>
 
-      {/* ⑨ STICKY — progress bar + AGGIUNTE */}
+      {/* ⑨ STICKY — fuori da .page così position:fixed non è contenuto dall'animazione transform */}
       <div className="session-sticky">
         <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
         <div
@@ -393,6 +395,6 @@ export default function SessionPage() {
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
