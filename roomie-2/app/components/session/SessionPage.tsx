@@ -5,6 +5,7 @@ import { ShineBorder } from '@/app/components/magicui/shine-border'
 import { apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export default function SessionPage() {
   const { activeSession, invitedFriends, removeInvitedFriend, openModalInvite, showPage, showToast, setActiveSession } = useApp()
@@ -13,6 +14,7 @@ export default function SessionPage() {
   const [camExpanded, setCamExpanded] = useState(false)
   const [timeLeft, setTimeLeft] = useState<string>('—')
   const [minutesLeft, setMinutesLeft] = useState<number>(99)
+  const [mounted, setMounted] = useState(false)
 
   const booking = activeSession?.booking
   const sessionFriends = activeSession?.friends?.length ? activeSession.friends : invitedFriends
@@ -87,6 +89,8 @@ export default function SessionPage() {
   useEffect(() => {
     apiRoomWifi().then(({ data }) => { if (data?.wifi) setWifi(data.wifi) })
   }, [])
+
+  useEffect(() => { setMounted(true) }, [])
 
   const copyWifi = () => {
     if (!isLive) { showToast({ title: 'Wi-Fi disponibile in sessione', copy: `Torna da ${startLabel}.`, type: 'warn' }); return }
@@ -374,30 +378,32 @@ export default function SessionPage() {
       </div>
     </div>
 
-    {/* STICKY — outside .page, position:fixed unaffected by page animation */}
-    <div className="session-sticky">
-      <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
-      <div
-        className="session-progress-bar"
-        style={{ '--session-progress': `${Math.round(sessionProgress * 100)}%` } as React.CSSProperties}
-      />
-      <div className="session-sticky-info">
-        <span className={`session-sticky-status${isLive ? ' is-live' : ''}`}>
-          <span className="live-dot"></span>{isLive ? 'LIVE' : 'IN ATTESA'}
-        </span>
-        <span className={`session-sticky-end${isUrgent ? ' is-urgent' : ''}`}>
-          {isUrgent ? `⚠ ${timeLeft}` : `fine `}{isUrgent ? '' : <strong>{booking?.end || '—'}</strong>}
-        </span>
-      </div>
-      <div className="session-sticky-actions">
-        <button className="session-extend-btn session-extend-primary" disabled={!isLive} onClick={handleExtend}>
-          <i className="fas fa-clock"></i> +1H
-        </button>
-        <button className="btn-secondary-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}>
-          <i className="fas fa-layer-group"></i> AGGIUNTE
-        </button>
-      </div>
-    </div>
+    {mounted && createPortal(
+      <div className="session-sticky">
+        <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
+        <div
+          className="session-progress-bar"
+          style={{ '--session-progress': `${Math.round(sessionProgress * 100)}%` } as React.CSSProperties}
+        />
+        <div className="session-sticky-info">
+          <span className={`session-sticky-status${isLive ? ' is-live' : ''}`}>
+            <span className="live-dot"></span>{isLive ? 'LIVE' : 'IN ATTESA'}
+          </span>
+          <span className={`session-sticky-end${isUrgent ? ' is-urgent' : ''}`}>
+            {isUrgent ? `⚠ ${timeLeft}` : `fine `}{isUrgent ? '' : <strong>{booking?.end || '—'}</strong>}
+          </span>
+        </div>
+        <div className="session-sticky-actions">
+          <button className="session-extend-btn session-extend-primary" disabled={!isLive} onClick={handleExtend}>
+            <i className="fas fa-clock"></i> +1H
+          </button>
+          <button className="btn-secondary-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}>
+            <i className="fas fa-layer-group"></i> AGGIUNTE
+          </button>
+        </div>
+      </div>,
+      document.body
+    )}
     </>
   )
 }
