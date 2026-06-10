@@ -11,6 +11,9 @@ export default function SessionPage() {
   const { activeSession, invitedFriends, removeInvitedFriend, openModalInvite, showPage, showToast, setActiveSession } = useApp()
   const [wifi, setWifi] = useState<{ ssid: string; password: string; configured: boolean } | null>(null)
   const [camEnabled, setCamEnabled] = useState(true)
+  const [camExpanded, setCamExpanded] = useState(false)
+  const [timeLeft, setTimeLeft] = useState<string>('—')
+
   const booking = activeSession?.booking
   const sessionFriends = activeSession?.friends?.length ? activeSession.friends : invitedFriends
   const isLive = booking ? isBookingLiveNow(booking) : false
@@ -22,6 +25,30 @@ export default function SessionPage() {
 
   const accessIncomplete = isLive && !activeSession?.doorDone && !activeSession?.shutterDone && !activeSession?.keyDone
 
+  // Live countdown timer
+  useEffect(() => {
+    const compute = () => {
+      if (!booking?.end) { setTimeLeft('—'); return }
+      const now = new Date()
+      const today = now.toISOString().slice(0, 10)
+      const endMs = new Date(`${today}T${booking.end}`).getTime()
+      const diff = endMs - now.getTime()
+      if (diff <= 0) { setTimeLeft('00:00'); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setTimeLeft(
+        h > 0
+          ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+          : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      )
+    }
+    compute()
+    const id = setInterval(compute, 1000)
+    return () => clearInterval(id)
+  }, [booking?.end])
+
+  // Session progress (0–1) for sticky progress bar
   const sessionProgress = (() => {
     if (!booking?.start || !booking?.end) return 0
     const now = new Date()
@@ -31,6 +58,9 @@ export default function SessionPage() {
     if (endMs <= startMs) return 0
     return Math.min(1, Math.max(0, (now.getTime() - startMs) / (endMs - startMs)))
   })()
+
+  // CTA priority: access > livemode > invite
+  const primaryAction = accessIncomplete ? 'access' : isLive && !liveMode ? 'livemode' : isLive && sessionFriends.length === 0 ? 'invite' : 'none'
 
   const handleExtend = async () => {
     if (!booking?.id) return
@@ -68,6 +98,8 @@ export default function SessionPage() {
   return (
     <div className="page active" id="page-session">
       <div className="session-shell roomie-shell">
+
+        {/* PRE-LIVE GATE */}
         {!isLive && (
           <div className="access-wait-card roomie-visible mb-18">
             <div className="access-wait-kicker"><i className="fas fa-lock"></i> SESSIONE NON LIVE</div>
@@ -84,46 +116,50 @@ export default function SessionPage() {
           </div>
         )}
 
-        {/* ① HERO — compact, countdown merged into subtitle */}
+        {/* ① HERO — compact 110px */}
         <div className="session-hero">
           <div className="session-hero-content">
             <div className="roomie-kicker-neon">
-              <i className={`fas ${isLive ? 'fa-unlock' : 'fa-lock'}`}></i> {isLive ? 'ACCESSO RIUSCITO' : 'IN ATTESA SLOT'}
+              <i className={`fas ${isLive ? 'fa-unlock' : 'fa-lock'}`}></i>{' '}
+              {isLive ? 'ACCESSO RIUSCITO' : 'IN ATTESA SLOT'}
             </div>
             <DiaTextReveal className="roomie-title-condensed roomie-title-session">
               {isLive ? 'SEI DENTRO.' : 'NON ANCORA.'}
             </DiaTextReveal>
-            <div className="roomie-copy-session">
-              Room tua fino alle <strong className="roomie-strong-neon">{booking?.end || '22:00'}</strong>
-            </div>
           </div>
         </div>
 
-        {/* ② STAT GRID — 2×2 */}
-        <div className="session-grid">
-          <div className="session-tile"><strong className="session-timer">{booking?.end || '—'}</strong><span>{isLive ? 'fine sessione' : 'si attiva allo start'}</span></div>
-          <div className="session-tile"><strong>{booking?.people || 1} persona{(booking?.people || 1) !== 1 ? 'e' : ''}</strong><span>split attivo · {booking?.totalChips || 0} chips</span></div>
+        {/* ② STAT GRID — asymmetric 2fr 1fr: timer dominante */}
+        <div className="session-grid session-grid-asym">
+          <div className="session-tile session-tile-timer">
+            <strong className="session-timer">{isLive ? timeLeft : booking?.end || '—'}</strong>
+            <span>{isLive ? 'rimaste' : 'si attiva allo start'}</span>
+          </div>
           <div className="session-tile">
+            <strong>{booking?.people || 1}p</strong>
+            <span>{booking?.totalChips || 0} chips</span>
+          </div>
+          <div className="session-tile session-tile-access">
             <strong>
-              {activeSession?.doorDone ? 'Accesso OK' : activeSession?.shutterDone ? 'Serranda aperta' : activeSession?.keyDone ? 'Chiave presa' : 'Accesso non avviato'}
+              {activeSession?.doorDone ? '✓ Accesso OK' : activeSession?.shutterDone ? 'Serranda ↑' : activeSession?.keyDone ? 'Chiave ✓' : '⚠ Accesso'}
             </strong>
             <span>
-              {activeSession?.doorDone ? 'serranda alzata · chiave riposta · porta OK' : activeSession?.shutterDone ? 'chiave riposta · vai alla porta' : activeSession?.keyDone ? 'serranda in attesa' : 'completa la procedura di accesso'}
+              {activeSession?.doorDone ? 'porta OK' : activeSession?.shutterDone ? 'vai alla porta' : activeSession?.keyDone ? 'serranda in attesa' : 'procedura incompleta'}
             </span>
           </div>
           <button className="session-tile roomie-tile-button" type="button" onClick={copyWifi}>
-            <strong>Wi-Fi Roomie</strong>
-            <span>{isLive ? 'tocca per copiare' : 'disponibile in sessione'}</span>
+            <strong>Wi-Fi</strong>
+            <span>{isLive ? 'copia →' : 'in sessione'}</span>
           </button>
         </div>
 
-        {/* ③ ACCESS ALERT BANNER — only when access is incomplete during live */}
+        {/* ③ ACCESS ALERT — se incompleto */}
         {accessIncomplete && (
           <div className="session-access-alert">
             <span className="session-access-alert-icon"><i className="fas fa-triangle-exclamation"></i></span>
             <div className="session-access-alert-copy">
               <strong>Accesso non avviato</strong>
-              <span>Completa la procedura per entrare nella room</span>
+              <span>Completa la procedura per entrare</span>
             </div>
             <button className="session-access-alert-btn" type="button" onClick={() => showPage('confirm')}>
               COMPLETA →
@@ -131,7 +167,7 @@ export default function SessionPage() {
           </div>
         )}
 
-        {/* ④ LIVE MODE — revenue-first, above camera */}
+        {/* ④ LIVE MODE — revenue-first, compact */}
         <div className={`live-status-card${isLive && liveMode ? ' on' : ''}`} id="session-live-card">
           <div className="session-live-head">
             <div>
@@ -140,9 +176,6 @@ export default function SessionPage() {
               </div>
               <div className="roomie-title-condensed roomie-title-card">
                 {liveMode ? 'Vai live, recuperi 50%' : 'Live Mode disponibile'}
-              </div>
-              <div className="live-mode-copy">
-                Guadagni chips guardando la tua sessione. Camera dedicata, overlay e stop sempre visibile.
               </div>
             </div>
             <div className="roomie-value-neon">+{cashback}</div>
@@ -153,7 +186,7 @@ export default function SessionPage() {
             <div className={`live-consent ${isLive && liveMode ? 'ok' : 'pending'}`}>Overlay</div>
           </div>
           <button
-            className="btn-neon w-full roomie-btn-live-action"
+            className={`w-full roomie-btn-live-action${primaryAction === 'livemode' ? ' btn-neon' : ' btn-secondary-neon'}`}
             disabled={!isLive}
             onClick={() => showToast({ title: isLive ? 'Live Mode pronta' : 'Sessione non ancora live', copy: isLive ? 'Mock camera pronto. Domani colleghiamo il feed reale.' : `Torna da ${startLabel}.` })}
           >
@@ -161,22 +194,22 @@ export default function SessionPage() {
           </button>
         </div>
 
-        {/* ⑤ INVITE FRIEND — social before camera */}
+        {/* ⑤ INVITE FRIEND — compact, CTA priority-aware */}
         {sessionFriends.length > 0 && (
           <section className="session-friends-card">
             <div className="session-friends-head">
               <div>
                 <div className="in-room-kicker">GRUPPO IN ROOM</div>
-                <div className="session-friends-title">{sessionFriends.length + 1} persone previste</div>
+                <div className="session-friends-title">{sessionFriends.length + 1} presenti</div>
               </div>
-              <span>Tutti presenti?</span>
+              <span>Tutti dentro?</span>
             </div>
             <div className="session-friends-list">
               <div className="session-friend-pill is-host"><strong>TU</strong><span>Host · presente</span></div>
               {sessionFriends.map(friend => (
                 <button className="session-friend-pill" type="button" key={friend.id} onClick={() => removeInvitedFriend(friend.id)}>
                   <strong>{friend.name}</strong>
-                  <span>{friend.meta || `@${friend.username}`} · attesa check-in</span>
+                  <span>{friend.meta || `@${friend.username}`} · attesa</span>
                 </button>
               ))}
             </div>
@@ -186,100 +219,114 @@ export default function SessionPage() {
               </button>
             )}
             <div className="presence-alert">
-              Se manca qualcuno puoi entrare, ma esperienze, luci e Live Mode restano in standby finche&apos; il gruppo non e&apos; completo.
+              Esperienze e Live Mode si attivano col gruppo completo.
             </div>
           </section>
         )}
         {sessionFriends.length === 0 && isLive && (
-          <section className="session-friends-card">
+          <section className="session-friends-card session-friends-solo">
             <div className="session-friends-head">
-              <div>
-                <div className="in-room-kicker">GRUPPO IN ROOM</div>
-                <div className="session-friends-title">Sei solo — invita qualcuno</div>
-              </div>
+              <div className="in-room-kicker">GRUPPO IN ROOM</div>
+              <div className="session-friends-title">Sei solo — invita qualcuno</div>
             </div>
-            <button className="btn-neon w-full roomie-btn-session-action" type="button" onClick={openModalInvite}>
+            <button
+              className={`w-full roomie-btn-session-action${primaryAction === 'invite' ? ' btn-neon' : ' quiet-action'}`}
+              type="button"
+              onClick={openModalInvite}
+            >
               <i className="fas fa-user-plus"></i> AGGIUNGI AMICO IN CORSA
             </button>
           </section>
         )}
 
-        {/* ⑥ CAMERA — below fold, collapsible */}
-        <div className={`camera-card session-camera${isLive && camEnabled ? '' : ' is-locked'}${camEnabled ? '' : ' is-off'}`} aria-label="Telecamera live ROOMIE">
-          <div className="camera-feed"></div>
-          <div className="camera-overlay">
-            <div>
-              <div className="camera-top">
-                <div className="camera-live">{!camEnabled ? 'OFF' : isLive ? 'LIVE' : 'LOCKED'}</div>
-                <div className="camera-roomie">ROOMIE CAM</div>
-              </div>
-              <div className="camera-meta">
-                <span className="camera-pill">Via Terni · 40 m2</span>
-                <span className="camera-pill">{new Date().toLocaleDateString('it-IT')}</span>
-                <span className="camera-pill">{!camEnabled ? 'cam disattivata' : isLive ? 'ON AIR' : 'slot non live'}</span>
+        {/* ⑥ CAMERA — collapsed by default */}
+        <div className="session-cam-wrap">
+          <div className="session-cam-collapsed" onClick={() => setCamExpanded(e => !e)}>
+            <div className="session-cam-collapsed-left">
+              <span className={`live-dot${isLive && camEnabled ? ' is-active' : ''}`}></span>
+              <span className="session-cam-collapsed-label">
+                {!camEnabled ? 'CAM OFF' : isLive ? 'LIVE' : 'LOCKED'} · ROOMIE CAM
+              </span>
+              <div className="camera-chips-mini">
+                <span>Overlay</span>
+                <span>Privacy</span>
+                <span>Stop</span>
               </div>
             </div>
-            <div>
-              <div className="camera-title">{!camEnabled ? 'ROOMIE CAM SPENTA.' : isLive ? 'LIVE ROOMIE ATTIVA.' : 'CAMERA BLOCCATA FINO ALLO SLOT.'}</div>
-              <div className="camera-chips">
-                <span className="camera-chip"><i className="fas fa-check"></i> Overlay</span>
-                <span className="camera-chip"><i className="fas fa-check"></i> Privacy</span>
-                <span className="camera-chip"><i className="fas fa-check"></i> Stop visibile</span>
-              </div>
-              <button
-                type="button"
-                className={`camera-toggle${camEnabled ? ' active' : ''}`}
-                onClick={() => setCamEnabled(enabled => !enabled)}
-                aria-pressed={camEnabled}
-              >
-                {camEnabled ? 'DISATTIVA CAM' : 'RIATTIVA CAM'}
-              </button>
-            </div>
+            <i className={`fas fa-chevron-${camExpanded ? 'up' : 'down'} session-cam-toggle-icon`}></i>
           </div>
-          {(!isLive || !camEnabled) && (
-            <div className="camera-lock-overlay">
-              <div className="camera-lock-panel">
-                <div className="camera-lock-kicker">{camEnabled ? 'Accesso richiesto' : 'Cam off'}</div>
-                <div className="camera-lock-title">{camEnabled ? 'Si sblocca quando sei dentro.' : 'Riprendi solo se vuoi.'}</div>
-                <div className="camera-lock-copy">{camEnabled ? 'Live cam, shop e comandi room si attivano nella fascia pagata.' : 'La room resta attiva, ma il feed mock e il Live Mode sono spenti.'}</div>
-                {!camEnabled && (
-                  <button className="camera-lock-btn" type="button" onClick={() => setCamEnabled(true)}>
-                    <i className="fas fa-video"></i> RIATTIVA CAM
+
+          {camExpanded && (
+            <div className={`camera-card session-camera${isLive && camEnabled ? '' : ' is-locked'}${camEnabled ? '' : ' is-off'}`} aria-label="Telecamera live ROOMIE">
+              <div className="camera-feed"></div>
+              <div className="camera-overlay">
+                <div>
+                  <div className="camera-top">
+                    <div className="camera-live">{!camEnabled ? 'OFF' : isLive ? 'LIVE' : 'LOCKED'}</div>
+                    <div className="camera-roomie">ROOMIE CAM</div>
+                  </div>
+                  <div className="camera-meta">
+                    <span className="camera-pill">Via Terni · 40 m2</span>
+                    <span className="camera-pill">{new Date().toLocaleDateString('it-IT')}</span>
+                    <span className="camera-pill">{!camEnabled ? 'cam disattivata' : isLive ? 'ON AIR' : 'slot non live'}</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="camera-title">{!camEnabled ? 'ROOMIE CAM SPENTA.' : isLive ? 'LIVE ROOMIE ATTIVA.' : 'CAMERA BLOCCATA FINO ALLO SLOT.'}</div>
+                  <div className="camera-chips">
+                    <span className="camera-chip"><i className="fas fa-check"></i> Overlay</span>
+                    <span className="camera-chip"><i className="fas fa-check"></i> Privacy</span>
+                    <span className="camera-chip"><i className="fas fa-check"></i> Stop visibile</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`camera-toggle${camEnabled ? ' active' : ''}`}
+                    onClick={e => { e.stopPropagation(); setCamEnabled(en => !en) }}
+                    aria-pressed={camEnabled}
+                  >
+                    {camEnabled ? 'DISATTIVA CAM' : 'RIATTIVA CAM'}
                   </button>
-                )}
+                </div>
               </div>
+              {(!isLive || !camEnabled) && (
+                <div className="camera-lock-overlay">
+                  <div className="camera-lock-panel">
+                    <div className="camera-lock-kicker">{camEnabled ? 'Accesso richiesto' : 'Cam off'}</div>
+                    <div className="camera-lock-title">{camEnabled ? 'Si sblocca quando sei dentro.' : 'Riprendi solo se vuoi.'}</div>
+                    <div className="camera-lock-copy">{camEnabled ? 'Live cam e comandi si attivano nella fascia pagata.' : 'La room resta attiva, ma il feed e Live Mode sono spenti.'}</div>
+                    {!camEnabled && (
+                      <button className="camera-lock-btn" type="button" onClick={() => setCamEnabled(true)}>
+                        <i className="fas fa-video"></i> RIATTIVA CAM
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* ⑦ ROOM CONTROLS — 2-col grid, no +1h duplicate */}
+        {/* ⑦ ROOM CONTROLS — 2-col, compact header */}
         <div className="in-room-panel">
-          <div className="in-room-head">
-            <div>
-              <div className="in-room-kicker">ROOM CONTROL</div>
-              <div className="in-room-title">La room è tua.</div>
-              <div className="roomie-copy-soft">Azioni veloci durante la sessione.</div>
-            </div>
+          <div className="in-room-head in-room-head-compact">
+            <div className="in-room-kicker">ROOM CONTROL</div>
             <div className="room-status-pill"><i className={`fas ${isLive ? 'fa-bolt' : 'fa-lock'}`}></i> {isLive ? 'LIVE' : 'LOCKED'}</div>
           </div>
           <div className="quick-controls quick-controls-2col">
             <button className="quick-control" disabled={!isLive} onClick={() => showPage('shop')}>
-              <i className="fas fa-layer-group"></i>Pack<span>partita, snack, mood</span>
+              <i className="fas fa-layer-group"></i>Pack<span>snack, mood</span>
             </button>
             <button className="quick-control" onClick={() => showToast({ title: 'Assistenza avvisata', copy: 'Il team riceve sessione, orario e stato accesso.' })}>
-              <i className="fas fa-headset"></i>Aiuto<span>priorità sessione live</span>
+              <i className="fas fa-headset"></i>Aiuto<span>priorità live</span>
             </button>
           </div>
         </div>
 
-        {/* ⑧ CONTROL ROOM — urgente first, booking as text link */}
+        {/* ⑧ CONTROL ROOM — compact, urgente first, no big title */}
         <section className="control-room-card">
           <ShineBorder size={112} duration={7.4} initialOffset={66} colorFrom="#C8FF00" colorTo="#00FFD1" borderWidth={1.2} />
-          <div className="control-room-head">
-            <div>
-              <div className="in-room-kicker">CONTROL ROOM</div>
-              <div className="control-room-title">Comandi sessione</div>
-            </div>
+          <div className="control-room-head control-room-head-compact">
+            <div className="in-room-kicker">CONTROL ROOM</div>
             <span className={`control-room-state${isLive ? ' is-live' : ''}`}>{isLive ? 'LIVE' : 'LOCKED'}</span>
           </div>
           <div className="control-room-grid">
@@ -294,16 +341,16 @@ export default function SessionPage() {
             <button className="control-room-action" type="button" onClick={() => showToast({ title: 'ROOMIE Chip pronta', copy: 'Avvicina la fiche fisica al lettore sulla porta.' })}>
               <span className="control-room-icon"><i className="fas fa-microchip"></i></span>
               <span className="control-room-copy">
-                <strong>ROOMIE Chip fisica</strong>
-                <small>Apri con chip o codice porta</small>
+                <strong>Chip fisica</strong>
+                <small>Chip o codice porta</small>
               </span>
               <span className="control-room-meta"><i className="fas fa-chevron-right"></i></span>
             </button>
             <button className="control-room-action" type="button" onClick={() => showPage('shop')}>
               <span className="control-room-icon"><i className="fas fa-shopping-bag"></i></span>
               <span className="control-room-copy">
-                <strong>Snack, streaming e setup</strong>
-                <small>Addon e mood della room</small>
+                <strong>Snack & setup</strong>
+                <small>Addon e mood</small>
               </span>
               <span className="control-room-meta"><i className="fas fa-chevron-right"></i></span>
             </button>
@@ -324,7 +371,7 @@ export default function SessionPage() {
         </section>
       </div>
 
-      {/* ⑨ STICKY BAR — progress bar, no duplicate timer, AGGIUNTE */}
+      {/* ⑨ STICKY — progress bar + AGGIUNTE */}
       <div className="session-sticky">
         <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
         <div
@@ -338,8 +385,12 @@ export default function SessionPage() {
           <span className="session-sticky-end">fine <strong>{booking?.end || '—'}</strong></span>
         </div>
         <div className="session-sticky-actions">
-          <button className="btn-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}><i className="fas fa-layer-group"></i> AGGIUNTE</button>
-          <button className="session-extend-btn" disabled={!isLive} onClick={handleExtend}><i className="fas fa-clock"></i> +1H</button>
+          <button className="btn-neon roomie-btn-center" disabled={!isLive} onClick={() => showPage('shop')}>
+            <i className="fas fa-layer-group"></i> AGGIUNTE
+          </button>
+          <button className="session-extend-btn" disabled={!isLive} onClick={handleExtend}>
+            <i className="fas fa-clock"></i> +1H
+          </button>
         </div>
       </div>
     </div>
