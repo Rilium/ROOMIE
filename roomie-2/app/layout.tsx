@@ -93,7 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* ROOMIE custom CSS */}
         {/* eslint-disable-next-line @next/next/no-css-tags */}
-        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260607-profile-css" />
+        <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260611-sticky-fix" />
 
         {/* GSAP + Lenis — beforeInteractive: roomie.js usa gsap.registerPlugin() al DOMContentLoaded
             quindi GSAP deve essere disponibile prima. Il boot-loader statico già elimina il blackscreen. */}

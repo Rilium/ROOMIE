@@ -1,6 +1,6 @@
 /* ROOMIE CSS entrypoint: ordered to preserve the legacy cascade. */
-@import url("./styles/tokens.css");
-@import url("./styles/globals.css");
-@import url("./styles/components.css");
-@import url("./styles/utilities.css");
-@import url("./styles/legacy.css");
+@import url("./styles/tokens.css?v=11");
+@import url("./styles/globals.css?v=11");
+@import url("./styles/components.css?v=11");
+@import url("./styles/utilities.css?v=11");
+@import url("./styles/legacy.css?v=11");
