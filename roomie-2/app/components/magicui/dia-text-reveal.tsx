@@ -82,8 +82,8 @@ export function DiaTextReveal({
           <motion.span
             key={`${i}-${letter}`}
             style={{ display: 'inline-block', whiteSpace: letter === ' ' ? 'pre' : undefined }}
-            initial={{ opacity: 0, y: '0.35em', filter: 'blur(4px)' }}
-            animate={revealed ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: '0.35em', filter: 'blur(4px)' }}
+            initial={{ opacity: 0, filter: 'blur(5px)' }}
+            animate={revealed ? { opacity: 1, filter: 'blur(0px)' } : { opacity: 0, filter: 'blur(5px)' }}
             transition={{
               duration: charDuration,
               delay: i * stagger,

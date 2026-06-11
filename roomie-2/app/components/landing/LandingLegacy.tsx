@@ -119,7 +119,7 @@ export default function LandingLegacy() {
               <span className="hero-badge-dot"></span>
               LIVE · VIA TERNI
             </div>
-            <DiaTextReveal as="h1" className="hero-title" duration={900} delay={120}>
+            <DiaTextReveal key={heroSlide} as="h1" className="hero-title" duration={700} delay={0} startOnView={false}>
               {`${currentHero.title}\n${currentHero.neon}`}
             </DiaTextReveal>
             <p className="hero-addr">{currentHero.addr}</p>

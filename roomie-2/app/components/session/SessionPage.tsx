@@ -60,17 +60,6 @@ export default function SessionPage() {
     return () => clearInterval(id)
   }, [booking?.end])
 
-  // Session progress (0–1) for sticky bar
-  const sessionProgress = (() => {
-    if (!booking?.start || !booking?.end) return 0
-    const now = new Date()
-    const today = now.toISOString().slice(0, 10)
-    const startMs = new Date(`${today}T${booking.start}`).getTime()
-    const endMs = new Date(`${today}T${booking.end}`).getTime()
-    if (endMs <= startMs) return 0
-    return Math.min(1, Math.max(0, (now.getTime() - startMs) / (endMs - startMs)))
-  })()
-
   // CTA priority: access > livemode > invite
   const primaryAction = accessIncomplete ? 'access' : isLive && !liveMode ? 'livemode' : isLive && sessionFriends.length === 0 ? 'invite' : 'none'
 
@@ -103,10 +92,6 @@ export default function SessionPage() {
   const stickyBar = (
     <div className="session-sticky">
       <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
-      <div
-        className="session-progress-bar"
-        style={{ '--session-progress': `${Math.round(sessionProgress * 100)}%` } as React.CSSProperties}
-      />
       <div className="session-sticky-info">
         <span className={`session-sticky-status${isLive ? ' is-live' : ''}`}>
           <span className="live-dot"></span>{isLive ? 'LIVE' : 'IN ATTESA'}
