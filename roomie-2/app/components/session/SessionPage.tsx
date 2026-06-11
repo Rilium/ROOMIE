@@ -379,7 +379,10 @@ export default function SessionPage() {
     </div>
 
     {mounted && createPortal(
-      <div className="session-sticky">
+      <div
+        className="session-sticky"
+        style={{position:'fixed',bottom:'calc(62px + env(safe-area-inset-bottom) + 16px)',left:'50%',transform:'translateX(-50%)',zIndex:4100,width:'min(480px, calc(100vw - 20px))'} as React.CSSProperties}
+      >
         <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
         <div
           className="session-progress-bar"
