@@ -5,7 +5,6 @@ import { ShineBorder } from '@/app/components/magicui/shine-border'
 import { apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 export default function SessionPage() {
   const { activeSession, invitedFriends, removeInvitedFriend, openModalInvite, showPage, showToast, setActiveSession } = useApp()
@@ -14,7 +13,6 @@ export default function SessionPage() {
   const [camExpanded, setCamExpanded] = useState(false)
   const [timeLeft, setTimeLeft] = useState<string>('—')
   const [minutesLeft, setMinutesLeft] = useState<number>(99)
-  const [mounted, setMounted] = useState(false)
 
   const booking = activeSession?.booking
   const sessionFriends = activeSession?.friends?.length ? activeSession.friends : invitedFriends
@@ -90,7 +88,6 @@ export default function SessionPage() {
     apiRoomWifi().then(({ data }) => { if (data?.wifi) setWifi(data.wifi) })
   }, [])
 
-  useEffect(() => { setMounted(true) }, [])
 
   const copyWifi = () => {
     if (!isLive) { showToast({ title: 'Wi-Fi disponibile in sessione', copy: `Torna da ${startLabel}.`, type: 'warn' }); return }
@@ -100,7 +97,6 @@ export default function SessionPage() {
   }
 
   return (
-    <>
     <div className="page active" id="page-session">
       <div className="session-shell roomie-shell">
 
@@ -376,13 +372,8 @@ export default function SessionPage() {
         </section>
 
       </div>
-    </div>
 
-    {mounted && createPortal(
-      <div
-        className="session-sticky"
-        style={{position:'fixed',bottom:'calc(62px + env(safe-area-inset-bottom) + 16px)',left:'50%',transform:'translateX(-50%)',zIndex:4100,width:'min(480px, calc(100vw - 20px))'} as React.CSSProperties}
-      >
+      <div className="session-sticky">
         <ShineBorder size={112} duration={6.2} initialOffset={34} colorFrom="#00FFD1" colorTo="#FF3DCE" borderWidth={1.4} />
         <div
           className="session-progress-bar"
@@ -404,9 +395,7 @@ export default function SessionPage() {
             <i className="fas fa-layer-group"></i> AGGIUNTE
           </button>
         </div>
-      </div>,
-      document.body
-    )}
-    </>
+      </div>
+    </div>
   )
 }
