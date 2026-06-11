@@ -14,3 +14,4 @@ roomie-2/.next/
 roomie-2/node_modules/
 roomie-2/.env.local
 roomie-2/.env.*.local
+.vercel
