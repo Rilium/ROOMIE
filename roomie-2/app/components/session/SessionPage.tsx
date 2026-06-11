@@ -128,6 +128,8 @@ export default function SessionPage() {
 
   return (
     <div className="page active" id="page-session">
+      {/* Override page animation to opacity-only — removes transform containing block for position:fixed */}
+      <style>{`#page-session.page.active{animation:sessionFadeIn .22s ease both!important}@keyframes sessionFadeIn{from{opacity:0}to{opacity:1}}`}</style>
       {mounted ? createPortal(stickyBar, document.body) : stickyBar}
       <div className="session-shell roomie-shell">
 
