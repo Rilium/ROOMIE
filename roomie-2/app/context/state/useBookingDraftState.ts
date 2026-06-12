@@ -1,8 +1,26 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { ActiveSession, BookingDraft, InvitedFriend } from '@/app/context/AppContext'
+
+const BOOKING_DRAFT_STORAGE_KEY = 'roomie.bookingDraft.v1'
+
+function readStoredDraft(defaultBooking: BookingDraft): { booking: BookingDraft; invitedFriends: InvitedFriend[] } {
+  if (typeof window === 'undefined') return { booking: defaultBooking, invitedFriends: [] }
+  try {
+    const raw = localStorage.getItem(BOOKING_DRAFT_STORAGE_KEY)
+    if (!raw) return { booking: defaultBooking, invitedFriends: [] }
+    const parsed = JSON.parse(raw) as { booking?: Partial<BookingDraft>; invitedFriends?: InvitedFriend[] }
+    return {
+      booking: { ...defaultBooking, ...(parsed.booking || {}) },
+      invitedFriends: Array.isArray(parsed.invitedFriends) ? parsed.invitedFriends.slice(0, 7) : [],
+    }
+  } catch {
+    localStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY)
+    return { booking: defaultBooking, invitedFriends: [] }
+  }
+}
 
 export function useBookingDraftState(
   defaultBooking: BookingDraft,
@@ -10,6 +28,23 @@ export function useBookingDraftState(
 ) {
   const [booking, setBookingState] = useState<BookingDraft>(defaultBooking)
   const [invitedFriends, setInvitedFriends] = useState<InvitedFriend[]>([])
+  const [storageReady, setStorageReady] = useState(false)
+
+  useEffect(() => {
+    const stored = readStoredDraft(defaultBooking)
+    setBookingState(stored.booking)
+    setInvitedFriends(stored.invitedFriends)
+    setStorageReady(true)
+  }, [defaultBooking])
+
+  useEffect(() => {
+    if (!storageReady) return
+    try {
+      localStorage.setItem(BOOKING_DRAFT_STORAGE_KEY, JSON.stringify({ booking, invitedFriends }))
+    } catch {
+      // localStorage is best-effort only.
+    }
+  }, [booking, invitedFriends, storageReady])
 
   const setBookingDraft = useCallback((updates: Partial<BookingDraft>) => {
     setBookingState(prev => ({ ...prev, ...updates }))
@@ -46,6 +81,9 @@ export function useBookingDraftState(
   const clearBookingDraft = useCallback(() => {
     setBookingState(defaultBooking)
     setInvitedFriends([])
+    try {
+      localStorage.removeItem(BOOKING_DRAFT_STORAGE_KEY)
+    } catch {}
   }, [defaultBooking])
 
   return {

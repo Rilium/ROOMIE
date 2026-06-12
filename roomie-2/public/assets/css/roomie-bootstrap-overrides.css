@@ -120,6 +120,64 @@ body{
   color:var(--bs-primary)!important;
 }
 
+.bc-day.bc-day-full{
+  border-color:rgba(255,90,31,.46)!important;
+  color:rgba(255,255,255,.42)!important;
+  background:repeating-linear-gradient(-45deg, rgba(255,90,31,.12), rgba(255,90,31,.12) 4px, rgba(255,90,31,.04) 4px, rgba(255,90,31,.04) 8px)!important;
+  opacity:.78!important;
+}
+
+.bc-slot{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:1px!important;
+}
+
+.bc-slot small{
+  display:block;
+  font-family:"Barlow",system-ui,sans-serif;
+  font-size:.56rem;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+
+.bc-slot.bc-slot-busy{
+  border-color:rgba(255,90,31,.48)!important;
+  background:rgba(255,90,31,.12)!important;
+  color:rgba(255,255,255,.56)!important;
+  opacity:.86!important;
+  text-decoration:none!important;
+}
+
+.bc-slot.bc-slot-busy small{
+  color:#ff8a62;
+}
+
+.bc-slot.bc-slot-selected.bc-slot-busy{
+  border-color:#ff5a1f!important;
+  box-shadow:0 0 0 2px rgba(255,90,31,.24)!important;
+}
+
+.bc-now-pill.bc-now-pill-busy{
+  border-color:rgba(255,90,31,.48)!important;
+  background:rgba(255,90,31,.12)!important;
+}
+
+.bc-now-pill.bc-now-pill-busy .bc-now-dot{
+  background:#ff5a1f!important;
+  animation:none!important;
+}
+
+.bc-now-pill.bc-now-pill-busy .bc-dur-badge{
+  color:#ff5a1f!important;
+  border-color:rgba(255,90,31,.4)!important;
+  background:rgba(255,90,31,.14)!important;
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,

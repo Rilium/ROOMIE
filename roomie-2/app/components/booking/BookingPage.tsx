@@ -14,10 +14,10 @@ function spawnConfetti() {
   }
 }
 import { useApp } from '@/app/context/AppContext'
-import { apiCreateBooking, apiBookingPrice, invalidateDashboardCache } from '@/lib/client-api'
+import { apiCreateBooking, apiBookingPrice, apiAppConfig, invalidateDashboardCache } from '@/lib/client-api'
 import ChipAmount from '@/app/components/ui/ChipAmount'
 import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
-import BookingCalendar from './BookingCalendar'
+import BookingCalendar, { type CalendarBusySlot } from './BookingCalendar'
 import {
   BookingFlowLayout,
   BookingStepper,
@@ -84,9 +84,40 @@ function nowDateTime(): { date: string; time: string } {
   return { date, time }
 }
 
+function timeMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+function parseDateTime(dateStr: string, time: string, rollToNextDay = false): number {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const mins = timeMinutes(time)
+  const value = new Date(y, m - 1, d)
+  value.setHours(Math.floor(mins / 60), mins % 60, 0, 0)
+  if (rollToNextDay) value.setDate(value.getDate() + 1)
+  return value.getTime()
+}
+
+function findSlotConflict(date: string, start: string, end: string, slots: CalendarBusySlot[]) {
+  const candidateStart = parseDateTime(date, start)
+  const candidateEnd = parseDateTime(date, end, timeMinutes(end) <= timeMinutes(start))
+  return slots.find(slot => {
+    const slotStart = parseDateTime(slot.date, slot.start)
+    const slotEnd = parseDateTime(slot.date, slot.end, timeMinutes(slot.end) <= timeMinutes(slot.start))
+    return candidateStart < slotEnd && candidateEnd > slotStart
+  }) ?? null
+}
+
+function formatConflict(slot: CalendarBusySlot | null) {
+  if (!slot) return ''
+  const label = slot.source === 'blocked' ? 'bloccato' : 'prenotato'
+  return `${slot.date} · ${slot.start}-${slot.end} (${label})`
+}
+
 export default function BookingPage() {
-  const { user, config, invitedFriends, removeInvitedFriend, setUser, setBookingDraft, setActiveSession, openModalInvite, showPage, showToast, activePage } = useApp()
+  const { user, config, booking, invitedFriends, removeInvitedFriend, setUser, setBookingDraft, setActiveSession, openModalInvite, showPage, showToast, activePage, setConfig } = useApp()
   const [mounted, setMounted] = useState(false)
+  const [restoredDraft, setRestoredDraft] = useState(false)
 
   const [step, setStep] = useState(0)
   const [preset, setPresetState] = useState<Preset>(PRESETS[1])
@@ -98,6 +129,7 @@ export default function BookingPage() {
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'now' | 'plan'>('plan')
   const [slotConflict, setSlotConflict] = useState<string | null>(null)
+  const [busySlots, setBusySlots] = useState<CalendarBusySlot[]>([])
   const [insufficientNotice, setInsufficientNotice] = useState(false)
   // serverPrice: fetched from /api/bookings/price; falls back to local estimate
   const [serverPrice, setServerPrice] = useState<number | null>(null)
@@ -118,6 +150,10 @@ export default function BookingPage() {
   const missingChips = Math.max(0, totalChips - balance)
   const hasInsufficientBalance = step === 3 && !priceLoading && missingChips > 0
   const needsLoginToConfirm = step === 3 && !user
+  const selectedSlotConflict = findSlotConflict(date, start, end, busySlots)
+  const selectedSlotConflictLabel = formatConflict(selectedSlotConflict)
+  const activeSlotConflictLabel = selectedSlotConflictLabel || slotConflict
+  const hasActiveSlotConflict = Boolean(selectedSlotConflict || slotConflict)
 
   // Fetch server-side price whenever booking params change
   useEffect(() => {
@@ -132,10 +168,37 @@ export default function BookingPage() {
     return () => { cancelled = true }
   }, [preset.id, duration, guests])
 
-  // Reset step when page changes to room
+  const refreshAvailability = useCallback(async () => {
+    const { data } = await apiAppConfig()
+    if (!data) return
+    if (data.config) setConfig(data.config)
+    setBusySlots([
+      ...(data.bookedSlots || []).map(slot => ({ ...slot, source: 'booking' as const })),
+      ...(data.blockedSlots || []).map(slot => ({ date: slot.date, start: slot.start, end: slot.end, reason: slot.reason, source: 'blocked' as const })),
+    ])
+  }, [setConfig])
+
   useEffect(() => {
-    if (activePage === 'room') setStep(0)
-  }, [activePage])
+    if (activePage !== 'room') return
+    refreshAvailability().catch(() => {})
+  }, [activePage, refreshAvailability])
+
+  useEffect(() => {
+    if (activePage !== 'room') {
+      setRestoredDraft(false)
+      return
+    }
+    if (restoredDraft) return
+    const savedPreset = PRESETS.find(item => item.id === booking.preset)
+    if (savedPreset) setPresetState(savedPreset)
+    if (booking.duration) setDuration(booking.duration)
+    if (booking.date) setDate(booking.date)
+    if (booking.start) setStart(booking.start)
+    if (typeof booking.guests === 'number') setGuests(booking.guests)
+    if (typeof booking.liveMode === 'boolean') setLiveMode(booking.liveMode)
+    if (typeof booking.step === 'number') setStep(Math.max(0, Math.min(3, booking.step)))
+    setRestoredDraft(true)
+  }, [activePage, restoredDraft, booking])
 
   useEffect(() => {
     setGuests(prev => Math.min(prev, Math.max(0, config.maxPeople - 1 - invitedFriends.length)))
@@ -163,6 +226,10 @@ export default function BookingPage() {
     if (missingChips === 0) setInsufficientNotice(false)
   }, [missingChips])
 
+  useEffect(() => {
+    if (selectedSlotConflict) setSlotConflict(selectedSlotConflictLabel)
+  }, [selectedSlotConflict, selectedSlotConflictLabel])
+
   const selectPreset = useCallback((p: Preset) => {
     setPresetState(p)
     setDuration(p.duration)
@@ -182,9 +249,14 @@ export default function BookingPage() {
 
   const goNext = useCallback(() => {
     if (step === 3) return
+    if (step === 1 && hasActiveSlotConflict) {
+      setSlotConflict(activeSlotConflictLabel || `${date} · ${start}-${end}`)
+      showToast({ title: 'Slot non disponibile', copy: 'Questo orario è già occupato o bloccato. Scegli uno slot libero.', type: 'warn' })
+      return
+    }
     if (step === 1) setSlotConflict(null)
     setStep(s => s + 1)
-  }, [step])
+  }, [step, hasActiveSlotConflict, activeSlotConflictLabel, date, start, end, showToast])
 
   const goPrev = useCallback(() => {
     if (step === 0) { showPage('home'); return }
@@ -192,6 +264,12 @@ export default function BookingPage() {
   }, [step, showPage])
 
   const handleConfirm = useCallback(async () => {
+    if (hasActiveSlotConflict) {
+      setSlotConflict(activeSlotConflictLabel || `${date} · ${start}-${end}`)
+      setStep(1)
+      showToast({ title: 'Slot non disponibile', copy: 'Questo orario è già occupato o bloccato. Scegli uno slot libero.', type: 'warn' })
+      return
+    }
     if (!user) {
       showToast({ title: 'Accedi per confermare', copy: 'Puoi scegliere slot e prezzo, poi serve il login per bloccare la room.', type: 'warn' })
       window.location.href = `/sign-in?next=${encodeURIComponent('/room')}`
@@ -236,6 +314,7 @@ export default function BookingPage() {
       if (error === 'SLOT_BLOCKED') {
         setSlotConflict(`${date} · ${start}-${end}`)
         setStep(1)
+        refreshAvailability().catch(() => {})
       }
       showToast({ title: error === 'SLOT_BLOCKED' ? 'Slot non disponibile' : (msgs[error || ''] || 'Errore prenotazione.'), copy: error === 'SLOT_BLOCKED' ? msgs.SLOT_BLOCKED : undefined, type: 'warn' })
       return
@@ -254,9 +333,10 @@ export default function BookingPage() {
     })
     spawnConfetti()
     invalidateDashboardCache()
+    refreshAvailability().catch(() => {})
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [user, priceLoading, balance, totalChips, missingChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
+  }, [hasActiveSlotConflict, activeSlotConflictLabel, user, priceLoading, balance, totalChips, missingChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast, refreshAvailability])
 
   const handleNowMode = useCallback(() => {
     const current = nowDateTime()
@@ -299,7 +379,7 @@ export default function BookingPage() {
       ctaLabel={stickyCtaLabel}
       onBack={goPrev}
       onCta={step < 3 ? goNext : (needsLoginToConfirm ? handleLoginFromCheckout : hasInsufficientBalance ? handleRechargeFromCheckout : handleConfirm)}
-      disabled={step === 3 && (busy || priceLoading || serverPrice == null)}
+      disabled={(step === 1 && hasActiveSlotConflict) || (step === 3 && (busy || priceLoading || serverPrice == null))}
     />
   )
 
@@ -356,6 +436,9 @@ export default function BookingPage() {
                   end={end}
                   duration={duration}
                   mode={mode}
+                  busySlots={busySlots}
+                  selectedConflict={selectedSlotConflict}
+                  selectedConflictLabel={slotConflict}
                   onDateChange={d => { setDate(d); setSlotConflict(null) }}
                   onStartChange={t => { setStart(t); setSlotConflict(null) }}
                   onModeChange={m => {
