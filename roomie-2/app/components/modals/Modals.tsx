@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useApp } from '@/app/context/AppContext'
 import { apiStripeTopup } from '@/lib/client-api'
 import SafeDocViewer from '@/app/components/ui/SafeDocViewer'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 
 // ── LEGAL DOC CONFIG ──────────────────────────────────────────────────────────
 
@@ -35,15 +37,19 @@ function ModalOverlay({ open, onClose, maxWidth = 380, children }: {
 }) {
   useEffect(() => {
     if (!open) return
+    document.body.classList.add('roomie-modal-open')
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    return () => {
+      window.removeEventListener('keydown', handler)
+      document.body.classList.remove('roomie-modal-open')
+    }
   }, [open, onClose])
 
   if (!open) return null
   return (
-    <div className="modal-overlay" style={{ display: 'flex' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-box" style={{ maxWidth }}>
+    <div className="modal-overlay modal show roomie-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-box modal-dialog modal-dialog-centered" style={{ maxWidth }}>
         {children}
       </div>
     </div>
@@ -52,7 +58,7 @@ function ModalOverlay({ open, onClose, maxWidth = 380, children }: {
 
 function ModalClose({ onClose }: { onClose: () => void }) {
   return (
-    <button className="modal-close" onClick={onClose} aria-label="Chiudi">
+    <button className="modal-close btn btn-outline-light" onClick={onClose} aria-label="Chiudi">
       <i className="fas fa-times"></i>
     </button>
   )
@@ -79,27 +85,26 @@ function NfcModal() {
   return (
     <ModalOverlay open={modalNfc} onClose={close}>
       <ModalClose onClose={close} />
-      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-        <div className="roomie-chip roomie-chip-lg" style={{ margin: '0 auto 16px' }} aria-label="ROOMIE Chip NFC"></div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: '1.6rem', color: '#fff', marginBottom: '8px' }}>
-          ROOMIE CHIP NFC
+      <div className="roomie-modal-body text-center">
+        <div className="roomie-chip roomie-chip-lg roomie-modal-chip" aria-label="ROOMIE Chip NFC"></div>
+        <div className="roomie-modal-title">
+          <RoomieLogoText size="sm" /> CHIP NFC
         </div>
-        <div style={{ fontSize: '.85rem', color: 'var(--muted)', lineHeight: '1.55', marginBottom: '20px' }}>
+        <div className="roomie-modal-copy">
           Avvicina la chip al lettore sulla porta. Funziona solo nella fascia oraria della tua prenotazione.
         </div>
         {state === 'scanning' && (
-          <div style={{ color: 'var(--neon)', fontSize: '.85rem', fontWeight: 700, marginBottom: '12px', letterSpacing: '.1em' }}>
-            <i className="fas fa-circle-notch fa-spin" style={{ marginRight: 8 }}></i> LETTURA IN CORSO…
+          <div className="roomie-modal-status">
+            <i className="fas fa-circle-notch fa-spin me-2"></i> LETTURA IN CORSO...
           </div>
         )}
         {state === 'ok' && (
-          <div style={{ color: 'var(--neon)', fontSize: '.85rem', fontWeight: 700, marginBottom: '12px' }}>
-            <i className="fas fa-check-circle" style={{ marginRight: 8 }}></i> ACCESSO CONFERMATO
+          <div className="roomie-modal-status">
+            <i className="fas fa-check-circle me-2"></i> ACCESSO CONFERMATO
           </div>
         )}
         <button
-          className="btn-neon w-full"
-          style={{ justifyContent: 'center', padding: '14px' }}
+          className="btn-neon btn btn-primary w-full"
           onClick={simulate}
           disabled={state === 'scanning' || state === 'ok'}
         >
@@ -145,9 +150,9 @@ function CodeUnlockModal() {
       <ModalClose onClose={close} />
       <div className="modal-title">CODICE PORTA</div>
       <div className="modal-sub">Inserisci il codice numerico per sbloccare la porta</div>
-      <div style={{ background: 'var(--dark3)', borderRadius: '10px', padding: '16px', marginBottom: '16px', textAlign: 'center' }}>
-        <div style={{ fontSize: '.75rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '12px' }}>INSERISCI CODICE PORTA</div>
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', maxWidth: '280px', margin: '0 auto' }}>
+      <div className="roomie-code-panel">
+        <div className="roomie-code-label">INSERISCI CODICE PORTA</div>
+        <div className="roomie-code-grid">
           {refs.map((ref, i) => (
             <input
               key={i}
@@ -161,9 +166,9 @@ function CodeUnlockModal() {
             />
           ))}
         </div>
-        {error && <div style={{ color: 'var(--orange)', fontSize: '.8rem', marginTop: '10px' }}>{error}</div>}
+        {error && <div className="roomie-code-error">{error}</div>}
       </div>
-      <button className="btn-neon w-full" style={{ justifyContent: 'center', padding: '14px' }} onClick={verify}>
+      <button className="btn-neon btn btn-primary w-full" onClick={verify}>
         <i className="fas fa-unlock"></i> SBLOCCA PORTA
       </button>
     </ModalOverlay>
@@ -194,12 +199,11 @@ function TokenBuyModal() {
       <ModalClose onClose={close} />
       <div className="modal-title">RICARICA CHIPS</div>
       <div className="modal-sub">Verrai reindirizzato a Stripe per il pagamento sicuro.</div>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: '2.5rem', color: 'var(--neon)', textAlign: 'center', margin: '16px 0' }}>
-        {modalTokenBuy.amount} chips
+      <div className="roomie-modal-amount">
+        <ChipAmount amount={modalTokenBuy.amount} size="lg" tone="primary" showEuro />
       </div>
       <button
-        className="btn-neon w-full"
-        style={{ justifyContent: 'center', padding: '14px' }}
+        className="btn-neon btn btn-primary w-full"
         onClick={pay}
         disabled={busy}
       >
@@ -218,10 +222,10 @@ function LegalDocModal() {
 
   return (
     <ModalOverlay open={modalLegalDoc.open} onClose={close} maxWidth="var(--roomie-shell-max)">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexShrink: 0 }}>
+      <div className="roomie-modal-head">
         <div>
           <div className="modal-title">{doc?.title ?? ''}</div>
-          <div style={{ fontSize: '.78rem', color: 'var(--muted)' }}>{doc?.meta ?? ''}</div>
+          <div className="roomie-modal-meta">{doc?.meta ?? ''}</div>
         </div>
         <ModalClose onClose={close} />
       </div>
@@ -234,23 +238,11 @@ function LegalDocModal() {
           loadingLabel="Caricamento documento…"
           errorLabel="Errore nel caricamento del documento"
           wrapHtml={html => `
-            <div style="font-family: 'Barlow', sans-serif; line-height: 1.8; color: var(--text);">
+            <div class="roomie-legal-doc-content">
               ${html}
             </div>
           `}
-          contentStyle={{
-          overflowY: 'auto', 
-          maxHeight: '55vh', 
-          fontSize: '.85rem', 
-          lineHeight: '1.7', 
-          color: 'var(--text)', 
-          marginBottom: '16px',
-          padding: '12px 8px',
-          border: '1px solid var(--border)',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255,255,255,.02)',
-          minHeight: '200px',
-        }}
+          className="roomie-legal-doc-frame"
         />
       )}
       
@@ -259,10 +251,9 @@ function LegalDocModal() {
         <a
           href={doc.file}
           download
-          className="btn-outline-neon w-full"
-          style={{ display: 'flex', justifyContent: 'center', padding: '12px', textDecoration: 'none' }}
+          className="btn-outline-neon btn btn-outline-light w-full"
         >
-          <i className="fas fa-download" style={{ marginRight: 8 }}></i> SCARICA DOCUMENTO COMPLETO
+          <i className="fas fa-download me-2"></i> SCARICA DOCUMENTO COMPLETO
         </a>
       )}
     </ModalOverlay>
@@ -334,52 +325,45 @@ function InviteModal() {
       <ModalClose onClose={close} />
       <div className="modal-title">AGGIUNGI AL GRUPPO</div>
       <div className="modal-sub">Cerca un account Roomie o genera un link invito per chi non ha l&apos;app.</div>
-      <div className="form-group mb-3" style={{ marginTop: '16px' }}>
-        <label className="form-label">CERCA ACCOUNT ROOMIE</label>
+      <div className="form-group mb-3 mt-3">
+        <label className="form-label">CERCA ACCOUNT <RoomieLogoText size="xs" /></label>
         <input
-          className="form-input"
+          className="form-input form-control"
           placeholder="Username o nome"
           value={query}
           onChange={e => search(e.target.value)}
         />
       </div>
-      {loading && <div style={{ fontSize: '.8rem', color: 'var(--muted)', marginBottom: '8px' }}>Ricerca…</div>}
+      {loading && <div className="roomie-modal-meta mb-2">Ricerca...</div>}
       {searchError && <div className="auth-error visible">Clerk Users API non ha risposto: {searchError}</div>}
       {results.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
+        <div className="roomie-invite-results">
           {results.map(u => (
             <button
               key={u.id}
               type="button"
               onClick={() => toggle(u.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-                background: selected.includes(u.id) ? 'rgba(200,255,0,.12)' : 'var(--dark3)',
-                border: `1px solid ${selected.includes(u.id) ? 'var(--neon)' : 'var(--border)'}`,
-                borderRadius: '8px', padding: '10px 12px', marginBottom: '6px', cursor: 'pointer',
-                color: 'var(--text)', textAlign: 'left',
-              }}
+              className={`roomie-invite-row btn ${selected.includes(u.id) ? 'active btn-primary' : 'btn-outline-light'}`}
             >
-              <span style={{ flex: 1 }}>
-                <span style={{ fontWeight: 700, display: 'block', fontSize: '.85rem' }}>{u.name}</span>
-                <span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>{u.meta || `@${u.username}`}</span>
+              <span className="roomie-invite-copy">
+                <span className="roomie-invite-name">{u.name}</span>
+                <span className="roomie-invite-meta">{u.meta || `@${u.username}`}</span>
               </span>
-              {selected.includes(u.id) && <i className="fas fa-check" style={{ color: 'var(--neon)' }}></i>}
+              {selected.includes(u.id) && <i className="fas fa-check"></i>}
             </button>
           ))}
         </div>
       )}
       <button
-        className="btn-neon w-full"
-        style={{ justifyContent: 'center', marginBottom: '12px' }}
+        className="btn-neon btn btn-primary w-full mb-3"
         onClick={confirmSelected}
         disabled={selected.length === 0}
       >
         AGGIUNGI {selected.length > 0 ? selected.length : ''} AL GRUPPO
       </button>
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-        <div style={{ fontSize: '.8rem', color: 'var(--muted)', marginBottom: '8px' }}>Oppure genera link invito per guest</div>
-        <button className="btn-neon w-full" style={{ justifyContent: 'center' }} onClick={generateLink}>
+      <div className="roomie-modal-footer-split">
+        <div className="roomie-modal-meta mb-2">Oppure genera link invito per guest</div>
+        <button className="btn-neon btn btn-primary w-full" onClick={generateLink}>
           <i className="fas fa-link"></i> GENERA LINK INVITO
         </button>
       </div>
@@ -393,7 +377,7 @@ function LegalFooter() {
   const { openLegalDoc } = useApp()
   return (
     <footer className="legal-footer" aria-label="Documenti legali Roomie">
-      <span>ROOMIE</span>
+      <span><RoomieLogoText size="xs" /></span>
       <button type="button" onClick={() => openLegalDoc('terms')}>Termini e Condizioni</button>
       <button type="button" onClick={() => openLegalDoc('privacy')}>Privacy Policy</button>
       <button type="button" onClick={() => openLegalDoc('cookie')}>Cookie Policy</button>
@@ -413,7 +397,7 @@ export default function Modals() {
       <LegalDocModal />
       <InviteModal />
       {/* Legacy toast fallback (React Toast is primary) */}
-      <div id="toast" className="toast-pop" aria-live="polite" style={{ display: 'none' }}></div>
+      <div id="toast" className="toast-pop d-none" aria-live="polite"></div>
       <LegalFooter />
     </>
   )

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { ClerkProvider } from '@clerk/nextjs'
+import './styles/bootstrap-roomie.scss'
 
 export const viewport: Viewport = {
   themeColor: '#0D0D0D',
@@ -94,6 +95,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* ROOMIE custom CSS */}
         {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/assets/css/roomie.css?v=prod-20260611-sticky-fix" />
+        {/* Bootstrap-first convergence layer: keeps the brand skin while reducing one-off UI drift. */}
+        {/* eslint-disable-next-line @next/next/no-css-tags */}
+        <link rel="stylesheet" href="/assets/css/roomie-bootstrap-overrides.css?v=20260612-mobile-fix-2" />
 
         {/* GSAP + Lenis — beforeInteractive: roomie.js usa gsap.registerPlugin() al DOMContentLoaded
             quindi GSAP deve essere disponibile prima. Il boot-loader statico già elimina il blackscreen. */}
@@ -123,7 +127,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div id="static-boot-loader" className="boot-loader" aria-hidden="true">
           <div className="boot-card">
             <div className="boot-shell">
-              <div className="roomie-loader-brand">ROOMIE</div>
+              <div className="roomie-loader-brand">
+                <span className="roomie-logo-text roomie-logo-text-lg" aria-label="ROOMIE">
+                  <span className="roomie-logo-room">ROOM</span><span className="roomie-logo-ie">IE</span>
+                </span>
+              </div>
               <span className="roomie-chip" aria-hidden="true"></span>
               <div className="boot-status-dots" aria-hidden="true">
                 <span></span><span></span><span></span>

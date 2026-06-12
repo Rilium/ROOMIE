@@ -1,0 +1,32 @@
+$body-bg: #0d0d0d;
+$body-color: #fff;
+
+$primary: #c8ff00;
+$secondary: #1f1f1f;
+$success: #00d084;
+$warning: #ffb020;
+$danger: #ff5a1f;
+$info: #00b7ff;
+
+$border-radius-sm: .5rem;
+$border-radius: .625rem;
+$border-radius-lg: .875rem;
+$border-radius-xl: 1rem;
+$border-radius-pill: 50rem;
+
+$font-family-sans-serif: "Barlow", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+$headings-font-family: "Bebas Neue", "Barlow Condensed", system-ui, sans-serif;
+
+$input-bg: #1b1b1b;
+$input-color: #fff;
+$input-border-color: rgba(255, 255, 255, .16);
+$input-focus-border-color: $primary;
+$input-focus-box-shadow: 0 0 0 .2rem rgba(200, 255, 0, .18);
+
+$card-bg: #141414;
+$card-border-color: rgba(255, 255, 255, .12);
+
+$modal-content-bg: #141414;
+$offcanvas-bg-color: #111;
+
+@import "bootstrap/scss/bootstrap";

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/app/context/AppContext'
-import { DiaTextReveal } from '@/app/components/magicui/dia-text-reveal'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 
 const HERO_SLIDES = [
   {
@@ -35,6 +36,17 @@ const HERO_SLIDES = [
 const INSIDE_TABS = ['gaming', 'streaming', 'games', 'vibe'] as const
 type InsideTab = typeof INSIDE_TABS[number]
 
+function renderRoomieCopy(text: string) {
+  const parts = text.split('ROOMIE')
+  if (parts.length === 1) return text
+  return parts.map((part, index) => (
+    <span key={`${part}-${index}`}>
+      {index > 0 && <RoomieLogoText size="xs" />}
+      {part}
+    </span>
+  ))
+}
+
 export default function LandingLegacy() {
   const { showPage, user } = useApp()
   const router = useRouter()
@@ -59,6 +71,7 @@ export default function LandingLegacy() {
   }, [])
 
   const requireAuthPage = (page: string) => {
+    if (page === 'room') { showPage(page); return }
     if (user) { showPage(page) } else { router.push(`/sign-in?next=${encodeURIComponent(`/${page}`)}`) }
   }
 
@@ -119,23 +132,28 @@ export default function LandingLegacy() {
               <span className="hero-badge-dot"></span>
               LIVE · VIA TERNI
             </div>
-            <DiaTextReveal key={heroSlide} as="h1" className="hero-title" duration={700} delay={0} startOnView={false}>
-              {`${currentHero.title}\n${currentHero.neon}`}
-            </DiaTextReveal>
-            <p className="hero-addr">{currentHero.addr}</p>
-            <p className="hero-sub">{currentHero.sub}</p>
+            <h1 key={heroSlide} className="hero-title hero-title-static">
+              <span>{currentHero.title}</span>
+              <span className="neon-line">{currentHero.neon}</span>
+            </h1>
+            <p className="hero-addr">{renderRoomieCopy(currentHero.addr)}</p>
+            <p className="hero-sub">{renderRoomieCopy(currentHero.sub)}</p>
           </div>
           <div className="hero-ctas">
-            <button className="btn-neon" onClick={() => requireAuthPage('room')}>
+            <button className="btn-neon btn btn-primary" onClick={() => requireAuthPage('room')}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              BLOCCA LA ROOM
+              PRENOTA ORA
             </button>
-            <button className="btn-outline-neon" onClick={() => scrollToSection('inside-section')}>
-              COSA C&apos;È DENTRO
+            <button className="btn-outline-neon btn btn-outline-light" onClick={() => scrollToSection('inside-section')}>
+              SCOPRI LA ROOM
             </button>
           </div>
           <div className="hero-meta">
-            {currentHero.meta.map(item => <span key={item}>{item}</span>)}
+            {currentHero.meta.map(item => (
+              <span key={item}>
+                {item === '12 chips/ora' ? <><ChipAmount amount={12} size="xs" />/ora</> : item}
+              </span>
+            ))}
           </div>
           <div className="trust-row">
             <div className="trust-pill"><em><i className="fas fa-gamepad"></i></em> Gaming</div>
@@ -234,8 +252,8 @@ export default function LandingLegacy() {
             <div className="logo-pill logo-dazn">DAZN</div>
             <div className="logo-pill logo-twitch">TWITCH</div>
             <div className="logo-pill logo-youtube">YOUTUBE</div>
-            <div className="logo-pill" style={{ color: '#ff6b35', borderColor: '#ff6b35' }}>CRUNCHYROLL</div>
-            <div className="logo-pill" style={{ color: '#ff0f7b', borderColor: '#ff0f7b' }}>MUBI</div>
+            <div className="logo-pill logo-crunchyroll">CRUNCHYROLL</div>
+            <div className="logo-pill logo-mubi">MUBI</div>
           </div>
           <div className="flex flex-wrap gap-8 mb-32">
             <div className="console-pill console-ps">PS1 · PS2 · PS3 · PS4 · PS5</div>
@@ -306,7 +324,7 @@ export default function LandingLegacy() {
           ))}
         </div>
         <div className="mt-24 text-center">
-          <button className="btn-neon" onClick={() => requireAuthPage('room')}>PRENOTA ADESSO</button>
+          <button className="btn-neon btn btn-primary" onClick={() => requireAuthPage('room')}>PRENOTA ADESSO</button>
         </div>
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/app/context/AppContext'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { subscribeApiPending } from '@/lib/client-api'
 
 const ROUTE_MIN_MS = 520
@@ -72,7 +73,7 @@ export default function GlobalRoomieLoader() {
       {routeVisible && (
         <div className="global-route-loader" role="status" aria-live="polite">
           <div className="global-route-loader-card">
-            <div className="roomie-loader-brand">ROOMIE</div>
+            <div className="roomie-loader-brand"><RoomieLogoText size="lg" /></div>
             <span className="roomie-chip roomie-chip-loader" aria-hidden="true"></span>
             <div className="boot-status-dots" aria-hidden="true">
               <span></span>

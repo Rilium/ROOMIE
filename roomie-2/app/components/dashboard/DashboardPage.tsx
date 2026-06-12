@@ -4,6 +4,8 @@ import Image from 'next/image'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { useApp } from '@/app/context/AppContext'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { apiDashboard, apiExtendBooking, apiRevokeLegal, apiRoomWifi, apiUpdateProfile } from '@/lib/client-api'
 import type { Booking } from '@/lib/types'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
@@ -232,20 +234,16 @@ export default function DashboardPage() {
           <div className="dash-wallet">
             <div className="dash-balance">
               <div className="dash-bal-label">SALDO CHIPS</div>
-              <div className="dash-bal-val">{user.chips} chips</div>
-              <span className="roomie-chip" aria-hidden="true"></span>
-              <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: '4px' }}>= €{user.chips}</div>
+              <div className="dash-bal-val"><ChipAmount amount={user.chips} size="lg" tone="primary" /></div>
+              <div className="dash-muted-xs">= €{user.chips}</div>
               <div className="dash-buying-power">
                 Ti bastano per {buyingPower} {buyingPower === 1 ? 'ora' : 'ore'} room.
               </div>
-              <button
-                onClick={() => showPage('token')}
-                style={{ gridColumn: '1 / -1', background: 'rgba(200,255,0,.12)', border: '1px solid rgba(200,255,0,.32)', color: 'var(--neon)', borderRadius: '10px', padding: '10px 12px', fontWeight: 900, fontSize: '.8rem', marginTop: '4px', cursor: 'pointer' }}
-              >RICARICA CHIPS</button>
+              <button className="btn btn-primary dash-wallet-cta" onClick={() => showPage('token')}>RICARICA CHIPS</button>
             </div>
             <div className="dash-mini-grid">
               <div className="dash-mini-stat"><span>Sessioni</span><strong>{sessionCount}</strong></div>
-              <div className="dash-mini-stat"><span>Chips spesi</span><strong style={{ color: 'var(--neon)' }}>{chipsSpent}</strong></div>
+              <div className="dash-mini-stat"><span>Chips spesi</span><strong className="text-primary"><ChipAmount amount={chipsSpent} size="xs" tone="primary" /></strong></div>
             </div>
           </div>
         </div>
@@ -255,7 +253,7 @@ export default function DashboardPage() {
 
         {/* Next session launchpad */}
         {loadError && (
-          <div className="shop-locked-banner" style={{ display: 'block' }}>
+          <div className="shop-locked-banner alert alert-warning roomie-visible">
             <strong>Profilo lento a rispondere.</strong> Alcuni dati potrebbero arrivare tra poco. Puoi riprovare senza restare su schermata nera.
             <button type="button" className="shop-lock-cta" onClick={load}>RICARICA PROFILO</button>
           </div>
@@ -263,39 +261,39 @@ export default function DashboardPage() {
 
         {nextBooking ? (
           <>
-            <div className="next-session-chip" style={{ borderColor: 'rgba(200,255,0,.3)', marginBottom: '24px' }}>
+            <div className="next-session-chip card next-session-chip-active">
               <div className="session-kicker"><i className="fas fa-calendar-check"></i> PROSSIMA SESSIONE</div>
               <div className="session-main-title">{fmtDate(nextBooking.date)} · {nextBooking.start}→{nextBooking.end}</div>
-              <div style={{ fontSize: '.92rem', color: 'rgba(255,255,255,.72)', lineHeight: '1.5', marginTop: '10px' }}>
-                Room Via Terni · {nextBooking.people} persona{nextBooking.people !== 1 ? 'e' : ''} · {nextBooking.totalChips} chips
+              <div className="dash-copy">
+                Room Via Terni · {nextBooking.people} persona{nextBooking.people !== 1 ? 'e' : ''} · <ChipAmount amount={nextBooking.totalChips} size="xs" />
               </div>
               <div className="session-action-grid">
-                <button className={nextBookingLive ? 'btn-neon' : 'quiet-action'} onClick={() => handleEnter(nextBooking)}>
+                <button className={nextBookingLive ? 'btn-neon btn btn-primary' : 'quiet-action btn btn-outline-light'} onClick={() => handleEnter(nextBooking)}>
                   <i className={`fas ${nextBookingLive ? 'fa-route' : 'fa-lock'}`}></i> {nextBookingLive ? 'ACCEDI ALLA ROOM' : 'ACCESSO BLOCCATO'}
                 </button>
-                <button className="quiet-action" onClick={() => handleExtend(nextBooking.id)}>
+                <button className="quiet-action btn btn-outline-light" onClick={() => handleExtend(nextBooking.id)}>
                   <i className="fas fa-clock"></i> +1H
                 </button>
               </div>
             </div>
             {!nextBookingLive && (
-              <div style={{ fontSize: '.78rem', color: 'rgba(255,255,255,.58)', margin: '-14px 0 24px', lineHeight: '1.45' }}>
+              <div className="dash-helper">
                 Procedura cassaforte, serranda e porta attiva da {nextBookingStartLabel}.
               </div>
             )}
           </>
         ) : (
-          <div className="next-session-chip session-launchpad">
+          <div className="next-session-chip session-launchpad card">
             <div className="session-kicker"><i className="fas fa-calendar-plus"></i> NESSUNA SESSIONE ATTIVA</div>
             <div className="session-main-title">Blocca la prossima serata.</div>
-            <div style={{ fontSize: '.92rem', color: 'rgba(255,255,255,.72)', lineHeight: '1.5', marginTop: '10px' }}>
+            <div className="dash-copy">
               Scegli un preset, invita chi vuoi e arrivi con accesso, codici e addon già pronti.
             </div>
             <div className="session-action-grid">
-              <button className="btn-neon" onClick={() => showPage('room')}>
+              <button className="btn-neon btn btn-primary" onClick={() => showPage('room')}>
                 <i className="fas fa-calendar-check"></i> PRENOTA ORA
               </button>
-              <button className="quiet-action" onClick={() => showPage('shop')}>
+              <button className="quiet-action btn btn-outline-light" onClick={() => showPage('shop')}>
                 <i className="fas fa-shopping-bag"></i> SHOP
               </button>
             </div>
@@ -304,17 +302,17 @@ export default function DashboardPage() {
 
         {/* Primary grid */}
         <div className="dash-primary-grid">
-          <div className="dash-partner-card">
+          <div className="dash-partner-card card">
             <div>
               <div className="dash-section-label">Partner vicino</div>
               <div className="dash-partner-code">ROOMIE-{user.username?.toUpperCase().slice(0, 6) || 'MB'}7724</div>
-              <div style={{ fontSize: '.84rem', color: 'rgba(255,255,255,.64)', lineHeight: '1.45', marginTop: '8px' }}>Mostralo nei locali partner per il -10%.</div>
+              <div className="dash-copy-sm">Mostralo nei locali partner per il -10%.</div>
             </div>
-            <button onClick={copyPartnerCode} className="quiet-action" style={{ borderRadius: '10px', padding: '12px', fontWeight: 900 }}>COPIA CODICE</button>
+            <button onClick={copyPartnerCode} className="quiet-action btn btn-outline-light">COPIA CODICE</button>
           </div>
         </div>
 
-        <section className="profile-revolut-card">
+        <section className="profile-revolut-card card">
           <div className="profile-hero-row">
             <div className="profile-avatar-wrap">
               <button className="profile-avatar" type="button" onClick={() => avatarInputRef.current?.click()} aria-label="Cambia immagine profilo">
@@ -335,25 +333,25 @@ export default function DashboardPage() {
               <div className="profile-handle">@{user.username}</div>
               <div className="profile-pill-row">
                 <span className={`profile-pill ${user.role === 'admin' ? 'hot' : ''}`}>{user.role}</span>
-                <span className="profile-pill">{user.chips} chips</span>
+                <span className="profile-pill"><ChipAmount amount={user.chips} size="xs" /></span>
                 <span className={`profile-pill ${legalAccepted ? 'ok' : 'warn'}`}>{legalAccepted ? 'consensi ok' : 'consensi richiesti'}</span>
               </div>
             </div>
-            <button className="profile-upgrade" type="button" onClick={() => showPage('token')}>
+            <button className="profile-upgrade btn btn-primary" type="button" onClick={() => showPage('token')}>
               <i className="fas fa-gem"></i> Ricarica
             </button>
           </div>
 
           <div className="profile-action-grid">
-            <button type="button" className="profile-action-tile" onClick={() => clerk.openUserProfile?.()}>
+            <button type="button" className="profile-action-tile card" onClick={() => clerk.openUserProfile?.()}>
               <i className="fas fa-user-shield"></i>
               <strong>Account Clerk</strong>
               <span>Email, password, MFA</span>
             </button>
-            <button type="button" className="profile-action-tile" onClick={() => showPage('token')}>
+            <button type="button" className="profile-action-tile card" onClick={() => showPage('token')}>
               <i className="fas fa-wallet"></i>
               <strong>Wallet</strong>
-              <span>{user.chips} chips disponibili</span>
+              <span><ChipAmount amount={user.chips} size="xs" /> disponibili</span>
             </button>
           </div>
 
@@ -365,18 +363,18 @@ export default function DashboardPage() {
             <div className="profile-edit-grid">
               <label className="profile-field">
                 <span>Nome visualizzato</span>
-                <input className="form-input" value={profileName} onChange={e => setProfileName(e.target.value)} />
+                <input className="form-input form-control" value={profileName} onChange={e => setProfileName(e.target.value)} />
               </label>
               <label className="profile-field">
                 <span>Username</span>
-                <input className="form-input" value={profileUsername} onChange={e => setProfileUsername(e.target.value)} />
+                <input className="form-input form-control" value={profileUsername} onChange={e => setProfileUsername(e.target.value)} />
               </label>
             </div>
             <div className="profile-data-actions">
-              <button className="btn-neon" type="button" onClick={saveProfile} disabled={profileBusy}>
+              <button className="btn-neon btn btn-primary" type="button" onClick={saveProfile} disabled={profileBusy}>
                 {profileBusy ? 'SALVO...' : 'SALVA DATI'}
               </button>
-              <button className="quiet-action" type="button" onClick={() => clerk.openUserProfile?.()}>
+              <button className="quiet-action btn btn-outline-light" type="button" onClick={() => clerk.openUserProfile?.()}>
                 MODIFICA DATI CLERK
               </button>
             </div>
@@ -443,8 +441,8 @@ export default function DashboardPage() {
               <h3>Se togli i consensi esci da Roomie.</h3>
               <p>Senza Termini e Privacy attivi non puoi restare nel sito. Ti faccio uscire ora; al prossimo ingresso Roomie te li richiedera prima di usare prenotazioni, shop e accesso.</p>
               <div className="profile-consent-actions">
-                <button type="button" className="quiet-action" onClick={() => setLegalExitOpen(false)}>ANNULLA</button>
-                <button type="button" className="btn-neon" onClick={revokeLegalAndExit} disabled={accountBusy}>
+                <button type="button" className="quiet-action btn btn-outline-light" onClick={() => setLegalExitOpen(false)}>ANNULLA</button>
+                <button type="button" className="btn-neon btn btn-primary" onClick={revokeLegalAndExit} disabled={accountBusy}>
                   {accountBusy ? 'ESCO...' : 'REVOCA ED ESCI'}
                 </button>
               </div>
@@ -457,7 +455,7 @@ export default function DashboardPage() {
           <button className="wifi-card" type="button" onClick={copyWifi} aria-label="Copia Wi-Fi">
             <div className="wifi-icon"><i className="fas fa-wifi"></i></div>
             <div className="dash-section-label">Wi-Fi del posto</div>
-            <div className="wifi-title">ROOMIE NETWORK</div>
+            <div className="wifi-title"><RoomieLogoText size="xs" /> NETWORK</div>
             <div className="wifi-row"><span>Nome rete</span><span>{wifi?.configured ? wifi.ssid : 'Disponibile in room'}</span></div>
             <div className="wifi-row"><span>Password</span><span>{wifi?.configured ? 'Tocca per copiare' : 'Protetta'}</span></div>
             <div className="wifi-copy-hint"><i className="fas fa-copy"></i> {wifi?.configured ? 'Tocca per copiare' : 'Solo da account attivo'}</div>
@@ -468,11 +466,11 @@ export default function DashboardPage() {
               <div>
                 <div className="camera-top">
                   <div className="camera-live">Bloccata</div>
-                  <div className="camera-roomie">ROOMIE CAM</div>
+                  <div className="camera-roomie"><RoomieLogoText size="xs" /> CAM</div>
                 </div>
               </div>
               <div>
-                <div className="camera-title">CONTROLLO LIVE ROOMIE</div>
+                <div className="camera-title">CONTROLLO LIVE <RoomieLogoText size="xs" /></div>
               </div>
             </div>
             <div className="camera-lock-overlay">
@@ -518,7 +516,7 @@ export default function DashboardPage() {
           <>
             <div className="dash-section-label">Storico</div>
             {history.map(b => (
-              <div key={b.id} className="bk-chip" style={{ marginBottom: '10px' }}>
+              <div key={b.id} className="bk-chip card mb-2">
                 <div className="bk-date">
                   <div className="bk-day">{new Date(b.date + 'T12:00:00').getDate()}</div>
                   <div className="bk-month">{new Date(b.date + 'T12:00:00').toLocaleDateString('it-IT', { month: 'short' }).toUpperCase()}</div>
@@ -528,8 +526,8 @@ export default function DashboardPage() {
                   <div className="bk-time">{b.start} → {b.end} · {b.people} persona{b.people !== 1 ? 'e' : ''}</div>
                 </div>
                 <div>
-                  <div className="bk-price">{b.totalChips} chips</div>
-                  <div className={statusClass(b.status)} style={{ marginTop: '4px' }}>{statusLabel(b.status)}</div>
+                  <div className="bk-price"><ChipAmount amount={b.totalChips} size="sm" tone="primary" /></div>
+                  <div className={`${statusClass(b.status)} mt-1`}>{statusLabel(b.status)}</div>
                 </div>
               </div>
             ))}

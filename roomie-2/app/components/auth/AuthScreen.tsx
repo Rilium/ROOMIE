@@ -6,6 +6,7 @@ import { useAuth, useClerk, useSessionList } from '@clerk/nextjs'
 import { useSignIn, useSignUp } from '@clerk/nextjs/legacy'
 import { useApp } from '@/app/context/AppContext'
 import { apiMe } from '@/lib/client-api'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 
 type ForgotStep = 'email' | 'code' | 'done'
 type SetActiveFn = (opts: {
@@ -57,6 +58,7 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
   const [showNewPassword, setShowNewPassword]       = useState(false)
   const [forgotStep, setForgotStep]                 = useState<ForgotStep | null>(null)
   const [verifyingEmail, setVerifyingEmail]         = useState(false) // after signUp, waiting for code
+  const [authWaitExpired, setAuthWaitExpired]       = useState(false)
 
   // Login refs
   const loginEmailRef    = useRef<HTMLInputElement>(null)
@@ -76,6 +78,10 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
   const forgotCodeRef  = useRef<HTMLInputElement>(null)
   const newPasswordRef = useRef<HTMLInputElement>(null)
   const syncingSessionRef = useRef(false)
+
+  const loginReady = authLoaded && signInLoaded && Boolean(signIn)
+  const registerReady = authLoaded && signUpLoaded && Boolean(signUp)
+  const activeAuthReady = authMode === 'login' ? loginReady : registerReady
 
   const errMsg: Record<string, string> = {
     form_identifier_not_found:             'Email non trovata.',
@@ -98,6 +104,12 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     const msg  = e?.errors?.[0]?.message ?? ''
     console.error('[Clerk error]', code, msg, err)
     return errMsg[code] ?? `Errore: ${msg || 'Riprova.'}`
+  }
+
+  function authNotReadyMessage(mode: 'login' | 'register' = authMode) {
+    return mode === 'login'
+      ? 'Accesso in caricamento. Ricarica se resta bloccato.'
+      : 'Registrazione in caricamento. Ricarica se resta bloccata.'
   }
 
   function isSessionExistsError(err: unknown): boolean {
@@ -149,6 +161,15 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     const redirectTo = nextPath()
     if (redirectTo === '/dashboard') showPage('dashboard')
     else window.location.href = redirectTo
+  }
+
+  const handleAuthExit = () => {
+    if (!isPage) {
+      closeAuth()
+      return
+    }
+    const redirectTo = nextPath()
+    window.location.href = redirectTo === '/dashboard' ? '/' : redirectTo
   }
 
   const activateAndRedirect = async (sessionId: string, setActiveFn: SetActiveFn | undefined) => {
@@ -284,11 +305,25 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     }
   }, [authOpen, isPage])
 
+  useEffect(() => {
+    if (!isActive || activeAuthReady) {
+      setAuthWaitExpired(false)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      setAuthWaitExpired(true)
+    }, 4500)
+    return () => window.clearTimeout(timer)
+  }, [isActive, activeAuthReady, authMode])
+
   // ── LOGIN ───────────────────────────────────────────────────────────────────
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signInLoaded || !signIn) return
+    if (!signInLoaded || !signIn) {
+      setAuthWaitExpired(true)
+      return
+    }
     setError('')
     if (authLoaded && isSignedIn) {
       await handleSessionExists()
@@ -330,7 +365,10 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signUpLoaded || !signUp) return
+    if (!signUpLoaded || !signUp) {
+      setAuthWaitExpired(true)
+      return
+    }
     setError('')
     if (authLoaded && isSignedIn) {
       await handleSessionExists()
@@ -374,7 +412,10 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
 
   const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signUpLoaded || !signUp) return
+    if (!signUpLoaded || !signUp) {
+      setError(authNotReadyMessage('register'))
+      return
+    }
     setError('')
     setBusy(true)
     const code = verifyCodeRef.current?.value.trim() ?? ''
@@ -405,7 +446,11 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
     }
 
     if (authMode === 'register') {
-      if (!signUpLoaded || !signUp) { window.location.href = '/sign-up'; return }
+      if (!signUpLoaded || !signUp) {
+        setBusy(false)
+        setAuthWaitExpired(true)
+        return
+      }
       try {
         const oauthSignUp = signUp as unknown as PendingSignUp
         await oauthSignUp.authenticateWithRedirect?.({
@@ -424,7 +469,11 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
       return
     }
 
-    if (!signInLoaded || !signIn) { window.location.href = '/sign-in'; return }
+    if (!signInLoaded || !signIn) {
+      setBusy(false)
+      setAuthWaitExpired(true)
+      return
+    }
     try {
       await signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
@@ -441,7 +490,10 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
 
   const handleForgotSendCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signInLoaded || !signIn) return
+    if (!signInLoaded || !signIn) {
+      setAuthWaitExpired(true)
+      return
+    }
     setError('')
     setBusy(true)
     const identifier = forgotEmailRef.current?.value.trim() ?? ''
@@ -457,7 +509,10 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
 
   const handleForgotConfirm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!signInLoaded || !signIn) return
+    if (!signInLoaded || !signIn) {
+      setAuthWaitExpired(true)
+      return
+    }
     setError('')
     setBusy(true)
     const code     = forgotCodeRef.current?.value.trim() ?? ''
@@ -481,6 +536,9 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
   }
 
   const exitForgot = () => { setForgotStep(null); setError('') }
+  const authReadyCopy = authMode === 'login'
+    ? 'Prepariamo l\'accesso sicuro...'
+    : 'Prepariamo la registrazione sicura...'
 
   if (!isActive) return null
 
@@ -492,7 +550,7 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
         <section className="auth-landing" aria-label="Roomie accesso">
           <div>
             <div className="auth-kicker"><i className="fas fa-lock-open"></i> Accesso Roomie · Torino</div>
-            <div className="login-brand">ROOMIE</div>
+            <div className="login-brand"><RoomieLogoText size="xl" /></div>
             <div className="login-title">ENTRA, PRENOTA, GIOCA.</div>
             <div className="login-sub">Un solo accesso per prenotazioni, chips, inviti e codici room. Meno passaggi, piu&apos; controllo prima di arrivare.</div>
             <div className="auth-proof-grid">
@@ -514,11 +572,9 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
 
         {/* ── AUTH PANEL (destra) ── */}
         <section className="auth-panel" aria-label="Accesso account">
-          {!isPage && (
-            <button className="modal-close auth-modal-close" onClick={closeAuth} aria-label="Chiudi login">
-              <i className="fas fa-times"></i>
-            </button>
-          )}
+          <button className="modal-close auth-modal-close" onClick={handleAuthExit} aria-label={isPage ? 'Torna indietro' : 'Chiudi login'}>
+            <i className={`fas ${isPage ? 'fa-arrow-left' : 'fa-times'}`}></i>
+          </button>
 
           {/* ── FORGOT PASSWORD ── */}
           {forgotStep !== null ? (
@@ -539,7 +595,7 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
                 </div>
               </div>
 
-              {error && <div className="auth-error visible">{error}</div>}
+              {error && <div className="auth-error visible" role="alert">{error}</div>}
 
               {forgotStep === 'email' && (
                 <form className="auth-form active" onSubmit={handleForgotSendCode}>
@@ -656,6 +712,16 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
               </div>
 
               {error && <div className="auth-error visible">{error}</div>}
+              {!activeAuthReady && authWaitExpired && (
+                <div className="auth-ready-note" role="status">
+                  <span>{authReadyCopy}</span>
+                  {authWaitExpired && (
+                    <button type="button" onClick={() => window.location.reload()}>
+                      Ricarica accesso
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* LOGIN FORM */}
               {authMode === 'login' && (
@@ -671,20 +737,22 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
                   </div>
                   <div className="auth-divider">oppure</div>
                   <div className="form-group mb-3">
-                    <label className="form-label">EMAIL</label>
-                    <input ref={loginEmailRef} className="form-input" autoComplete="email" type="email" placeholder="nome@email.com" />
+                    <label className="form-label" htmlFor="roomie-login-email">EMAIL</label>
+                    <input id="roomie-login-email" name="email" ref={loginEmailRef} className="form-input form-control" autoComplete="email" type="email" placeholder="nome@email.com" />
                   </div>
                   <div className="form-group mb-3">
-                    <label className="form-label">PASSWORD</label>
+                    <label className="form-label" htmlFor="roomie-login-password">PASSWORD</label>
                     <div className="password-field">
                       <input
+                        id="roomie-login-password"
+                        name="password"
                         ref={loginPasswordRef}
-                        className="form-input"
+                        className="form-input form-control"
                         autoComplete="current-password"
                         type={showLoginPassword ? 'text' : 'password'}
                         placeholder="La tua password"
                       />
-                      <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)}>
+                      <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(v => !v)} aria-label={showLoginPassword ? 'Nascondi password' : 'Mostra password'}>
                         <i className={`fas ${showLoginPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
@@ -695,8 +763,8 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
                       Hai dimenticato la password?
                     </button>
                   </div>
-                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
-                    {busy ? 'Accesso...' : 'ENTRA IN ROOMIE'}
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy} aria-busy={busy || !loginReady}>
+                    {busy ? 'Accesso...' : !loginReady ? 'ACCESSO IN CARICAMENTO' : 'ENTRA IN ROOMIE'}
                   </button>
                   <div className="auth-footnote">Se hai gia&apos; una sessione attiva, ti riportiamo direttamente in dashboard.</div>
                 </form>
@@ -716,47 +784,49 @@ export default function AuthScreen({ presentation = 'modal' }: { presentation?: 
                   </div>
                   <div className="auth-divider">oppure</div>
                   <div className="form-group mb-3">
-                    <label className="form-label">NOME</label>
-                    <input ref={regNameRef} className="form-input" autoComplete="name" placeholder="Es. Marco Bianchi" />
+                    <label className="form-label" htmlFor="roomie-register-name">NOME</label>
+                    <input id="roomie-register-name" name="name" ref={regNameRef} className="form-input form-control" autoComplete="name" placeholder="Es. Marco Bianchi" />
                   </div>
                   <div className="form-group mb-3">
-                    <label className="form-label">USERNAME</label>
-                    <input ref={regUsernameRef} className="form-input" autoComplete="username" placeholder="3-20 caratteri, es. marco_b" />
+                    <label className="form-label" htmlFor="roomie-register-username">USERNAME</label>
+                    <input id="roomie-register-username" name="username" ref={regUsernameRef} className="form-input form-control" autoComplete="username" placeholder="3-20 caratteri, es. marco_b" />
                   </div>
                   <div className="form-group mb-3">
-                    <label className="form-label">EMAIL</label>
-                    <input ref={regEmailRef} className="form-input" autoComplete="email" type="email" placeholder="nome@email.com" />
+                    <label className="form-label" htmlFor="roomie-register-email">EMAIL</label>
+                    <input id="roomie-register-email" name="email" ref={regEmailRef} className="form-input form-control" autoComplete="email" type="email" placeholder="nome@email.com" />
                   </div>
                   <div className="form-group mb-3">
-                    <label className="form-label">PASSWORD</label>
+                    <label className="form-label" htmlFor="roomie-register-password">PASSWORD</label>
                     <div className="password-field">
                       <input
+                        id="roomie-register-password"
+                        name="password"
                         ref={regPasswordRef}
-                        className="form-input"
+                        className="form-input form-control"
                         autoComplete="new-password"
                         type={showRegisterPassword ? 'text' : 'password'}
                         placeholder="Minimo 8 caratteri"
                       />
-                      <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)}>
+                      <button type="button" className="password-toggle" onClick={() => setShowRegisterPassword(v => !v)} aria-label={showRegisterPassword ? 'Nascondi password' : 'Mostra password'}>
                         <i className={`fas ${showRegisterPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                       </button>
                     </div>
                   </div>
                   <div className="legal-consents">
                     <label className="legal-consent">
-                      <input ref={acceptTermsRef} type="checkbox" />
+                      <input ref={acceptTermsRef} name="terms" type="checkbox" />
                       <span>Accetto i <button type="button" onClick={() => openLegalDoc('terms')}>Termini e Condizioni</button>.</span>
                     </label>
                     <label className="legal-consent">
-                      <input ref={acceptPrivacyRef} type="checkbox" />
+                      <input ref={acceptPrivacyRef} name="privacy" type="checkbox" />
                       <span>Ho letto la <button type="button" onClick={() => openLegalDoc('privacy')}>Privacy Policy</button>.</span>
                     </label>
                   </div>
                   <label className="auth-check">
                     Sessione account protetta da Clerk
                   </label>
-                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy}>
-                    {busy ? 'Registrazione...' : 'CREA ACCOUNT'}
+                  <button className="btn-neon btn-neon-submit w-full" type="submit" disabled={busy} aria-busy={busy || !registerReady}>
+                    {busy ? 'Registrazione...' : !registerReady ? 'ACCESSO IN CARICAMENTO' : 'CREA ACCOUNT'}
                   </button>
                   <div className="auth-footnote">Dopo la verifica email ti portiamo direttamente nella dashboard.</div>
                 </form>

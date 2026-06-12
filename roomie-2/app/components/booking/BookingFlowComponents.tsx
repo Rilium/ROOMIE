@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
 import { DiaTextReveal } from '@/app/components/magicui/dia-text-reveal'
+import ChipAmount from '@/app/components/ui/ChipAmount'
 
 export interface BookingStepItem {
   label: string
@@ -52,14 +53,18 @@ interface BookingStepperProps {
 
 export function BookingStepper({ steps, activeStep, onStepClick }: BookingStepperProps) {
   return (
-    <nav className="booking-stepper" aria-label="Step prenotazione">
+    <nav className="booking-stepper nav nav-pills" aria-label="Step prenotazione">
       {steps.map((item, index) => (
         <button
           key={item.label}
-          className={`booking-stepper-item${activeStep === index ? ' active' : ''}${activeStep > index ? ' complete' : ''}`}
+          className={`booking-stepper-item nav-link${activeStep === index ? ' active' : ''}${activeStep > index ? ' complete' : ''}`}
           type="button"
-          onClick={() => onStepClick?.(index)}
+          onClick={() => {
+            if (index <= activeStep) onStepClick?.(index)
+          }}
+          disabled={index > activeStep}
           aria-current={activeStep === index ? 'step' : undefined}
+          aria-disabled={index > activeStep}
         >
           <span className="booking-stepper-index">{index + 1}</span>
           <span className="booking-stepper-label">{item.label}</span>
@@ -74,7 +79,7 @@ interface BookingStickyBarProps {
   totalSteps: number
   price: ReactNode
   selectedItem: string
-  ctaLabel: string
+  ctaLabel: ReactNode
   onBack: () => void
   onCta: () => void
   disabled?: boolean
@@ -126,7 +131,7 @@ export function CompactRoomSummary({
   experiences,
 }: CompactRoomSummaryProps) {
   return (
-    <section className="compact-room-summary" aria-label="Room selezionata">
+    <section className="compact-room-summary card" aria-label="Room selezionata">
       <div className="compact-room-media" style={{ backgroundImage: `url('${image}')` }} aria-hidden="true" />
       <div className="compact-room-main">
         <div className="compact-room-kicker">Room selezionata</div>
@@ -162,7 +167,7 @@ export function SessionOptionCard({ option, selected, onSelect }: SessionOptionC
 
   return (
     <button
-      className={`session-option-card${selected ? ' active' : ''}${option.badge ? ' recommended' : ''}`}
+      className={`session-option-card card${selected ? ' active' : ''}${option.badge ? ' recommended' : ''}`}
       type="button"
       onClick={() => onSelect(option)}
       aria-pressed={selected}
@@ -178,7 +183,7 @@ export function SessionOptionCard({ option, selected, onSelect }: SessionOptionC
         <span className="session-option-sub">{option.sub}</span>
       </span>
       <span className="session-option-price">
-        <span>{option.chips} chips</span>
+        <ChipAmount amount={option.chips} size="md" tone="primary" showEuro />
         <small>{durationLabel} · equiv. €{option.chips}</small>
       </span>
     </button>

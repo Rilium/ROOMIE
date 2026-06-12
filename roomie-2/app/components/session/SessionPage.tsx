@@ -2,6 +2,8 @@
 
 import { useApp } from '@/app/context/AppContext'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { apiExtendBooking, apiRoomWifi } from '@/lib/client-api'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import { useEffect, useState } from 'react'
@@ -125,8 +127,8 @@ export default function SessionPage() {
             <div className="access-wait-title">Questa pagina si accende durante lo slot.</div>
             <div className="access-wait-copy">Comandi room, addon live e +1h sono disponibili da <strong>{startLabel}</strong>.</div>
             <div className="access-wait-actions">
-              <button className="btn-neon" type="button" onClick={() => showPage('dashboard')}><i className="fas fa-user"></i> PROFILO</button>
-              <button className="quiet-action" type="button" onClick={() => showPage('confirm')}><i className="fas fa-clock"></i> DETTAGLI ACCESSO</button>
+              <button className="btn-neon btn btn-primary" type="button" onClick={() => showPage('dashboard')}><i className="fas fa-user"></i> PROFILO</button>
+              <button className="quiet-action btn btn-outline-light" type="button" onClick={() => showPage('confirm')}><i className="fas fa-clock"></i> DETTAGLI ACCESSO</button>
             </div>
           </div>
         )}
@@ -165,8 +167,7 @@ export default function SessionPage() {
                 <span>persone</span>
               </div>
               <div className="session-hero-stat">
-                <strong>{booking?.totalChips || 0}</strong>
-                <span>chips</span>
+                <strong><ChipAmount amount={booking?.totalChips || 0} size="sm" tone="primary" /></strong>
               </div>
               <button
                 className={`session-hero-access-badge${accessDone ? ' is-ok' : accessPartial ? ' is-partial' : ' is-warn'}`}
@@ -203,10 +204,10 @@ export default function SessionPage() {
           <div className="session-live-head">
             <div className="session-live-head-left">
               <div className={`roomie-kicker-live ${liveMode ? 'is-live' : 'is-warn'}`}>
-                <span className="live-dot"></span>ROOMIE LIVE MODE
+                <span className="live-dot"></span><RoomieLogoText size="xs" /> LIVE MODE
               </div>
               <div className="session-live-reward">
-                GUADAGNA <span className="session-live-reward-chips">+{cashback} CHIPS</span>
+                GUADAGNA <span className="session-live-reward-chips"><ChipAmount amount={cashback} prefix="+" size="sm" tone="primary" /></span>
               </div>
             </div>
             <div className="live-consent-col">
@@ -244,7 +245,7 @@ export default function SessionPage() {
               ))}
             </div>
             {isLive && (
-              <button className="quiet-action w-full session-friends-add" type="button" onClick={openModalInvite}>
+              <button className="quiet-action btn btn-outline-light w-full session-friends-add" type="button" onClick={openModalInvite}>
                 <i className="fas fa-user-plus"></i> AGGIUNGI AMICO IN CORSA
               </button>
             )}
@@ -302,7 +303,7 @@ export default function SessionPage() {
                 <div>
                   <div className="camera-top">
                     <div className="camera-live">{!camEnabled ? 'OFF' : isLive ? 'LIVE' : 'LOCKED'}</div>
-                    <div className="camera-roomie">ROOMIE CAM</div>
+                    <div className="camera-roomie"><RoomieLogoText size="xs" /> CAM</div>
                   </div>
                   <div className="camera-meta">
                     <span className="camera-pill">Via Terni · 40 m2</span>
@@ -311,7 +312,9 @@ export default function SessionPage() {
                   </div>
                 </div>
                 <div>
-                  <div className="camera-title">{!camEnabled ? 'ROOMIE CAM SPENTA.' : isLive ? 'LIVE ROOMIE ATTIVA.' : 'CAMERA BLOCCATA.'}</div>
+                  <div className="camera-title">
+                    {!camEnabled ? <><RoomieLogoText size="xs" /> CAM SPENTA.</> : isLive ? <>LIVE <RoomieLogoText size="xs" /> ATTIVA.</> : 'CAMERA BLOCCATA.'}
+                  </div>
                   <div className="camera-chips">
                     <span className="camera-chip"><i className="fas fa-check"></i> Overlay</span>
                     <span className="camera-chip"><i className="fas fa-check"></i> Privacy</span>

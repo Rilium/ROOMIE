@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/app/context/AppContext'
 import SafeDocViewer from '@/app/components/ui/SafeDocViewer'
+import ChipAmount from '@/app/components/ui/ChipAmount'
 import {
   apiAdminSummary, apiAdminPatchConfig, apiAdminPatchBookingStatus,
   apiAdminPatchUserChips, apiAdminBlockSlot, apiAdminDeleteBlockedSlot,
@@ -213,31 +214,31 @@ export default function AdminPage() {
   const stats = data?.stats
 
   if (!user || user.role !== 'admin') return (
-    <div className="page active" style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--muted)' }}>
+    <div className="page active admin-denied">
       Accesso negato.
     </div>
   )
 
   return (
     <div className="page active" id="page-admin">
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
+      <div className="admin-shell">
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
+        <div className="admin-header">
           <div>
-            <div style={{ fontSize: '.72rem', fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--orange)', marginBottom: '4px' }}>ADMIN PANEL</div>
-            <h2 style={{ fontFamily: '\'Bebas Neue\',sans-serif', fontSize: '2.5rem', color: '#fff', lineHeight: '1' }}>ROOM VIA TERNI</h2>
+            <div className="admin-kicker">ADMIN PANEL</div>
+            <h2 className="admin-title">ROOM VIA TERNI</h2>
           </div>
           <div className="flex gap-8 flex-wrap">
             <div className="admin-user-pill"><span><i className="fas fa-user-shield"></i></span><strong>{user.name}</strong></div>
             {stats && <>
-              <div style={{ background: 'var(--dark2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 16px', fontSize: '.8rem' }}>
-                <span style={{ color: 'var(--muted)' }}>Revenue mese</span><br />
-                <span style={{ fontFamily: '\'Bebas Neue\',sans-serif', fontSize: '1.5rem', color: 'var(--neon)' }}>{stats.revenue} chips</span>
+              <div className="admin-stat-pill">
+                <span className="admin-stat-label">Revenue mese</span><br />
+                <span className="admin-stat-value neon"><ChipAmount amount={stats.revenue} size="sm" tone="primary" /></span>
               </div>
-              <div style={{ background: 'var(--dark2)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 16px', fontSize: '.8rem' }}>
-                <span style={{ color: 'var(--muted)' }}>Sessioni</span><br />
-                <span style={{ fontFamily: '\'Bebas Neue\',sans-serif', fontSize: '1.5rem', color: '#fff' }}>{stats.bookingsCount}</span>
+              <div className="admin-stat-pill">
+                <span className="admin-stat-label">Sessioni</span><br />
+                <span className="admin-stat-value">{stats.bookingsCount}</span>
               </div>
             </>}
           </div>
@@ -246,10 +247,10 @@ export default function AdminPage() {
         {/* Stats grid */}
         {stats && (
           <div className="admin-grid">
-            <div className="admin-card"><div className="admin-card-label">Revenue</div><div className="admin-card-value neon">{stats.revenue} chips</div></div>
-            <div className="admin-card"><div className="admin-card-label">Prenotazioni</div><div className="admin-card-value">{stats.bookingsCount}</div></div>
-            <div className="admin-card"><div className="admin-card-label">Utenti</div><div className="admin-card-value">{stats.usersCount}</div></div>
-            <div className="admin-card"><div className="admin-card-label">In attesa</div><div className="admin-card-value" style={{ color: 'var(--orange)' }}>{stats.pendingCount}</div></div>
+            <div className="admin-card card"><div className="admin-card-label">Revenue</div><div className="admin-card-value neon"><ChipAmount amount={stats.revenue} size="sm" tone="primary" /></div></div>
+            <div className="admin-card card"><div className="admin-card-label">Prenotazioni</div><div className="admin-card-value">{stats.bookingsCount}</div></div>
+            <div className="admin-card card"><div className="admin-card-label">Utenti</div><div className="admin-card-value">{stats.usersCount}</div></div>
+            <div className="admin-card card"><div className="admin-card-label">In attesa</div><div className="admin-card-value warn">{stats.pendingCount}</div></div>
           </div>
         )}
 
@@ -264,10 +265,10 @@ export default function AdminPage() {
         </div>
 
         {loading && (
-          <div className="page-skeleton" aria-hidden="true" style={{ padding: '8px 0 20px' }}>
+          <div className="page-skeleton admin-skeleton" aria-hidden="true">
             <div className="page-skeleton-header">
-              <div className="roomie-skeleton roomie-skeleton-bar lg shimmer" style={{ width: '38%' }}></div>
-              <div className="roomie-skeleton roomie-skeleton-bar shimmer" style={{ width: '54%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-bar lg shimmer skeleton-w-38"></div>
+              <div className="roomie-skeleton roomie-skeleton-bar shimmer skeleton-w-54"></div>
             </div>
             <div className="page-skeleton-grid">
               <div className="roomie-skeleton page-skeleton-card shimmer"></div>
@@ -275,7 +276,7 @@ export default function AdminPage() {
               <div className="roomie-skeleton page-skeleton-card shimmer"></div>
               <div className="roomie-skeleton page-skeleton-card shimmer"></div>
             </div>
-            <div className="roomie-skeleton page-skeleton-card shimmer" style={{ minHeight: '220px' }}></div>
+            <div className="roomie-skeleton page-skeleton-card shimmer skeleton-card-tall"></div>
           </div>
         )}
 
@@ -283,22 +284,22 @@ export default function AdminPage() {
         {tab === 'bookings' && !loading && (
           <div className="admin-panel active">
             <div className="admin-toolbar">
-              <div style={{ fontWeight: 900, color: '#fff', fontSize: '.9rem' }}>PRENOTAZIONI</div>
+              <div className="admin-toolbar-title">PRENOTAZIONI</div>
             </div>
             <div>
               {(data?.bookings || []).map(b => (
-                <div key={b.id} className="admin-mini-item" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div key={b.id} className="admin-mini-item wrap">
                   <div>
-                    <strong style={{ color: '#fff' }}>{b.date} {b.start}→{b.end}</strong>
-                    <span style={{ color: 'var(--muted)', marginLeft: '8px' }}>{b.totalChips} chips · {b.people} pers.</span>
-                    <span className="status-badge" style={{ marginLeft: '8px', fontSize: '.7rem' }}>{b.status}</span>
+                    <strong className="admin-item-title">{b.date} {b.start}→{b.end}</strong>
+                    <span className="admin-meta ms-2"><ChipAmount amount={b.totalChips} size="xs" /> · {b.people} pers.</span>
+                    <span className="status-badge ms-2">{b.status}</span>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div className="admin-item-actions">
                     {b.status === 'pending' && (
-                      <button className="admin-page-btn" style={{ background: 'rgba(200,255,0,.15)', borderColor: 'var(--neon)', color: 'var(--neon)' }} onClick={() => patchBookingStatus(b.id, 'confirmed')}>CONFERMA</button>
+                      <button className="admin-page-btn btn btn-sm btn-outline-light confirm" onClick={() => patchBookingStatus(b.id, 'confirmed')}>CONFERMA</button>
                     )}
                     {['pending', 'confirmed'].includes(b.status) && (
-                      <button className="admin-page-btn" style={{ background: 'rgba(255,50,50,.1)', borderColor: 'rgba(255,50,50,.4)', color: '#ff5555' }} onClick={() => patchBookingStatus(b.id, 'cancelled')}>ANNULLA</button>
+                      <button className="admin-page-btn btn btn-sm btn-outline-light danger" onClick={() => patchBookingStatus(b.id, 'cancelled')}>ANNULLA</button>
                     )}
                   </div>
                 </div>
@@ -306,34 +307,34 @@ export default function AdminPage() {
             </div>
 
             {/* Config */}
-            <div className="admin-card" style={{ marginTop: '20px' }}>
-              <div style={{ fontWeight: 900, color: '#fff', marginBottom: '12px' }}>CONFIG PREZZI</div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div><label className="form-label">ORA</label><input type="number" className="form-input" value={priceHour} onChange={e => setPriceHour(e.target.value)} style={{ width: '110px' }} /></div>
-                <div><label className="form-label">GIORNATA</label><input type="number" className="form-input" value={priceDay} onChange={e => setPriceDay(e.target.value)} style={{ width: '110px' }} /></div>
-                <div><label className="form-label">GUEST PASS</label><input type="number" className="form-input" value={priceGuest} onChange={e => setPriceGuest(e.target.value)} style={{ width: '110px' }} /></div>
-                <div><label className="form-label">MAX PERSONE</label><input type="number" className="form-input" value={maxPeople} onChange={e => setMaxPeople(e.target.value)} style={{ width: '110px' }} /></div>
-                <div><label className="form-label">CODICE CASSAFORTE</label><input className="form-input" value={lockboxCode} onChange={e => setLockboxCode(e.target.value)} style={{ width: '140px' }} /></div>
-                <button className="btn-neon" onClick={saveConfig}>SALVA</button>
+            <div className="admin-card card admin-card-spaced">
+              <div className="admin-section-title">CONFIG PREZZI</div>
+              <div className="admin-form-row">
+                <div><label className="form-label">ORA</label><input type="number" className="form-input form-control admin-field-xs" value={priceHour} onChange={e => setPriceHour(e.target.value)} /></div>
+                <div><label className="form-label">GIORNATA</label><input type="number" className="form-input form-control admin-field-xs" value={priceDay} onChange={e => setPriceDay(e.target.value)} /></div>
+                <div><label className="form-label">GUEST PASS</label><input type="number" className="form-input form-control admin-field-xs" value={priceGuest} onChange={e => setPriceGuest(e.target.value)} /></div>
+                <div><label className="form-label">MAX PERSONE</label><input type="number" className="form-input form-control admin-field-xs" value={maxPeople} onChange={e => setMaxPeople(e.target.value)} /></div>
+                <div><label className="form-label">CODICE CASSAFORTE</label><input className="form-input form-control admin-field-sm" value={lockboxCode} onChange={e => setLockboxCode(e.target.value)} /></div>
+                <button className="btn-neon btn btn-primary" onClick={saveConfig}>SALVA</button>
               </div>
             </div>
 
             {/* Block slot */}
-            <div className="admin-card" style={{ marginTop: '20px' }}>
-              <div style={{ fontWeight: 900, color: '#fff', marginBottom: '12px' }}>BLOCCA SLOT</div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div><label className="form-label">DATA</label><input type="date" className="form-input" value={blockDate} onChange={e => setBlockDate(e.target.value)} style={{ width: '160px' }} /></div>
-                <div><label className="form-label">DALLE</label><input type="time" className="form-input" value={blockStart} onChange={e => setBlockStart(e.target.value)} style={{ width: '110px' }} /></div>
-                <div><label className="form-label">ALLE</label><input type="time" className="form-input" value={blockEnd} onChange={e => setBlockEnd(e.target.value)} style={{ width: '110px' }} /></div>
-                <div style={{ flex: 1, minWidth: '140px' }}><label className="form-label">MOTIVO</label><input type="text" className="form-input" value={blockReason} onChange={e => setBlockReason(e.target.value)} placeholder="Es. Manutenzione" /></div>
-                <button style={{ background: 'rgba(255,90,31,.15)', border: '1px solid rgba(255,90,31,.5)', color: 'var(--orange)', borderRadius: '8px', padding: '10px 16px', fontWeight: 900, fontSize: '.85rem' }} onClick={blockSlot}>BLOCCA</button>
+            <div className="admin-card card admin-card-spaced">
+              <div className="admin-section-title">BLOCCA SLOT</div>
+              <div className="admin-form-row">
+                <div><label className="form-label">DATA</label><input type="date" className="form-input form-control admin-field-md" value={blockDate} onChange={e => setBlockDate(e.target.value)} /></div>
+                <div><label className="form-label">DALLE</label><input type="time" className="form-input form-control admin-field-xs" value={blockStart} onChange={e => setBlockStart(e.target.value)} /></div>
+                <div><label className="form-label">ALLE</label><input type="time" className="form-input form-control admin-field-xs" value={blockEnd} onChange={e => setBlockEnd(e.target.value)} /></div>
+                <div className="admin-field-fluid"><label className="form-label">MOTIVO</label><input type="text" className="form-input form-control" value={blockReason} onChange={e => setBlockReason(e.target.value)} placeholder="Es. Manutenzione" /></div>
+                <button className="admin-page-btn btn btn-sm btn-outline-light danger" onClick={blockSlot}>BLOCCA</button>
               </div>
               {(data?.blockedSlots || []).length > 0 && (
-                <div style={{ marginTop: '12px' }}>
+                <div className="admin-blocked-list">
                   {(data?.blockedSlots || []).map(s => (
                     <div key={s.id} className="admin-mini-item">
                       <span>{s.date} {s.start}→{s.end} · {s.reason}</span>
-                      <button className="admin-page-btn" onClick={() => deleteBlockedSlot(s.id)}>RIMUOVI</button>
+                      <button className="admin-page-btn btn btn-sm btn-outline-light" onClick={() => deleteBlockedSlot(s.id)}>RIMUOVI</button>
                     </div>
                   ))}
                 </div>
@@ -345,18 +346,18 @@ export default function AdminPage() {
         {/* Users panel */}
         {tab === 'users' && !loading && (
           <div className="admin-panel active">
-            <div className="admin-toolbar"><div style={{ fontWeight: 900, color: '#fff' }}>CLIENTI E WALLET</div></div>
+            <div className="admin-toolbar"><div className="admin-toolbar-title">CLIENTI E WALLET</div></div>
             <div className="admin-mini-list">
               {(data?.users || []).map(u => (
-                <div key={u.id} className="admin-mini-item" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div key={u.id} className="admin-mini-item wrap">
                   <div>
-                    <strong style={{ color: '#fff' }}>{u.name}</strong>
-                    <span style={{ color: 'var(--muted)', marginLeft: '8px' }}>@{u.username} · {u.chips} chips</span>
-                    {u.role === 'admin' && <span style={{ color: 'var(--orange)', marginLeft: '8px', fontSize: '.72rem', fontWeight: 900 }}>ADMIN</span>}
+                    <strong className="admin-item-title">{u.name}</strong>
+                    <span className="admin-meta ms-2">@{u.username} · <ChipAmount amount={u.chips} size="xs" /></span>
+                    {u.role === 'admin' && <span className="admin-role-badge">ADMIN</span>}
                   </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button className="admin-page-btn" onClick={() => patchUserChips(u.id, 12)}>+12 chips</button>
-                    <button className="admin-page-btn" onClick={() => patchUserChips(u.id, -12)}>-12 chips</button>
+                  <div className="admin-item-actions">
+                    <button className="admin-page-btn btn btn-sm btn-outline-light" onClick={() => patchUserChips(u.id, 12)}>+<ChipAmount amount={12} size="xs" /></button>
+                    <button className="admin-page-btn btn btn-sm btn-outline-light" onClick={() => patchUserChips(u.id, -12)}>-<ChipAmount amount={12} size="xs" /></button>
                   </div>
                 </div>
               ))}
@@ -367,11 +368,11 @@ export default function AdminPage() {
         {/* Access panel */}
         {tab === 'access' && !loading && (
           <div className="admin-panel active">
-            <div className="admin-toolbar"><div style={{ fontWeight: 900, color: '#fff' }}>ACCESSO FISICO</div></div>
+            <div className="admin-toolbar"><div className="admin-toolbar-title">ACCESSO FISICO</div></div>
             <div className="admin-mini-list">
               <div className="admin-mini-item">
                 <span>Codice cassaforte</span>
-                <strong style={{ color: 'var(--neon)', fontFamily: '\'Barlow Condensed\',sans-serif', fontSize: '1.4rem' }}>{data?.config?.lockboxCode || '—'}</strong>
+                <strong className="admin-lockbox-code">{data?.config?.lockboxCode || '—'}</strong>
               </div>
               <div className="admin-mini-item">
                 <span>Slot bloccati</span>
@@ -384,37 +385,37 @@ export default function AdminPage() {
         {/* Commerce panel */}
         {tab === 'commerce' && !loading && (
           <div className="admin-panel active">
-            <div className="admin-toolbar"><div style={{ fontWeight: 900, color: '#fff' }}>ADDON & SHOP</div></div>
-            <div className="admin-card" style={{ marginBottom: '14px' }}>
-              <div style={{ fontWeight: 900, color: '#fff', marginBottom: '12px' }}>NUOVO ADDON</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 110px', gap: '10px' }}>
-                <input className="form-input" value={addonName} onChange={e => setAddonName(e.target.value)} placeholder="Nome addon" />
-                <input className="form-input" value={addonBrand} onChange={e => setAddonBrand(e.target.value)} placeholder="Brand" />
-                <input className="form-input" type="number" value={addonPrice} onChange={e => setAddonPrice(e.target.value)} placeholder="Chips" />
-                <select className="form-input" value={addonCategory} onChange={e => setAddonCategory(e.target.value as Addon['category'])}>
+            <div className="admin-toolbar"><div className="admin-toolbar-title">ADDON & SHOP</div></div>
+            <div className="admin-card card admin-card-compact">
+              <div className="admin-section-title">NUOVO ADDON</div>
+              <div className="admin-addon-grid">
+                <input className="form-input form-control" value={addonName} onChange={e => setAddonName(e.target.value)} placeholder="Nome addon" />
+                <input className="form-input form-control" value={addonBrand} onChange={e => setAddonBrand(e.target.value)} placeholder="Brand" />
+                <input className="form-input form-control" type="number" value={addonPrice} onChange={e => setAddonPrice(e.target.value)} placeholder="Chips" />
+                <select className="form-input form-control" value={addonCategory} onChange={e => setAddonCategory(e.target.value as Addon['category'])}>
                   <option value="featured">Top</option>
                   <option value="modes">Mood</option>
                   <option value="snacks">Snack</option>
                 </select>
-                <input className="form-input" value={addonDesc} onChange={e => setAddonDesc(e.target.value)} placeholder="Descrizione" style={{ gridColumn: 'span 2' }} />
-                <button className="btn-neon" style={{ justifyContent: 'center' }} onClick={createAddon}>CREA</button>
+                <input className="form-input form-control admin-addon-desc" value={addonDesc} onChange={e => setAddonDesc(e.target.value)} placeholder="Descrizione" />
+                <button className="btn-neon btn btn-primary justify-content-center" onClick={createAddon}>CREA</button>
               </div>
             </div>
             <div className="admin-mini-list">
               {(data?.addons || []).map((a: Addon) => (
-                <div key={a.id} className="admin-mini-item" style={{ flexWrap: 'wrap', gap: '8px' }}>
+                <div key={a.id} className="admin-mini-item wrap">
                   <div>
-                    <strong style={{ color: '#fff' }}>{a.name}</strong>
-                    <span style={{ color: 'var(--muted)', marginLeft: '8px' }}>{a.price} chips · {a.category}</span>
-                    <span style={{ marginLeft: '8px', color: a.status === 'active' ? 'var(--neon)' : 'var(--muted)', fontSize: '.72rem', fontWeight: 900 }}>
+                    <strong className="admin-item-title">{a.name}</strong>
+                    <span className="admin-meta ms-2"><ChipAmount amount={a.price} size="xs" /> · {a.category}</span>
+                    <span className={`admin-addon-status ${a.status === 'active' ? 'admin-status-active' : 'admin-meta'}`}>
                       {a.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button className="admin-page-btn" onClick={() => toggleAddon(a)}>
+                  <div className="admin-item-actions">
+                    <button className="admin-page-btn btn btn-sm btn-outline-light" onClick={() => toggleAddon(a)}>
                       {a.status === 'active' ? 'DISATTIVA' : 'ATTIVA'}
                     </button>
-                    <button className="admin-page-btn" style={{ background: 'rgba(255,50,50,.1)', borderColor: 'rgba(255,50,50,.4)', color: '#ff5555' }} onClick={() => deleteAddon(a.id)}>
+                    <button className="admin-page-btn btn btn-sm btn-outline-light danger" onClick={() => deleteAddon(a.id)}>
                       ELIMINA
                     </button>
                   </div>
@@ -429,27 +430,27 @@ export default function AdminPage() {
           <div className="admin-panel active">
             <div className="admin-toolbar">
               <div>
-                <div style={{ fontWeight: 900, color: '#fff' }}>AUDIT LOG</div>
-                <div style={{ color: 'var(--muted)', fontSize: '.78rem', marginTop: '3px' }}>
+                <div className="admin-toolbar-title">AUDIT LOG</div>
+                <div className="admin-meta">
                   Eventi operativi reali: auth, booking, wallet, addon e modifiche admin.
                 </div>
               </div>
             </div>
             <div className="admin-mini-list">
               {(data?.auditLog || []).slice(0, 50).map((entry, i: number) => (
-                <div key={entry.id || i} className="admin-mini-item" style={{ fontSize: '.78rem', alignItems: 'flex-start' }}>
+                <div key={entry.id || i} className="admin-mini-item admin-audit-item">
                   <div>
-                    <strong style={{ color: '#fff', display: 'block', marginBottom: '3px' }}>{formatAuditType(entry.type)}</strong>
-                    <span style={{ color: 'var(--muted)' }}>{formatAuditDetails(entry.details)}</span>
+                    <strong className="admin-item-title admin-audit-type">{formatAuditType(entry.type)}</strong>
+                    <span className="admin-meta">{formatAuditDetails(entry.details)}</span>
                   </div>
-                  <div style={{ textAlign: 'right', minWidth: '150px' }}>
-                    <span style={{ color: 'var(--muted)', display: 'block' }}>{new Date(entry.createdAt).toLocaleString('it-IT')}</span>
-                    <span style={{ color: 'var(--muted)' }}>uid:{entry.userId?.slice(0, 8) || 'system'}</span>
+                  <div className="admin-audit-time admin-meta">
+                    <span>{new Date(entry.createdAt).toLocaleString('it-IT')}</span>
+                    <span>uid:{entry.userId?.slice(0, 8) || 'system'}</span>
                   </div>
                 </div>
               ))}
               {(data?.auditLog || []).length === 0 && (
-                <div style={{ color: 'var(--muted)', padding: '16px' }}>Nessun evento registrato.</div>
+                <div className="admin-empty">Nessun evento registrato.</div>
               )}
             </div>
           </div>
@@ -460,23 +461,21 @@ export default function AdminPage() {
           <div className="admin-panel active">
             <div className="admin-toolbar">
               <div>
-                <div style={{ fontWeight: 900, color: '#fff' }}>DOCUMENTAZIONE</div>
-                <div style={{ color: 'var(--muted)', fontSize: '.78rem', marginTop: '3px' }}>
+                <div className="admin-toolbar-title">DOCUMENTAZIONE</div>
+                <div className="admin-meta">
                   Documentazione tecnica e operativa completa (architettura, DB, API, deploy).
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div className="admin-doc-actions">
               <button
-                className="admin-page-btn"
+                className="admin-page-btn btn btn-sm btn-outline-light doc-action"
                 onClick={() => setDocPreviewOpen(true)}
-                style={{ padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
                 <i className="fas fa-eye"></i> Apri anteprima
               </button>
               <a
                 href="/docs/ROOMIE-Documentazione.docx"
-                className="admin-page-btn"
-                style={{ textDecoration: 'none', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                className="admin-page-btn btn btn-sm btn-outline-light doc-action"
               >
                 <i className="fas fa-file-word"></i> Scarica .docx
               </a>

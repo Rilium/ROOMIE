@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
+import ChipAmount from '@/app/components/ui/ChipAmount'
 import { apiGetAddons, apiOrderAddons } from '@/lib/client-api'
 import { isBookingLiveNow } from '@/lib/utils'
 import type { Addon } from '@/lib/types'
@@ -99,7 +100,7 @@ export default function ShopPage() {
         {cart.map((item, i) => (
           <div key={`${item.name}-${i}`} className="cart-item-row">
             <span className="cart-item-name">{item.name}</span>
-            <span className="cart-item-price">{item.price * item.qty} chips</span>
+            <span className="cart-item-price"><ChipAmount amount={item.price * item.qty} size="xs" /></span>
             <span className="cart-item-actions">
               <button type="button" onClick={() => updateCartItem(item.name, -1)} aria-label={`Diminuisci ${item.name}`}>−</button>
               <button type="button" onClick={() => updateCartItem(item.name, 1)} aria-label={`Aumenta ${item.name}`}>+</button>
@@ -115,15 +116,15 @@ export default function ShopPage() {
       <div className="cart-footer">
         <div>
           <div className="cart-total-label">TOTALE</div>
-          <div className="cart-total-val">{cartTotal} <span className="cart-total-unit">chips</span></div>
+          <div className="cart-total-val"><ChipAmount amount={cartTotal} size="md" tone="primary" /></div>
         </div>
         <button
-          className="cart-pay"
+          className="cart-pay btn btn-primary"
           onClick={handleCheckout}
           disabled={busy}
           aria-busy={busy}
         >
-          {busy ? '...' : isLive ? `PAGA ${cartTotal}` : 'IN SESSIONE'}
+          {busy ? '...' : isLive ? <span className="chip-cta-label">PAGA <ChipAmount amount={cartTotal} size="xs" /></span> : 'IN SESSIONE'}
         </button>
       </div>
     </div>,
@@ -133,16 +134,16 @@ export default function ShopPage() {
   return (
     <div className={`page active${isLive ? '' : ' shop-locked'}`} id="page-shop">
       <div className={`shop-inner${cartCount > 0 ? ' has-cart' : ''}`}>
-        <div className="shop-hero">
-          <span className="addon-badge">SHOP SESSIONE</span>
+        <div className="shop-hero card">
+          <span className="addon-badge badge rounded-pill text-bg-dark">SHOP SESSIONE</span>
           <div className="shop-hero-title">POTENZIA<br />LA SESSIONE.</div>
           <div className="shop-hero-sub">Addon immediati, snack e setup extra. Paghi in chips, si attivano durante la sessione.</div>
         </div>
 
         {!isLive && (
-          <div className="shop-locked-banner">
+          <div className="shop-locked-banner alert alert-warning">
             <strong>Shop in anteprima.</strong> Puoi esplorare pack e prezzi, ma il pagamento si sblocca solo quando sei fisicamente dentro la sessione. Appena la room e&apos; live, carrello e addon diventano attivabili.
-            <button type="button" className="shop-lock-cta" onClick={() => showPage(activeSession?.booking ? 'session' : 'dashboard')}>
+            <button type="button" className="shop-lock-cta btn btn-primary" onClick={() => showPage(activeSession?.booking ? 'session' : 'dashboard')}>
               {activeSession?.booking ? 'VAI ALLA SESSIONE' : 'VEDI PROSSIMA PRENOTAZIONE'}
             </button>
           </div>
@@ -150,15 +151,18 @@ export default function ShopPage() {
 
         {isLive && (
           <div className="shop-session-context is-live">
-            <div><strong>Sessione live</strong><span>Saldo: {balance} chips · Carrello: {cartTotal} chips</span></div>
+            <div>
+              <strong>Sessione live</strong>
+              <span>Saldo: <ChipAmount amount={balance} size="xs" tone="primary" /> · Carrello: <ChipAmount amount={cartTotal} size="xs" /></span>
+            </div>
           </div>
         )}
 
         {loading ? (
           <div className="page-skeleton shop-skeleton" aria-label="Caricamento addon">
             <div className="page-skeleton-header">
-              <div className="roomie-skeleton roomie-skeleton-line lg shimmer" style={{ width: '44%' }}></div>
-              <div className="roomie-skeleton roomie-skeleton-line shimmer" style={{ width: '70%' }}></div>
+              <div className="roomie-skeleton roomie-skeleton-line lg shimmer skeleton-w-44"></div>
+              <div className="roomie-skeleton roomie-skeleton-line shimmer skeleton-w-70"></div>
             </div>
             <div className="page-skeleton-grid">
               <div className="roomie-skeleton page-skeleton-card shimmer"></div>
@@ -171,30 +175,30 @@ export default function ShopPage() {
           <>
             {/* Bundles */}
             <div className="bundle-row">
-              <div className="bundle-card">
+              <div className="bundle-card card">
                 <div>
                   <div className="bundle-kicker">MIGLIOR SCELTA</div>
                   <div className="bundle-title">PARTITA + SNACK.</div>
                   <div className="bundle-copy">DAZN Partita, soft drinks e Snack Box.</div>
                 </div>
                 <div className="bundle-footer">
-                  <div className="bundle-price">16 chips</div>
-                  <button className="bundle-btn" onClick={() => addPack([
+                  <div className="bundle-price"><ChipAmount amount={16} size="md" tone="primary" /></div>
+                  <button className="bundle-btn btn btn-primary" onClick={() => addPack([
                     { name: 'DAZN Partita', price: 5 },
                     { name: 'Soft drinks ×6', price: 6 },
                     { name: 'Snack Box', price: 5 },
                   ])}>{isLive ? 'AGGIUNGI PACK' : 'DISPONIBILE LIVE'}</button>
                 </div>
               </div>
-              <div className="bundle-card secondary">
+              <div className="bundle-card secondary card">
                 <div>
                   <div className="bundle-kicker">SETUP ROOM</div>
                   <div className="bundle-title">GAMING BOOST.</div>
                   <div className="bundle-copy">Gaming Pro + Neon Party.</div>
                 </div>
                 <div className="bundle-footer">
-                  <div className="bundle-price">12 chips</div>
-                  <button className="bundle-btn" onClick={() => addPack([
+                  <div className="bundle-price"><ChipAmount amount={12} size="md" tone="primary" /></div>
+                  <button className="bundle-btn btn btn-outline-light" onClick={() => addPack([
                     { name: 'Gaming Pro Setup', price: 8 },
                     { name: 'Neon Party', price: 4 },
                   ])}>{isLive ? 'AGGIUNGI' : 'DISPONIBILE LIVE'}</button>
@@ -261,18 +265,18 @@ function AddonCard({ addon, locked, onAdd }: { addon: Addon; locked?: boolean; o
     SPOTIFY: 'brand-spotify', ROOMIE: 'brand-roomie', PARTNER: 'brand-partner',
   }
   return (
-    <div className={`addon-chip${addon.category === 'featured' ? ' addon-featured' : ''}`}>
+    <div className={`addon-chip card${addon.category === 'featured' ? ' addon-featured' : ''}`}>
       <div className="addon-visual">
         <i className="fas fa-star"></i>
         <span>{addon.soldToday > 0 ? `${addon.soldToday} oggi` : 'DISPONIBILE'}</span>
       </div>
-      {addon.soldToday > 2 && <span className="addon-badge">🔥 POPOLARE</span>}
+      {addon.soldToday > 2 && <span className="addon-badge badge rounded-pill text-bg-warning">POPOLARE</span>}
       {addon.brand && <span className={`brand-mark ${brandClass[addon.brand] || ''}`}>{addon.brand}</span>}
       <div className="addon-name">{addon.name}</div>
       <div className="addon-desc">{addon.description}</div>
-      <div className="addon-price">{addon.price} chips</div>
+      <div className="addon-price"><ChipAmount amount={addon.price} size="sm" tone="primary" /></div>
       <button
-        className="btn-addon"
+        className="btn-addon btn btn-primary"
         onClick={onAdd}
       >{locked ? 'LIVE ONLY' : '+ AGGIUNGI'}</button>
     </div>

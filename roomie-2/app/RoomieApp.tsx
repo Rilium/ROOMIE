@@ -9,6 +9,7 @@ import OnboardingGate from '@/app/components/onboarding/OnboardingGate'
 import Nav from '@/app/components/Nav'
 import Toast from '@/app/components/ui/Toast'
 import Modals from '@/app/components/modals/Modals'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { PROTECTED_PAGES, type RoomiePage } from '@/lib/routing'
 
 type InitialAuthMode = 'login' | 'register'
@@ -34,7 +35,7 @@ function AppShellContent({
     const t = setTimeout(() => {
       setBootExpired(true)
       document.body.classList.remove('app-booting')
-    }, 3500)
+    }, 1400)
     return () => clearTimeout(t)
   }, [loading])
 
@@ -71,7 +72,15 @@ function AppShellContent({
     )
   }
 
-  if (isProtectedRoute && !user) return null
+  if (isProtectedRoute && !user) {
+    return (
+      <>
+        <AuthScreen presentation="page" />
+        <Toast />
+        <Modals />
+      </>
+    )
+  }
 
   return (
     <>
@@ -82,7 +91,7 @@ function AppShellContent({
       {authTransition === 'logout' && (
         <div className="auth-transition-loader" role="status" aria-live="polite">
           <div className="auth-transition-card">
-            <div className="auth-transition-brand">ROOMIE</div>
+            <div className="auth-transition-brand"><RoomieLogoText size="md" /></div>
             <span className="roomie-chip" aria-hidden="true"></span>
             <div className="auth-transition-copy">Logout in corso</div>
             <div className="auth-transition-sub">Chiudiamo la sessione e mettiamo al sicuro il profilo.</div>

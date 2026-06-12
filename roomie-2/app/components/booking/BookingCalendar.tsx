@@ -123,8 +123,12 @@ export default function BookingCalendar({
       {mode === 'now' && (
         <div className="bc-now-pill">
           <span className="bc-now-dot" />
-          <span className="bc-now-label">Entrata</span>
-          <span className="bc-now-time">{nowTime}</span>
+          <span className="bc-now-body">
+            <span className="bc-now-label">Entra subito</span>
+            <span className="bc-now-time">{displayDate(date)}</span>
+            <span className="bc-now-range">{start || nowTime} → {end} · {duration}h</span>
+          </span>
+          <span className="bc-dur-badge">Disponibile</span>
         </div>
       )}
 

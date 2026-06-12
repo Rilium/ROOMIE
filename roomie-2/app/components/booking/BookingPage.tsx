@@ -15,6 +15,8 @@ function spawnConfetti() {
 }
 import { useApp } from '@/app/context/AppContext'
 import { apiCreateBooking, apiBookingPrice, invalidateDashboardCache } from '@/lib/client-api'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import BookingCalendar from './BookingCalendar'
 import {
   BookingFlowLayout,
@@ -96,6 +98,7 @@ export default function BookingPage() {
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'now' | 'plan'>('plan')
   const [slotConflict, setSlotConflict] = useState<string | null>(null)
+  const [insufficientNotice, setInsufficientNotice] = useState(false)
   // serverPrice: fetched from /api/bookings/price; falls back to local estimate
   const [serverPrice, setServerPrice] = useState<number | null>(null)
   const [priceLoading, setPriceLoading] = useState(true)
@@ -112,6 +115,9 @@ export default function BookingPage() {
   const totalChips = serverPrice ?? (baseChips + guestChips)
   const cashback = Math.floor(totalChips * 0.5)
   const balance = user?.chips ?? 0
+  const missingChips = Math.max(0, totalChips - balance)
+  const hasInsufficientBalance = step === 3 && !priceLoading && missingChips > 0
+  const needsLoginToConfirm = step === 3 && !user
 
   // Fetch server-side price whenever booking params change
   useEffect(() => {
@@ -153,6 +159,10 @@ export default function BookingPage() {
     })
   }, [preset, duration, date, start, guests, invitedFriends, liveMode, totalChips, step, setBookingDraft, end])
 
+  useEffect(() => {
+    if (missingChips === 0) setInsufficientNotice(false)
+  }, [missingChips])
+
   const selectPreset = useCallback((p: Preset) => {
     setPresetState(p)
     setDuration(p.duration)
@@ -182,13 +192,18 @@ export default function BookingPage() {
   }, [step, showPage])
 
   const handleConfirm = useCallback(async () => {
+    if (!user) {
+      showToast({ title: 'Accedi per confermare', copy: 'Puoi scegliere slot e prezzo, poi serve il login per bloccare la room.', type: 'warn' })
+      window.location.href = `/sign-in?next=${encodeURIComponent('/room')}`
+      return
+    }
     if (priceLoading) {
       showToast({ title: 'Prezzo in verifica', copy: 'Aspetta un secondo: stiamo confermando il totale server.', type: 'warn' })
       return
     }
     if (balance < totalChips) {
-      showToast({ title: 'Saldo insufficiente', copy: 'Ricarica chips prima di procedere.', type: 'warn' })
-      showPage('token')
+      setInsufficientNotice(true)
+      showToast({ title: 'Saldo insufficiente', copy: `Ti mancano ${missingChips} chips per confermare.`, type: 'warn' })
       return
     }
     if (totalPeople > config.maxPeople) {
@@ -241,7 +256,7 @@ export default function BookingPage() {
     invalidateDashboardCache()
     showToast({ title: 'Prenotazione confermata!' })
     showPage('confirm')
-  }, [priceLoading, balance, totalChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
+  }, [user, priceLoading, balance, totalChips, missingChips, totalPeople, invitedFriends, preset, duration, date, start, end, guests, liveMode, config.maxPeople, setUser, setBookingDraft, setActiveSession, showPage, showToast])
 
   const handleNowMode = useCallback(() => {
     const current = nowDateTime()
@@ -255,8 +270,25 @@ export default function BookingPage() {
   const selectedItemLabel = `${preset.label} · ${selectedDurationLabel}`
   const stickyPrice = priceLoading
     ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span>
-    : `${totalChips} chips`
-  const formatChipPrice = useCallback((chips: number) => `${chips} chips`, [])
+    : <ChipAmount amount={totalChips} size="md" tone="primary" />
+  const formatChipPrice = useCallback((chips: number, tone: 'default' | 'primary' | 'muted' | 'danger' = 'default') => (
+    <ChipAmount amount={chips} size="sm" tone={tone} />
+  ), [])
+  const handleRechargeFromCheckout = useCallback(() => {
+    setInsufficientNotice(true)
+    showPage('token')
+  }, [showPage])
+  const handleLoginFromCheckout = useCallback(() => {
+    window.location.href = `/sign-in?next=${encodeURIComponent('/room')}`
+  }, [])
+
+  const stickyCtaLabel = step < 3
+    ? 'CONTINUA'
+    : needsLoginToConfirm
+      ? 'ACCEDI PER CONFERMARE'
+      : hasInsufficientBalance
+      ? <span className="chip-cta-label">RICARICA <ChipAmount amount={missingChips} size="xs" /></span>
+      : (busy ? '...' : <span className="chip-cta-label">PAGA <ChipAmount amount={totalChips} size="xs" /></span>)
 
   const stickyNav = (
     <BookingStickyBar
@@ -264,9 +296,9 @@ export default function BookingPage() {
       totalSteps={BOOKING_STEPS.length}
       price={stickyPrice}
       selectedItem={selectedItemLabel}
-      ctaLabel={step < 3 ? 'CONTINUA' : (busy ? '...' : 'PAGA')}
+      ctaLabel={stickyCtaLabel}
       onBack={goPrev}
-      onCta={step < 3 ? goNext : handleConfirm}
+      onCta={step < 3 ? goNext : (needsLoginToConfirm ? handleLoginFromCheckout : hasInsufficientBalance ? handleRechargeFromCheckout : handleConfirm)}
       disabled={step === 3 && (busy || priceLoading || serverPrice == null)}
     />
   )
@@ -332,7 +364,7 @@ export default function BookingPage() {
                   }}
                 />
                 {slotConflict && (
-                  <div className="slot-availability blocked" role="alert" style={{ marginTop: 12 }}>
+                  <div className="slot-availability blocked offset-top" role="alert">
                     <strong>Slot non disponibile</strong>
                     <span>{slotConflict} è già occupato o bloccato. Scegli un altro orario.</span>
                   </div>
@@ -383,7 +415,10 @@ export default function BookingPage() {
                     <div>
                       <div className="form-label guest-pass-label">GUEST PASS TEMPORANEI</div>
                       <div className="booking-guest-note">
-                        {totalPeople}/{config.maxPeople} persone · +{formatChipPrice(config.guestPassPrice)} cad.
+                        <span>Partecipanti: {totalPeople}/{config.maxPeople}</span>
+                        <span className="guest-pass-price">
+                          Guest pass: <ChipAmount amount={config.guestPassPrice} size="xs" /> cad.
+                        </span>
                       </div>
                     </div>
                     <div className="booking-inline-row">
@@ -402,6 +437,39 @@ export default function BookingPage() {
                 <div className="booking-step-title">Checkout</div>
                 <div className="booking-step-sub">Controlla extra, durata e totale prima del pagamento.</div>
 
+                <div className="roomie-price-summary" aria-label="Riepilogo saldo e totale">
+                  <div className="roomie-price-summary-row">
+                    <span>Saldo disponibile</span>
+                    <strong>{formatChipPrice(balance, 'primary')}</strong>
+                  </div>
+                  <div className="roomie-price-summary-row roomie-price-summary-total">
+                    <span>Totale sessione</span>
+                    <strong>{priceLoading ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span> : formatChipPrice(totalChips, 'primary')}</strong>
+                  </div>
+                  {!priceLoading && missingChips > 0 && (
+                    <div className="roomie-price-summary-row roomie-price-summary-missing">
+                      <span>Mancano</span>
+                      <strong>{formatChipPrice(missingChips, 'danger')}</strong>
+                    </div>
+                  )}
+                </div>
+
+                {insufficientNotice && missingChips > 0 && (
+                  <div className="roomie-inline-alert" role="alert">
+                    <strong>Saldo insufficiente</strong>
+                    <span>Ti mancano <ChipAmount amount={missingChips} size="xs" tone="danger" />. Ricarica ora e poi torna al checkout con la prenotazione già impostata.</span>
+                    <button type="button" className="btn btn-sm btn-primary mt-2" onClick={handleRechargeFromCheckout}>Ricarica chips</button>
+                  </div>
+                )}
+
+                {!user && (
+                  <div className="roomie-inline-alert" role="status">
+                    <strong>Login richiesto al checkout</strong>
+                    <span>Puoi esplorare disponibilità e prezzo. Per bloccare davvero la room serve accedere.</span>
+                    <button type="button" className="btn btn-sm btn-primary mt-2" onClick={handleLoginFromCheckout}>Accedi per confermare</button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   className={`live-mode-card${liveMode ? ' active' : ''}`}
@@ -410,13 +478,13 @@ export default function BookingPage() {
                 >
                   <div className="live-mode-top">
                     <div>
-                      <div className="live-mode-kicker">ROOMIE LIVE MODE</div>
+                      <div className="live-mode-kicker"><RoomieLogoText size="xs" /> LIVE MODE</div>
                       <div className="live-mode-title">
-                        {liveMode ? `50% cashback dopo live · +${cashback} chips` : 'Paghi normale · 50% torna in chips'}
+                        {liveMode ? <>50% cashback dopo live · <ChipAmount amount={cashback} prefix="+" size="xs" tone="primary" /></> : 'Paghi normale · 50% torna in chips'}
                       </div>
                     </div>
-                    <div className="live-toggle" aria-hidden="true">
-                      <span style={{ background: liveMode ? 'var(--neon)' : undefined }}></span>
+                    <div className={`live-toggle booking-live-switch${liveMode ? ' active' : ''}`} aria-hidden="true">
+                      <span></span>
                     </div>
                   </div>
                   <div className="live-mode-sub">Non è gratis: paghi la sessione ora, poi ricevi cashback in chips se la live è valida.</div>
@@ -454,22 +522,22 @@ export default function BookingPage() {
                   <div className="price-row"><span>Deposito</span><span>{formatChipPrice(0)}</span></div>
                   {liveMode && (
                     <div className="price-row text-neon">
-                      <span>Cashback dopo live</span><span>+{cashback} chips</span>
+                      <span>Cashback dopo live</span><span><ChipAmount amount={cashback} prefix="+" size="xs" tone="primary" /></span>
                     </div>
                   )}
                   <div className="price-total">
                     <span>TOTALE</span>
                     <span className="tok">
-                      {priceLoading ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span> : formatChipPrice(totalChips)}
+                      {priceLoading ? <span className="inline-skeleton-price" aria-label="Prezzo in caricamento"></span> : formatChipPrice(totalChips, 'primary')}
                     </span>
                   </div>
                   {!priceLoading && <div className="price-euro-note">Equivalente indicativo: €{totalChips}</div>}
                 </div>
 
                 <p className="booking-balance-note">
-                  Saldo attuale: <strong className="roomie-strong-neon">{balance} chips</strong>
+                  Saldo attuale: <strong className="roomie-strong-neon">{formatChipPrice(balance, 'primary')}</strong>
                   {balance < totalChips && (
-                    <> · <button onClick={() => showPage('token')} className="booking-link-reset">Ricarica</button></>
+                    <> · <button onClick={handleRechargeFromCheckout} className="booking-link-reset">Ricarica</button></>
                   )}
                 </p>
               </div>

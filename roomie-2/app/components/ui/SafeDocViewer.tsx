@@ -20,7 +20,6 @@ export interface SafeDocViewerProps {
   active?: boolean
   className?: string
   contentClassName?: string
-  contentStyle?: React.CSSProperties
   loadingLabel?: string
   errorLabel?: string
   wrapHtml?: (html: string) => string
@@ -70,7 +69,6 @@ export default function SafeDocViewer({
   active = true,
   className,
   contentClassName,
-  contentStyle,
   loadingLabel = 'Caricamento documento…',
   errorLabel = 'Nessun contenuto disponibile',
   wrapHtml,
@@ -120,9 +118,9 @@ export default function SafeDocViewer({
 
   if (loading) {
     return (
-      <div className={className} style={contentStyle}>
-        <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }}></i>
+      <div className={className}>
+        <div className="safe-doc-loading">
+          <i className="fas fa-spinner fa-spin"></i>
           {loadingLabel}
         </div>
       </div>
@@ -130,11 +128,11 @@ export default function SafeDocViewer({
   }
 
   return (
-    <div className={className} style={contentStyle}>
+    <div className={className}>
       {html ? (
-        <div className={contentClassName} dangerouslySetInnerHTML={{ __html: html }} style={{ wordBreak: 'break-word' }} />
+        <div className={`safe-doc-content ${contentClassName ?? ''}`.trim()} dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <div style={{ color: 'var(--muted)' }}>{error ? errorLabel : 'Nessun contenuto disponibile'}</div>
+        <div className="safe-doc-empty">{error ? errorLabel : 'Nessun contenuto disponibile'}</div>
       )}
     </div>
   )

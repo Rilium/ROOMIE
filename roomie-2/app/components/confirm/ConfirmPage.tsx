@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useApp } from '@/app/context/AppContext'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { bookingStartDate, isBookingLiveNow } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 import { apiLogAccess } from '@/lib/client-api'
@@ -256,7 +258,7 @@ export default function ConfirmPage() {
               <div className="access-num">3</div>
               <div>
                 <div className="access-title">Apri la porta</div>
-                <div className="access-desc">Usa la ROOMIE Chip NFC sul lettore oppure il codice porta.</div>
+                <div className="access-desc">Usa la <RoomieLogoText size="xs" /> Chip NFC sul lettore oppure il codice porta.</div>
               </div>
             </div>
             <div className="confirm-access-art">
@@ -285,7 +287,7 @@ export default function ConfirmPage() {
                 Room tua fino alle <strong className="roomie-strong-neon">{b?.end || '22:00'}</strong>.
               </div>
               <div className="inside-actions mt-20">
-                <button className="btn-neon roomie-btn-access-action" onClick={() => { closeAccessSheet(); showPage('session') }}>
+                <button className="btn-neon btn btn-primary roomie-btn-access-action" onClick={() => { closeAccessSheet(); showPage('session') }}>
                   SESSIONE LIVE
                 </button>
                 <button className="btn-outline-neon" onClick={() => { closeAccessSheet(); showPage('shop') }}>ADDON</button>
@@ -320,7 +322,7 @@ export default function ConfirmPage() {
           <span className="confirm-emoji"><i className="fas fa-check-circle"></i></span>
           <div className="confirm-title">PRENOTAZIONE<br />CONFERMATA</div>
           <div className="confirm-muted-copy">
-            La room è bloccata. Prima alzi la serranda, poi apri la porta con ROOMIE Chip o codice.
+            La room è bloccata. Prima alzi la serranda, poi apri la porta con <RoomieLogoText size="xs" /> Chip o codice.
           </div>
         </div>
 
@@ -329,7 +331,7 @@ export default function ConfirmPage() {
           <div className="detail-item"><div className="detail-label">Data</div><div className="detail-val">{b?.date || '—'}</div></div>
           <div className="detail-item"><div className="detail-label">Orario</div><div className="detail-val">{b?.start || '—'} → {b?.end || '—'}</div></div>
           <div className="detail-item"><div className="detail-label">Persone</div><div className="detail-val">{b.people || 1}</div></div>
-          <div className="detail-item"><div className="detail-label">Pagato</div><div className="detail-val roomie-strong-neon">{b?.totalChips || 0} chips</div></div>
+          <div className="detail-item"><div className="detail-label">Pagato</div><div className="detail-val roomie-strong-neon"><ChipAmount amount={b?.totalChips || 0} size="sm" tone="primary" /></div></div>
         </div>
 
         {/* Arrival card */}
@@ -340,7 +342,7 @@ export default function ConfirmPage() {
               <div className="arrival-title">{accessLive ? 'Quando sei davanti, parti da qui.' : 'Accesso non ancora disponibile.'}</div>
               <div className="arrival-copy">
                 {accessLive
-                  ? 'Codici e ROOMIE Chip sono validi nella fascia della tua prenotazione.'
+                  ? <>Codici e <RoomieLogoText size="xs" /> Chip sono validi nella fascia della tua prenotazione.</>
                   : `La procedura si sblocca da ${accessDateLabel}. Prima di quell'orario chip, codici e step restano disattivati.`}
               </div>
             </div>
@@ -348,7 +350,7 @@ export default function ConfirmPage() {
           </div>
           <button
             id="arrival-start-btn"
-            className="btn-neon w-full roomie-btn-live-action"
+            className="btn-neon btn btn-primary w-full roomie-btn-live-action"
             onClick={openAccessSheet}
           >
             <i className="fas fa-route"></i> INIZIA ACCESSO
@@ -363,10 +365,10 @@ export default function ConfirmPage() {
               Serranda, cassaforte e porta si attivano solo nella fascia pagata. Prossimo sblocco: <strong>{accessDateLabel}</strong>.
             </div>
             <div className="access-wait-actions">
-              <button className="btn-neon" type="button" onClick={() => showPage('dashboard')}>
+              <button className="btn-neon btn btn-primary" type="button" onClick={() => showPage('dashboard')}>
                 <i className="fas fa-user"></i> PROFILO
               </button>
-              <button className="quiet-action" type="button" onClick={() => showPage('room')}>
+              <button className="quiet-action btn btn-outline-light" type="button" onClick={() => showPage('room')}>
                 <i className="fas fa-calendar-check"></i> CAMBIA SLOT
               </button>
             </div>

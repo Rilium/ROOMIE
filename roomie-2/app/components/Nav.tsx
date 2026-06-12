@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/app/context/AppContext'
 import { ShineBorder } from '@/app/components/magicui/shine-border'
+import ChipAmount from '@/app/components/ui/ChipAmount'
+import RoomieLogoText from '@/app/components/ui/RoomieLogoText'
 import { isBookingLiveNow } from '@/lib/utils'
 
 interface NavItem {
@@ -15,10 +17,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', icon: 'fa-home', label: 'Home' },
-  { id: 'room', icon: 'fa-calendar-check', label: 'Prenota', requireAuth: true },
+  { id: 'room', icon: 'fa-calendar-check', label: 'Prenota' },
   { id: 'session', icon: 'fa-unlock', label: 'Accesso', requireAuth: true },
   { id: 'shop', icon: 'fa-shopping-bag', label: 'Shop', requireAuth: true },
-  { id: 'dashboard', icon: 'fa-user', label: 'Profilo', requireAuth: true },
+  { id: 'dashboard', icon: 'fa-user', label: 'Account', requireAuth: true },
 ]
 
 export default function Nav() {
@@ -73,8 +75,7 @@ export default function Nav() {
 
   const goBook = () => {
     setDrawerOpen(false)
-    if (!user) router.push('/sign-in?next=%2Froom')
-    else showPage('room')
+    showPage('room')
   }
 
   const visibleItems = NAV_ITEMS.filter(item => {
@@ -95,7 +96,7 @@ export default function Nav() {
           <ShineBorder duration={5.5} initialOffset={22} colorFrom="#ff3b30" colorTo="#00ffd1" borderWidth={1.2} />
           <span className="system-live-pill">
             <span className="system-live-dot" aria-hidden="true"></span>
-            ROOMIE LIVE
+            <RoomieLogoText size="xs" /> LIVE
           </span>
           <span className="system-live-main">
             <strong>Sei dentro</strong>
@@ -110,7 +111,7 @@ export default function Nav() {
         <div className="container-fluid">
           <div className="nav-left">
             <button
-              className="hamburger"
+              className="hamburger btn btn-outline-light"
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Apri menu"
@@ -119,55 +120,54 @@ export default function Nav() {
               <i className="fas fa-bars"></i>
             </button>
             <button className="nav-logo" type="button" onClick={goHome} aria-label="ROOMIE home">
-              <span className="logo-room">ROOM</span><span className="logo-ie">IE</span>
+              <RoomieLogoText size="md" />
             </button>
           </div>
 
           <div className="nav-right">
             {user && (
               <button className="wallet-pill" type="button" onClick={() => showPage('token')} aria-label={`${user.chips} chips`}>
-                <span className="roomie-chip roomie-chip-sm" aria-hidden="true"></span>
-                <span>{user.chips}</span>
+                <ChipAmount amount={user.chips} size="xs" />
               </button>
             )}
-            <button className="btn-nav" type="button" onClick={goBook}>PRENOTA</button>
+            <button className="btn-nav btn btn-primary" type="button" onClick={goBook}>PRENOTA</button>
           </div>
         </div>
       </nav>
 
       {drawerOpen && (
-        <div className="drawer-panel" role="dialog" aria-modal="true" aria-label="Menu ROOMIE" onClick={() => setDrawerOpen(false)}>
-          <div className="drawer-box" onClick={event => event.stopPropagation()}>
-            <div className="drawer-head">
+        <div className="drawer-panel offcanvas-backdrop show" role="dialog" aria-modal="true" aria-label="Menu ROOMIE" onClick={() => setDrawerOpen(false)}>
+          <div className="drawer-box offcanvas offcanvas-start show" tabIndex={-1} onClick={event => event.stopPropagation()}>
+            <div className="drawer-head offcanvas-header">
               <div>
-                <div className="drawer-brand">ROOMIE</div>
-                <div className="drawer-user">{user ? `${user.name} · ${user.chips} chips` : 'Clubhouse privata · Torino'}</div>
+                <div className="drawer-brand"><RoomieLogoText size="md" /></div>
+                <div className="drawer-user">{user ? <>{user.name} · <ChipAmount amount={user.chips} size="xs" /></> : 'Clubhouse privata · Torino'}</div>
               </div>
-              <button className="modal-close" type="button" onClick={() => setDrawerOpen(false)} aria-label="Chiudi menu">
+              <button className="modal-close btn btn-outline-light" type="button" onClick={() => setDrawerOpen(false)} aria-label="Chiudi menu">
                 <i className="fas fa-times"></i>
               </button>
             </div>
 
-            <button className="drawer-primary" type="button" onClick={goBook}>
+            <button className="drawer-primary btn btn-primary" type="button" onClick={goBook}>
               <span className="drawer-primary-copy">
                 <span className="drawer-primary-title">Prenota la room</span>
-                <span className="drawer-primary-sub">{user ? 'Blocca uno slot e usa le chips' : 'Accedi per sbloccare la prenotazione'}</span>
+                <span className="drawer-primary-sub">{user ? 'Blocca uno slot e usa le chips' : 'Vedi prezzo e disponibilita, login al checkout'}</span>
               </span>
               <span className="drawer-primary-meta">
-                <span>{user ? `${user.chips} chips` : 'Login'}</span>
+                <span>{user ? <ChipAmount amount={user.chips} size="xs" /> : 'Login'}</span>
                 <i className="fas fa-arrow-right"></i>
               </span>
             </button>
 
             <div className="drawer-section">Principale</div>
             {visibleItems.map(item => (
-              <button key={item.id} className={`drawer-link${activePage === item.id ? ' active' : ''}`} type="button" onClick={() => handleNav(item)} aria-current={activePage === item.id ? 'page' : undefined}>
+              <button key={item.id} className={`drawer-link list-group-item list-group-item-action${activePage === item.id ? ' active' : ''}`} type="button" onClick={() => handleNav(item)} aria-current={activePage === item.id ? 'page' : undefined}>
                 <span className="drawer-icon"><i className={`fas ${item.icon}`}></i></span>
                 <span>
                   <span className="drawer-main">{item.label}</span>
                   <span className="drawer-sub">
                     {item.requireAuth && !user
-                      ? 'Serve accesso'
+                      ? 'Accedi per aprire'
                       : item.id === activePage
                         ? 'Sezione attiva'
                         : item.id === 'shop'

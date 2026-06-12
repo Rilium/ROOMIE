@@ -117,7 +117,7 @@ export default function OnboardingGate() {
               <button type="button" onClick={() => openLegalDoc('terms')}>Leggi Termini</button>
               <button type="button" onClick={() => openLegalDoc('privacy')}>Leggi Privacy</button>
             </div>
-            <button className="btn-neon btn-neon-submit w-full" type="button" onClick={acceptLegal} disabled={busy || !termsChecked || !privacyChecked}>
+            <button className="btn-neon btn btn-primary btn-neon-submit w-full" type="button" onClick={acceptLegal} disabled={busy || !termsChecked || !privacyChecked}>
               {busy ? 'Salvataggio...' : 'ACCETTO E CONTINUO'}
             </button>
             <button className="auth-link onboarding-cancel" type="button" onClick={logout} disabled={busy}>
@@ -160,7 +160,7 @@ export default function OnboardingGate() {
               </div>
             )}
 
-            <button className="btn-neon btn-neon-submit w-full" type="button" onClick={verifyDocument} disabled={busy || scanState !== 'ready'}>
+            <button className="btn-neon btn btn-primary btn-neon-submit w-full" type="button" onClick={verifyDocument} disabled={busy || scanState !== 'ready'}>
               {busy ? 'Verifica...' : 'CONFERMA DOCUMENTO'}
             </button>
             <div className="auth-footnote">Mock MVP: il file non viene salvato. La verifica reale andra collegata a un provider KYC.</div>
